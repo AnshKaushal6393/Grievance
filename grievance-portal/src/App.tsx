@@ -1,35 +1,57 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+// import Index from "./pages/Index";
+// import MyComplaints from "./pages/MyComplaints";
+// import TrackComplaint from "./pages/TrackComplaint";
+// import Login from "./pages/Login";
+// import Register from "./pages/Register";
+// import Dashboard from "./pages/Dashboard";
+// import FileComplaint from "./pages/FileComplaint";
+// import VerifyOTP from "./pages/VerifyOTP";
+// import AadhaarVerification from "./pages/AadhaarVerification";
+// import ForgotPassword from "./pages/ForgotPassword";
+// import AdminDashboard from "./pages/AdminDashboard";
+// import AdminComplaints from "./pages/AdminComplaints";
+// import DepartmentManagement from "./pages/DepartmentManagement";
+// import OfficerDashboard from "./pages/OfficerDashboard";
+// import UpdateComplaintStatus from "./pages/UpdateComplaintStatus";
+// import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+// import NotFound from "./pages/NotFound";
 
-function App() {
-  const [count, setCount] = useState(0)
+const queryClient = new QueryClient();
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          {/* <Route path="/" element={<Index />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/file-complaint" element={<FileComplaint />} />
+          <Route path="/my-complaints" element={<MyComplaints />} />
+          <Route path="/track-complaint" element={<TrackComplaint />} />
+          <Route path="/verify-otp" element={<VerifyOTP />} />
+          <Route path="/aadhaar-verification" element={<AadhaarVerification />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/complaints" element={<AdminComplaints />} />
+          <Route path="/admin/departments" element={<DepartmentManagement />} />
+          <Route path="/officer" element={<OfficerDashboard />} />
+          <Route path="/officer/update-status" element={<UpdateComplaintStatus />} />
+          <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* <Route path="*" element={<NotFound />} /> */} 
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
-export default App
+export default App;

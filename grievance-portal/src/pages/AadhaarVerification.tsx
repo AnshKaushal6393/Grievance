@@ -81,12 +81,12 @@ const AadhaarVerification = () => {
   }, [otp, otpSent]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-[500px]"
+        className="w-full max-w-125"
       >
         <div className="bg-white rounded-3xl shadow-2xl p-10 space-y-8 relative overflow-hidden">
           {/* Success Animation */}
@@ -102,7 +102,7 @@ const AadhaarVerification = () => {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", delay: 0.2 }}
-                  className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg"
+                  className="w-24 h-24 bg-linear-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg"
                 >
                   <CheckCircle2 className="w-12 h-12 text-white" />
                 </motion.div>
@@ -143,7 +143,7 @@ const AadhaarVerification = () => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", delay: 0.2 }}
-              className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg"
+              className="w-20 h-20 bg-linear-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg"
             >
               <CreditCard className="w-10 h-10 text-white" />
             </motion.div>
@@ -202,7 +202,7 @@ const AadhaarVerification = () => {
                 </label>
 
                 {/* Info Box */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                <div className="bg-linear-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
                   <div className="flex items-start gap-3">
                     <div className="p-2 bg-green-100 rounded-lg">
                       <Shield className="w-5 h-5 text-green-600" />

@@ -1,0 +1,35 @@
+{
+  "name": "grievance-portal-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Grievance Portal - Authentication & Complaint Management System",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "grievance",
+    "portal",
+    "complaint",
+    "management",
+    "authentication",
+    "nodejs",
+    "express",
+    "mongodb"
+  ],
+  "author": "Ansh Kaushal",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.1.5",
+    "morgan": "^1.10.1",
+    "nodemailer": "^7.0.13",
+    "nodemon": "^3.1.11"
+  }
+}

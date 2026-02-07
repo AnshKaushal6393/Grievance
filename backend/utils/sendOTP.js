@@ -1,7 +1,8 @@
 // This file contains utility functions for sending OTP via Email and SMS
 // You'll need to configure your email service (Gmail, SendGrid, etc.) and SMS service (Twilio, etc.)
 
-import { createTransport } from 'nodemailer';
+import { createTransport } from "nodemailer";
+import twilio from "twilio";
 
 // Email configuration
 const createEmailTransporter = () => {
@@ -9,7 +10,7 @@ const createEmailTransporter = () => {
   // For development, you can use services like Mailtrap, Gmail, or SendGrid
   
   return createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    host: process.env.EMAIL_HOST || "smtp.gmail.com",
     port: process.env.EMAIL_PORT || 587,
     secure: false, // true for 465, false for other ports
     auth: {
@@ -157,33 +158,41 @@ export async function sendOTPEmail(email, otp, name) {
 }
 
 // Send OTP via SMS (using Twilio or similar service)
+const formatPhoneE164 = (phone) => {
+  if (!phone) return phone;
+  const trimmed = phone.trim();
+  if (trimmed.startsWith("+")) return trimmed;
+  const countryCode = process.env.TWILIO_COUNTRY_CODE || "+91";
+  return `${countryCode}${trimmed}`;
+};
+
+const getTwilioClient = () => {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !token) return null;
+  return twilio(sid, token);
+};
+
 export async function sendOTPSMS(phone, otp) {
   try {
-    // For production, integrate with SMS service like Twilio
-    // Example with Twilio:
-    /*
-    const twilio = require('twilio');
-    const client = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
+    const client = getTwilioClient();
+    const from = process.env.TWILIO_PHONE_NUMBER;
+    if (!client || !from) {
+      // Fallback for development/testing
+      console.log(`SMS OTP for ${phone}: ${otp}`);
+      return { success: true, note: "SMS service not configured" };
+    }
 
     const message = await client.messages.create({
       body: `Your Grievance Portal OTP is: ${otp}. Valid for 15 minutes. Do not share this with anyone.`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: `+91${phone}`
+      from,
+      to: formatPhoneE164(phone),
     });
 
-    console.log('SMS sent successfully:', message.sid);
+    console.log("SMS sent successfully:", message.sid);
     return { success: true, messageSid: message.sid };
-    */
-
-    // For development/testing, just log the OTP
-    console.log(`SMS OTP for ${phone}: ${otp}`);
-    return { success: true, note: 'SMS service not configured in development' };
-
   } catch (error) {
-    console.error('Error sending SMS:', error);
+    console.error("Error sending SMS:", error);
     return { success: false, error: error.message };
   }
 }

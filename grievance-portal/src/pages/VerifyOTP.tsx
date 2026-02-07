@@ -1,8 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, Loader2, CheckCircle2, Mail, ArrowLeft } from "lucide-react";
+import {
+  ShieldCheck,
+  Loader2,
+  CheckCircle2,
+  Mail,
+  ArrowLeft,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import authService from "@/services/authService";
 
 const VerifyOTP = () => {
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
@@ -12,6 +20,18 @@ const VerifyOTP = () => {
   const [isVerified, setIsVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const userId = location.state?.userId;
+  const email = location.state?.email;
+  const phone = location.state?.phone;
+
+  useEffect(() => {
+    if (!userId) {
+      toast.error("No user information found. Please login again.");
+      navigate("/login");
+    }
+  }, [userId, navigate, toast]);
 
   // Countdown timer
   useEffect(() => {
@@ -54,7 +74,10 @@ const VerifyOTP = () => {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    const pastedData = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6);
     const newOtp = [...otp];
     pastedData.split("").forEach((digit, i) => {
       if (i < 6) newOtp[i] = digit;
@@ -64,20 +87,41 @@ const VerifyOTP = () => {
   };
 
   const handleResend = async () => {
+    if (!userId) return;
     setIsResending(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsResending(false);
-    setTimer(45);
-    setOtp(Array(6).fill(""));
-    inputRefs.current[0]?.focus();
+    try {
+      await authService.resendOTP(userId, "registration");
+      toast.success("OTP resent successfully");
+      setTimer(45);
+      setOtp(Array(6).fill(""));
+      inputRefs.current[0]?.focus();
+    } catch (error: any) {
+      toast.error("Failed to resend OTP");
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const handleVerify = async () => {
+    if (!userId) return;
+    const otpCode = otp.join("");
+    if (otpCode.length !== 6) return;
     setIsVerifying(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsVerifying(false);
-    setIsVerified(true);
-    setTimeout(() => navigate("/aadhaar-verification"), 2000);
+    try {
+      const response = await authService.verifyOTP({
+        userId,
+        otp: otpCode,
+      });
+      toast.success(response.message || "OTP verified successfully");
+      setIsVerified(true);
+      setTimeout(() => navigate("/aadhaar-verification"), 2000);
+    } catch (error: any) {
+      toast.error(error?.message || "Invalid OTP. Please try again.");
+      setOtp(Array(6).fill(""));
+      inputRefs.current[0]?.focus();
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const formatTimer = (seconds: number) => {
@@ -87,6 +131,10 @@ const VerifyOTP = () => {
   };
 
   const isComplete = otp.every((digit) => digit !== "");
+
+  const maskedEmail = email ? email.replace(/(.{2}).+(@.+)/, "$1***$3") : "your email";
+
+  const maskedPhone = phone ? `******${phone.slice(-4)}` : "your phone";
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
@@ -98,7 +146,10 @@ const VerifyOTP = () => {
       >
         <div className="bg-white rounded-3xl shadow-2xl p-10 space-y-8">
           {/* Back Button */}
-          <Link to="/register" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors">
+          <Link
+            to="/register"
+            className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
+          >
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">Back</span>
           </Link>
@@ -114,12 +165,17 @@ const VerifyOTP = () => {
               <ShieldCheck className="w-10 h-10 text-white" />
             </motion.div>
             <div className="space-y-2">
-              <h1 className="text-3xl font-bold text-gray-900">Verify Your Account</h1>
-              <p className="text-gray-500">Enter the 6-digit OTP sent to your email/phone</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Verify Your Account
+              </h1>
+              <p className="text-gray-500">
+                Enter the 6-digit OTP sent to your email/phone
+              </p>
               <div className="flex items-center justify-center gap-2 text-gray-600">
                 <Mail className="w-4 h-4" />
-                <span className="font-medium">an***@gmail.com</span>
+                <span className="font-medium">{maskedEmail}</span>
               </div>
+              <p className="text-sm text-gray-400">& {maskedPhone}</p>
             </div>
           </div>
 
@@ -165,7 +221,9 @@ const VerifyOTP = () => {
             {otp.map((digit, index) => (
               <motion.input
                 key={index}
-                ref={(el) => {inputRefs.current[index] = el}}
+                ref={(el) => {
+                  inputRefs.current[index] = el;
+                }}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
@@ -189,7 +247,9 @@ const VerifyOTP = () => {
             {timer > 0 ? (
               <p className="text-gray-500">
                 Resend OTP in{" "}
-                <span className="font-mono font-bold text-blue-600">{formatTimer(timer)}</span>
+                <span className="font-mono font-bold text-blue-600">
+                  {formatTimer(timer)}
+                </span>
               </p>
             ) : (
               <button
@@ -239,7 +299,10 @@ const VerifyOTP = () => {
                 </button>
               )}
             </p>
-            <Link to="/register" className="block text-gray-500 hover:text-gray-700 text-sm transition-colors">
+            <Link
+              to="/register"
+              className="block text-gray-500 hover:text-gray-700 text-sm transition-colors"
+            >
               Change email/phone
             </Link>
           </div>

@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-exports.protect = async (req, res, next) => {
+export const protect = async (req, res, next) => {
   try {
     let token;
     if (
@@ -49,7 +49,7 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-exports.authorize = (...roles) => {
+export const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
@@ -69,7 +69,7 @@ exports.authorize = (...roles) => {
   };
 };
 
-exports.optionalAuth = async (req, res, next) => {
+export const optionalAuth = async (req, res, next) => {
   try {
     let token;
 

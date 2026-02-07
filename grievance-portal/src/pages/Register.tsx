@@ -1,17 +1,32 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  User, Mail, Phone, Lock, Eye, EyeOff, MapPin, 
-  ArrowRight, ArrowLeft, Check, Building, Hash
+import {
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Eye,
+  EyeOff,
+  MapPin,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Building,
+  Hash,
+  Loader2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import authService from "@/services/authService";
+import { toast } from "sonner";
 
 const Register = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -21,18 +36,21 @@ const Register = () => {
     street: "",
     city: "",
     state: "",
-    pincode: ""
+    pincode: "",
   });
 
   const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const getPasswordStrength = () => {
     const { password } = formData;
-    if (password.length === 0) return { strength: 0, label: "", color: "bg-gray-200" };
-    if (password.length < 6) return { strength: 33, label: "Weak", color: "bg-red-500" };
-    if (password.length < 10) return { strength: 66, label: "Medium", color: "bg-yellow-500" };
+    if (password.length === 0)
+      return { strength: 0, label: "", color: "bg-gray-200" };
+    if (password.length < 6)
+      return { strength: 33, label: "Weak", color: "bg-red-500" };
+    if (password.length < 10)
+      return { strength: 66, label: "Medium", color: "bg-yellow-500" };
     return { strength: 100, label: "Strong", color: "bg-green-500" };
   };
 
@@ -41,30 +59,100 @@ const Register = () => {
   const steps = [
     { number: 1, label: "Personal Info" },
     { number: 2, label: "Password" },
-    { number: 3, label: "Address" }
+    { number: 3, label: "Address" },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Registration submitted", formData);
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+
+    if (formData.phone.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
+    if (formData.pincode.length !== 6) {
+      toast.error("Pincode must be exactly 6 digits");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await authService.register(formData);
+      toast.success(
+        response.message ||
+          "Registration successful . Please verify your email to continue ",
+      );
+      navigate("/verify-otp", {
+        state: {
+          userId: response.data.userId,
+          email: response.data.email,
+          phone: response.data.phone,
+        },
+      });
+    } catch (error: any) {
+      toast.error("Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 3));
-  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+  const nextStep = () => {
+    if (currentStep == 1) {
+      if (!formData.name || !formData.email || !formData.phone) {
+        toast.error("Please fill all the fields");
+        return;
+      }
+      if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
+      if (!/^\d{10}$/.test(formData.phone)) {
+        toast.error("Phone number must be exactly 10 digits");
+        return;
+      }
+    }
+
+    if (currentStep == 2) {
+      if (!formData.password || !formData.confirmPassword) {
+        toast.error("Please fill all the fields");
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        toast.error("Passwords do not match");
+        return;
+      }
+      if (formData.password.length < 8) {
+        toast.error("Password must be at least 8 characters long");
+        return;
+      }
+    }
+    setCurrentStep((prev) => Math.min(prev + 1, 3));
+  };
+  const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
   const slideVariants = {
     enter: (direction: number) => ({
       x: direction > 0 ? 300 : -300,
-      opacity: 0
+      opacity: 0,
     }),
     center: {
       x: 0,
-      opacity: 1
+      opacity: 1,
     },
     exit: (direction: number) => ({
       x: direction < 0 ? 300 : -300,
-      opacity: 0
-    })
+      opacity: 0,
+    }),
   };
 
   return (
@@ -84,11 +172,14 @@ const Register = () => {
                   <motion.div
                     initial={false}
                     animate={{
-                      backgroundColor: currentStep >= step.number ? "#3b82f6" : "#e5e7eb",
-                      scale: currentStep === step.number ? 1.1 : 1
+                      backgroundColor:
+                        currentStep >= step.number ? "#3b82f6" : "#e5e7eb",
+                      scale: currentStep === step.number ? 1.1 : 1,
                     }}
                     className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-                      currentStep >= step.number ? "text-white" : "text-gray-500"
+                      currentStep >= step.number
+                        ? "text-white"
+                        : "text-gray-500"
                     }`}
                   >
                     {currentStep > step.number ? (
@@ -97,9 +188,13 @@ const Register = () => {
                       step.number
                     )}
                   </motion.div>
-                  <span className={`mt-2 text-xs font-medium ${
-                    currentStep >= step.number ? "text-blue-600" : "text-gray-400"
-                  }`}>
+                  <span
+                    className={`mt-2 text-xs font-medium ${
+                      currentStep >= step.number
+                        ? "text-blue-600"
+                        : "text-gray-400"
+                    }`}
+                  >
                     {step.label}
                   </span>
                 </div>
@@ -107,7 +202,9 @@ const Register = () => {
                   <div className="flex-1 mx-4 h-0.5 bg-gray-200 relative -top-3">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: currentStep > step.number ? "100%" : "0%" }}
+                      animate={{
+                        width: currentStep > step.number ? "100%" : "0%",
+                      }}
                       className="h-full bg-blue-500"
                     />
                   </div>
@@ -132,7 +229,9 @@ const Register = () => {
                   className="space-y-7"
                 >
                   <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-gray-900">Personal Information</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Personal Information
+                    </h2>
                     <p className="text-gray-500 mt-2">Tell us about yourself</p>
                   </div>
 
@@ -193,7 +292,9 @@ const Register = () => {
                   className="space-y-7"
                 >
                   <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-gray-900">Create Password</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Create Password
+                    </h2>
                     <p className="text-gray-500 mt-2">Secure your account</p>
                   </div>
 
@@ -203,7 +304,9 @@ const Register = () => {
                       type={showPassword ? "text" : "password"}
                       placeholder="Password"
                       value={formData.password}
-                      onChange={(e) => updateFormData("password", e.target.value)}
+                      onChange={(e) =>
+                        updateFormData("password", e.target.value)
+                      }
                       className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                     <button
@@ -211,7 +314,11 @@ const Register = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
 
@@ -225,10 +332,15 @@ const Register = () => {
                           className={`h-full ${passwordStrength.color} transition-all`}
                         />
                       </div>
-                      <p className={`text-sm font-medium ${
-                        passwordStrength.strength === 33 ? "text-red-500" :
-                        passwordStrength.strength === 66 ? "text-yellow-500" : "text-green-500"
-                      }`}>
+                      <p
+                        className={`text-sm font-medium ${
+                          passwordStrength.strength === 33
+                            ? "text-red-500"
+                            : passwordStrength.strength === 66
+                              ? "text-yellow-500"
+                              : "text-green-500"
+                        }`}
+                      >
                         Password Strength: {passwordStrength.label}
                       </p>
                     </div>
@@ -240,15 +352,23 @@ const Register = () => {
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="Confirm Password"
                       value={formData.confirmPassword}
-                      onChange={(e) => updateFormData("confirmPassword", e.target.value)}
+                      onChange={(e) =>
+                        updateFormData("confirmPassword", e.target.value)
+                      }
                       className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
 
@@ -287,8 +407,12 @@ const Register = () => {
                   className="space-y-7"
                 >
                   <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-gray-900">Your Address</h2>
-                    <p className="text-gray-500 mt-2">Where can we reach you?</p>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Your Address
+                    </h2>
+                    <p className="text-gray-500 mt-2">
+                      Where can we reach you?
+                    </p>
                   </div>
 
                   <div className="relative group">
@@ -319,7 +443,9 @@ const Register = () => {
                         type="text"
                         placeholder="State"
                         value={formData.state}
-                        onChange={(e) => updateFormData("state", e.target.value)}
+                        onChange={(e) =>
+                          updateFormData("state", e.target.value)
+                        }
                         className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                       />
                     </div>
@@ -331,7 +457,9 @@ const Register = () => {
                       type="text"
                       placeholder="Pincode"
                       value={formData.pincode}
-                      onChange={(e) => updateFormData("pincode", e.target.value)}
+                      onChange={(e) =>
+                        updateFormData("pincode", e.target.value)
+                      }
                       className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
@@ -361,7 +489,10 @@ const Register = () => {
           {/* Footer */}
           <p className="text-center text-gray-600 pt-4">
             Already have an account?{" "}
-            <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+            <Link
+              to="/login"
+              className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+            >
               Sign in
             </Link>
           </p>

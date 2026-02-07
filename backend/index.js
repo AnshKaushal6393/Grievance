@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
 import connectDB from "./config/db.js";
+import authRoutes from "./routes/auth.js";
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ connectDB();
 const app = express();
 
 app.use(cors());
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
@@ -30,6 +32,8 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use("/api/auth", authRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

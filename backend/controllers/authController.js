@@ -28,6 +28,12 @@ export const register = async (req, res) => {
         message: "All fields are required",
       });
     }
+    if (!street || !city || !state || !pincode) {
+      return res.status(400).json({
+        success: false,
+        message: "Address fields are required",
+      });
+    }
 
     if (password !== confirmPassword) {
       return res.status(400).json({
@@ -43,7 +49,24 @@ export const register = async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+    if (!/^\d{10}$/.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid 10-digit phone number",
+      });
+    }
+
+    if (!/^\d{6}$/.test(pincode)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid 6-digit pincode",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({
+      $or: [{ email: normalizedEmail }, { phone }],
+    });
 
     if (existingUser) {
       return res.status(400).json({
@@ -54,7 +77,7 @@ export const register = async (req, res) => {
 
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       phone,
       password,
       address: {
@@ -83,6 +106,20 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     console.error("Registration error:", error);
+    if (error?.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        error: error.message,
+      });
+    }
+    if (error?.code === 11000) {
+      const field = Object.keys(error.keyValue || {})[0] || "field";
+      return res.status(400).json({
+        success: false,
+        message: `Duplicate ${field}. Please use another ${field}.`,
+      });
+    }
     res.status(500).json({
       success: false,
       message: "Registration failed. Please try again.",
@@ -331,7 +368,7 @@ export const sendAadhaarOTP = async (req, res) => {
   }
 };
 
-export const verifyAadharOTP = async (req, res) => {
+export const verifyAadhaarOTP = async (req, res) => {
   try {
     const { otp } = req.body;
     const userId = req.user.id;

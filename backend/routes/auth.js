@@ -1,7 +1,7 @@
 import { Router } from 'express';
 const router = Router();
-import { register, verifyOTP, resendOTP, login, sendAadhaarOTP, verifyAadhaarOTP, forgotPassword, verifyResetOTP, resetPassword, getMe, logout } from '../controllers/authController';
-import { protect } from '../middleware/auth';
+import { register, verifyOTP, resendOTP, login, sendAadhaarOTP, verifyAadhaarOTP, forgotPassword, verifyResetOTP, resetPassword, getMe, logout } from '../controllers/authController.js';
+import { protect } from '../middleware/auth.js';
 
 // Public routes
 router.post('/register', register);

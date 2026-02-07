@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import { use } from "react";
 
 const userSchema = new mongoose.Schema(
   {
@@ -105,10 +104,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
-    passwordResetToken: {
-      type: String,
-      select: false,
-    },
     passwordResetExpires: {
       type: Date,
       select: false,
@@ -134,22 +129,17 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-userSchema.index({email:1});
-userSchema.index({phone:1});
-userSchema.index({"aadhar.number":1},{sparse:true});
+userSchema.index({ email: 1 });
+userSchema.index({ phone: 1 });
+userSchema.index({ "aadhaar.number": 1 }, { sparse: true });
 
-userSchema.pre('save', async function(next) {
+userSchema.pre("save", async function () {
   // Only hash password if it's modified or new
-  if (!this.isModified('password')) return next();
-  
-  try {
-    // Generate salt and hash password
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
+  if (!this.isModified("password")) return;
+
+  // Generate salt and hash password
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 userSchema.methods.comparePassword = async function(candidatePassword) {
@@ -214,6 +204,6 @@ userSchema.statics.findByEmailOrPhone = function(identifier) {
   }
 };
 
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model("User", userSchema);
 
-module.exports = User;
+export default User;

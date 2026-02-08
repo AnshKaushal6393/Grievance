@@ -1,8 +1,8 @@
 import { Router } from 'express';
 const router = Router();
-import { fileComplaint, getMyComplaints, getComplaintById, trackComplaint, updateComplaint, deleteComplaint, getDashboardStats, getMyDrafts } from '../controllers/complaintController';
-import { protect } from '../middleware/auth';
-import { upload } from '../config/cloudinary';
+import { fileComplaint, getMyComplaints, getComplaintById, trackComplaint, updateComplaint, deleteComplaint, getDashboardStats, getMyDrafts } from '../controllers/complaintController.js';
+import { protect } from '../middleware/auth.js';
+import { upload } from '../config/cloudinary.js';
 
 // Public routes
 router.get('/track/:complaintId', trackComplaint);

@@ -1,6 +1,6 @@
 import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
-import { getFileType } from "../config/cloudinary";
+import { getFileType } from "../config/cloudinary.js";
 
 export const fileComplaint = async (req, res) => {
   try {

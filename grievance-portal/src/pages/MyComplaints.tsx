@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search, 
-  Filter, 
-  Calendar, 
-  ArrowUpDown, 
-  Eye, 
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Search,
+  Filter,
+  Calendar,
+  ArrowUpDown,
+  Eye,
   FileText,
   Clock,
   CheckCircle2,
@@ -15,185 +15,221 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  FileX2
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+  FileX2,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import Navbar from "@/components/Navbar";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import complaintService from "@/services/complaintService";
+import { useEffect } from "react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Complaint {
   id: string;
   title: string;
   category: string;
-  status: 'pending' | 'in-progress' | 'resolved' | 'rejected';
-  priority: 'low' | 'medium' | 'high';
+  status: "pending" | "in-progress" | "resolved" | "rejected";
+  priority: "low" | "medium" | "high";
   filedDate: string;
   lastUpdated: string;
   description: string;
 }
 
 const MyComplaints = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('latest');
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("latest");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
-  // Sample complaints data
-  const allComplaints: Complaint[] = [
-    {
-      id: 'GR2024001234',
-      title: 'Road repair needed on Main Street',
-      category: 'Roads',
-      status: 'in-progress',
-      priority: 'high',
-      filedDate: '2024-01-15',
-      lastUpdated: '2024-01-18',
-      description: 'Large potholes causing traffic issues'
-    },
-    {
-      id: 'GR2024001235',
-      title: 'Street light not working',
-      category: 'Electricity',
-      status: 'pending',
-      priority: 'medium',
-      filedDate: '2024-01-14',
-      lastUpdated: '2024-01-14',
-      description: 'Street light pole #45 is not functioning'
-    },
-    {
-      id: 'GR2024001236',
-      title: 'Water supply disruption',
-      category: 'Water',
-      status: 'resolved',
-      priority: 'high',
-      filedDate: '2024-01-10',
-      lastUpdated: '2024-01-16',
-      description: 'No water supply for the past 3 days'
-    },
-    {
-      id: 'GR2024001237',
-      title: 'Garbage collection missed',
-      category: 'Sanitation',
-      status: 'resolved',
-      priority: 'low',
-      filedDate: '2024-01-08',
-      lastUpdated: '2024-01-12',
-      description: 'Garbage not collected for a week'
-    },
-    {
-      id: 'GR2024001238',
-      title: 'Drainage system blocked',
-      category: 'Sanitation',
-      status: 'pending',
-      priority: 'high',
-      filedDate: '2024-01-05',
-      lastUpdated: '2024-01-05',
-      description: 'Sewage overflow on residential street'
-    },
-    {
-      id: 'GR2024001239',
-      title: 'Illegal construction noise',
-      category: 'Other',
-      status: 'rejected',
-      priority: 'medium',
-      filedDate: '2024-01-03',
-      lastUpdated: '2024-01-06',
-      description: 'Construction work happening during night hours'
-    },
-    {
-      id: 'GR2024001240',
-      title: 'Broken park bench',
-      category: 'Other',
-      status: 'in-progress',
-      priority: 'low',
-      filedDate: '2024-01-02',
-      lastUpdated: '2024-01-10',
-      description: 'Park bench at Central Park needs repair'
-    },
-    {
-      id: 'GR2024001241',
-      title: 'Traffic signal malfunction',
-      category: 'Roads',
-      status: 'resolved',
-      priority: 'high',
-      filedDate: '2024-01-01',
-      lastUpdated: '2024-01-04',
-      description: 'Traffic light at intersection not working properly'
-    }
-  ];
+  useEffect(() => {
+    fetchComplaints();
+  }, [
+    statusFilter,
+    categoryFilter,
+    searchQuery,
+    sortBy,
+    dateRange,
+    currentPage,
+  ]);
 
-  const categories = ['Roads', 'Water', 'Electricity', 'Sanitation', 'Other'];
+  // Sample complaints data
+  //   const allComplaints: Complaint[] = [
+  //     {
+  //       id: "GR2024001234",
+  //       title: "Road repair needed on Main Street",
+  //       category: "Roads",
+  //       status: "in-progress",
+  //       priority: "high",
+  //       filedDate: "2024-01-15",
+  //       lastUpdated: "2024-01-18",
+  //       description: "Large potholes causing traffic issues",
+  //     },
+  //     {
+  //       id: "GR2024001235",
+  //       title: "Street light not working",
+  //       category: "Electricity",
+  //       status: "pending",
+  //       priority: "medium",
+  //       filedDate: "2024-01-14",
+  //       lastUpdated: "2024-01-14",
+  //       description: "Street light pole #45 is not functioning",
+  //     },
+  //     {
+  //       id: "GR2024001236",
+  //       title: "Water supply disruption",
+  //       category: "Water",
+  //       status: "resolved",
+  //       priority: "high",
+  //       filedDate: "2024-01-10",
+  //       lastUpdated: "2024-01-16",
+  //       description: "No water supply for the past 3 days",
+  //     },
+  //     {
+  //       id: "GR2024001237",
+  //       title: "Garbage collection missed",
+  //       category: "Sanitation",
+  //       status: "resolved",
+  //       priority: "low",
+  //       filedDate: "2024-01-08",
+  //       lastUpdated: "2024-01-12",
+  //       description: "Garbage not collected for a week",
+  //     },
+  //     {
+  //       id: "GR2024001238",
+  //       title: "Drainage system blocked",
+  //       category: "Sanitation",
+  //       status: "pending",
+  //       priority: "high",
+  //       filedDate: "2024-01-05",
+  //       lastUpdated: "2024-01-05",
+  //       description: "Sewage overflow on residential street",
+  //     },
+  //     {
+  //       id: "GR2024001239",
+  //       title: "Illegal construction noise",
+  //       category: "Other",
+  //       status: "rejected",
+  //       priority: "medium",
+  //       filedDate: "2024-01-03",
+  //       lastUpdated: "2024-01-06",
+  //       description: "Construction work happening during night hours",
+  //     },
+  //     {
+  //       id: "GR2024001240",
+  //       title: "Broken park bench",
+  //       category: "Other",
+  //       status: "in-progress",
+  //       priority: "low",
+  //       filedDate: "2024-01-02",
+  //       lastUpdated: "2024-01-10",
+  //       description: "Park bench at Central Park needs repair",
+  //     },
+  //     {
+  //       id: "GR2024001241",
+  //       title: "Traffic signal malfunction",
+  //       category: "Roads",
+  //       status: "resolved",
+  //       priority: "high",
+  //       filedDate: "2024-01-01",
+  //       lastUpdated: "2024-01-04",
+  //       description: "Traffic light at intersection not working properly",
+  //     },
+  //   ];
+  const fetchComplaints = async () => {
+    setIsLoading(true);
+    try {
+      const response = await complaintService.getMyComplaints({
+        status: statusFilter,
+        category: categoryFilter,
+        search: searchQuery,
+        sortBy: sortBy,
+        fromDate: dateRange.from,
+        toDate: dateRange.to,
+        page: currentPage,
+        limit: itemsPerPage,
+      });
+      setComplaints(response.data.complaints);
+    } catch (error) {
+        toast.error("Failed to fetch complaints");
+    } finally{
+        setIsLoading(false);
+    }
+  };
+
+  const categories = ["Roads", "Water", "Electricity", "Sanitation", "Other"];
 
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'pending':
-        return { 
-          label: 'Pending', 
-          icon: Clock, 
-          className: 'bg-yellow-100 text-yellow-800 border-yellow-200' 
+      case "pending":
+        return {
+          label: "Pending",
+          icon: Clock,
+          className: "bg-yellow-100 text-yellow-800 border-yellow-200",
         };
-      case 'in-progress':
-        return { 
-          label: 'In Progress', 
-          icon: Loader2, 
-          className: 'bg-blue-100 text-blue-800 border-blue-200' 
+      case "in-progress":
+        return {
+          label: "In Progress",
+          icon: Loader2,
+          className: "bg-blue-100 text-blue-800 border-blue-200",
         };
-      case 'resolved':
-        return { 
-          label: 'Resolved', 
-          icon: CheckCircle2, 
-          className: 'bg-green-100 text-green-800 border-green-200' 
+      case "resolved":
+        return {
+          label: "Resolved",
+          icon: CheckCircle2,
+          className: "bg-green-100 text-green-800 border-green-200",
         };
-      case 'rejected':
-        return { 
-          label: 'Rejected', 
-          icon: XCircle, 
-          className: 'bg-red-100 text-red-800 border-red-200' 
+      case "rejected":
+        return {
+          label: "Rejected",
+          icon: XCircle,
+          className: "bg-red-100 text-red-800 border-red-200",
         };
       default:
-        return { 
-          label: status, 
-          icon: AlertCircle, 
-          className: 'bg-gray-100 text-gray-800 border-gray-200' 
+        return {
+          label: status,
+          icon: AlertCircle,
+          className: "bg-gray-100 text-gray-800 border-gray-200",
         };
     }
   };
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      'Roads': 'bg-orange-100 text-orange-800',
-      'Water': 'bg-cyan-100 text-cyan-800',
-      'Electricity': 'bg-amber-100 text-amber-800',
-      'Sanitation': 'bg-emerald-100 text-emerald-800',
-      'Other': 'bg-purple-100 text-purple-800'
+      Roads: "bg-orange-100 text-orange-800",
+      Water: "bg-cyan-100 text-cyan-800",
+      Electricity: "bg-amber-100 text-amber-800",
+      Sanitation: "bg-emerald-100 text-emerald-800",
+      Other: "bg-purple-100 text-purple-800",
     };
-    return colors[category] || 'bg-gray-100 text-gray-800';
+    return colors[category] || "bg-gray-100 text-gray-800";
   };
 
   const getPriorityDots = (priority: string) => {
     switch (priority) {
-      case 'high':
+      case "high":
         return (
           <div className="flex gap-1">
             <div className="w-2 h-2 rounded-full bg-red-500" />
@@ -201,7 +237,7 @@ const MyComplaints = () => {
             <div className="w-2 h-2 rounded-full bg-red-500" />
           </div>
         );
-      case 'medium':
+      case "medium":
         return (
           <div className="flex gap-1">
             <div className="w-2 h-2 rounded-full bg-yellow-500" />
@@ -209,7 +245,7 @@ const MyComplaints = () => {
             <div className="w-2 h-2 rounded-full bg-gray-300" />
           </div>
         );
-      case 'low':
+      case "low":
         return (
           <div className="flex gap-1">
             <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -224,47 +260,56 @@ const MyComplaints = () => {
 
   // Filter and sort complaints
   const filteredComplaints = useMemo(() => {
-    let result = [...allComplaints];
+    let result = [...complaints];
 
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
-        c => c.title.toLowerCase().includes(query) || 
-             c.id.toLowerCase().includes(query) ||
-             c.description.toLowerCase().includes(query)
+        (c) =>
+          c.title.toLowerCase().includes(query) ||
+          c.id.toLowerCase().includes(query) ||
+          c.description.toLowerCase().includes(query),
       );
     }
 
     // Status filter
-    if (statusFilter !== 'all') {
-      result = result.filter(c => c.status === statusFilter);
+    if (statusFilter !== "all") {
+      result = result.filter((c) => c.status === statusFilter);
     }
 
     // Category filter
-    if (categoryFilter !== 'all') {
-      result = result.filter(c => c.category === categoryFilter);
+    if (categoryFilter !== "all") {
+      result = result.filter((c) => c.category === categoryFilter);
     }
 
     // Date range filter
     if (dateRange.from) {
-      result = result.filter(c => new Date(c.filedDate) >= dateRange.from!);
+      result = result.filter((c) => new Date(c.filedDate) >= dateRange.from!);
     }
     if (dateRange.to) {
-      result = result.filter(c => new Date(c.filedDate) <= dateRange.to!);
+      result = result.filter((c) => new Date(c.filedDate) <= dateRange.to!);
     }
 
     // Sorting
     switch (sortBy) {
-      case 'latest':
-        result.sort((a, b) => new Date(b.filedDate).getTime() - new Date(a.filedDate).getTime());
+      case "latest":
+        result.sort(
+          (a, b) =>
+            new Date(b.filedDate).getTime() - new Date(a.filedDate).getTime(),
+        );
         break;
-      case 'oldest':
-        result.sort((a, b) => new Date(a.filedDate).getTime() - new Date(b.filedDate).getTime());
+      case "oldest":
+        result.sort(
+          (a, b) =>
+            new Date(a.filedDate).getTime() - new Date(b.filedDate).getTime(),
+        );
         break;
-      case 'priority':
+      case "priority":
         const priorityOrder = { high: 3, medium: 2, low: 1 };
-        result.sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority]);
+        result.sort(
+          (a, b) => priorityOrder[b.priority] - priorityOrder[a.priority],
+        );
         break;
     }
 
@@ -275,24 +320,24 @@ const MyComplaints = () => {
   const totalPages = Math.ceil(filteredComplaints.length / itemsPerPage);
   const paginatedComplaints = filteredComplaints.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Navbar />
-      
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
@@ -300,14 +345,16 @@ const MyComplaints = () => {
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold text-gray-900">My Complaints</h1>
             <Badge variant="secondary" className="text-lg px-4 py-1">
-              {allComplaints.length}
+              {complaints.length}
             </Badge>
           </div>
-          <p className="text-gray-600 mt-2">Track and manage all your filed complaints</p>
+          <p className="text-gray-600 mt-2">
+            Track and manage all your filed complaints
+          </p>
         </motion.div>
 
         {/* Filters Bar */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -348,8 +395,10 @@ const MyComplaints = () => {
               </SelectTrigger>
               <SelectContent className="bg-white z-50">
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(cat => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -362,22 +411,28 @@ const MyComplaints = () => {
                   {dateRange.from ? (
                     dateRange.to ? (
                       <>
-                        {format(dateRange.from, 'LLL dd')} - {format(dateRange.to, 'LLL dd')}
+                        {format(dateRange.from, "LLL dd")} -{" "}
+                        {format(dateRange.to, "LLL dd")}
                       </>
                     ) : (
-                      format(dateRange.from, 'LLL dd, y')
+                      format(dateRange.from, "LLL dd, y")
                     )
                   ) : (
-                    'Date Range'
+                    "Date Range"
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-white z-50" align="start">
+              <PopoverContent
+                className="w-auto p-0 bg-white z-50"
+                align="start"
+              >
                 <CalendarComponent
                   initialFocus
                   mode="range"
                   selected={{ from: dateRange.from, to: dateRange.to }}
-                  onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                  onSelect={(range) =>
+                    setDateRange({ from: range?.from, to: range?.to })
+                  }
                   numberOfMonths={2}
                   className="pointer-events-auto"
                 />
@@ -402,7 +457,7 @@ const MyComplaints = () => {
         {/* Complaints List */}
         <AnimatePresence mode="wait">
           {paginatedComplaints.length > 0 ? (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -411,7 +466,7 @@ const MyComplaints = () => {
               {paginatedComplaints.map((complaint, index) => {
                 const statusConfig = getStatusConfig(complaint.status);
                 const StatusIcon = statusConfig.icon;
-                
+
                 return (
                   <motion.div
                     key={complaint.id}
@@ -428,7 +483,12 @@ const MyComplaints = () => {
                               <span className="text-sm font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
                                 {complaint.id}
                               </span>
-                              <Badge className={cn('text-xs', getCategoryColor(complaint.category))}>
+                              <Badge
+                                className={cn(
+                                  "text-xs",
+                                  getCategoryColor(complaint.category),
+                                )}
+                              >
                                 {complaint.category}
                               </Badge>
                             </div>
@@ -444,37 +504,54 @@ const MyComplaints = () => {
                           <div className="flex items-center gap-6 lg:gap-8">
                             {/* Status */}
                             <div className="flex flex-col items-center gap-1">
-                              <Badge className={cn('flex items-center gap-1.5 px-3 py-1', statusConfig.className)}>
-                                <StatusIcon className={cn('w-3.5 h-3.5', complaint.status === 'in-progress' && 'animate-spin')} />
+                              <Badge
+                                className={cn(
+                                  "flex items-center gap-1.5 px-3 py-1",
+                                  statusConfig.className,
+                                )}
+                              >
+                                <StatusIcon
+                                  className={cn(
+                                    "w-3.5 h-3.5",
+                                    complaint.status === "in-progress" &&
+                                      "animate-spin",
+                                  )}
+                                />
                                 {statusConfig.label}
                               </Badge>
-                              <span className="text-xs text-gray-500">Status</span>
+                              <span className="text-xs text-gray-500">
+                                Status
+                              </span>
                             </div>
 
                             {/* Priority */}
                             <div className="flex flex-col items-center gap-1">
                               {getPriorityDots(complaint.priority)}
-                              <span className="text-xs text-gray-500 capitalize">{complaint.priority}</span>
+                              <span className="text-xs text-gray-500 capitalize">
+                                {complaint.priority}
+                              </span>
                             </div>
 
                             {/* Dates */}
                             <div className="hidden md:flex flex-col gap-1 text-sm">
                               <div className="flex items-center gap-2 text-gray-600">
                                 <FileText className="w-4 h-4" />
-                                <span>Filed: {formatDate(complaint.filedDate)}</span>
+                                <span>
+                                  Filed: {formatDate(complaint.filedDate)}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2 text-gray-500">
                                 <Clock className="w-4 h-4" />
-                                <span>Updated: {formatDate(complaint.lastUpdated)}</span>
+                                <span>
+                                  Updated: {formatDate(complaint.lastUpdated)}
+                                </span>
                               </div>
                             </div>
                           </div>
 
                           {/* Right Section - Action Button */}
                           <div className="lg:ml-4">
-                            <Button 
-                              className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all"
-                            >
+                            <Button className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">
                               <Eye className="w-4 h-4 mr-2" />
                               View Details
                             </Button>
@@ -485,7 +562,9 @@ const MyComplaints = () => {
                         <div className="md:hidden px-6 pb-4 flex gap-4 text-sm text-gray-500">
                           <span>Filed: {formatDate(complaint.filedDate)}</span>
                           <span>•</span>
-                          <span>Updated: {formatDate(complaint.lastUpdated)}</span>
+                          <span>
+                            Updated: {formatDate(complaint.lastUpdated)}
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -504,9 +583,13 @@ const MyComplaints = () => {
               <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-6">
                 <FileX2 className="w-16 h-16 text-blue-400" />
               </div>
-              <h3 className="text-2xl font-semibold text-gray-900 mb-2">No complaints found</h3>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-2">
+                No complaints found
+              </h3>
               <p className="text-gray-500 mb-6 text-center max-w-md">
-                {searchQuery || statusFilter !== 'all' || categoryFilter !== 'all'
+                {searchQuery ||
+                statusFilter !== "all" ||
+                categoryFilter !== "all"
                   ? "No complaints match your current filters. Try adjusting your search criteria."
                   : "You haven't filed any complaints yet. Start by filing your first complaint."}
               </p>
@@ -522,7 +605,7 @@ const MyComplaints = () => {
 
         {/* Pagination */}
         {filteredComplaints.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
@@ -531,7 +614,13 @@ const MyComplaints = () => {
             {/* Items per page */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">Show</span>
-              <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(parseInt(v)); setCurrentPage(1); }}>
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(v) => {
+                  setItemsPerPage(parseInt(v));
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[70px] rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
@@ -546,7 +635,9 @@ const MyComplaints = () => {
 
             {/* Page info */}
             <span className="text-sm text-gray-600">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredComplaints.length)} of {filteredComplaints.length} complaints
+              Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+              {Math.min(currentPage * itemsPerPage, filteredComplaints.length)}{" "}
+              of {filteredComplaints.length} complaints
             </span>
 
             {/* Page navigation */}
@@ -554,35 +645,39 @@ const MyComplaints = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="rounded-lg"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Previous
               </Button>
-              
+
               <div className="flex gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCurrentPage(page)}
-                    className={cn(
-                      'w-9 h-9 rounded-lg',
-                      currentPage === page && 'bg-blue-600 hover:bg-blue-700'
-                    )}
-                  >
-                    {page}
-                  </Button>
-                ))}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className={cn(
+                        "w-9 h-9 rounded-lg",
+                        currentPage === page && "bg-blue-600 hover:bg-blue-700",
+                      )}
+                    >
+                      {page}
+                    </Button>
+                  ),
+                )}
               </div>
 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
                 disabled={currentPage === totalPages}
                 className="rounded-lg"
               >

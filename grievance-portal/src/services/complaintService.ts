@@ -1,5 +1,16 @@
 import api from "@/lib/api";
 
+export interface ComplaintFilters{
+  status?:string;
+  category?:string;
+  search?:string;
+  sortBy?:string;
+  fromDate?:Date;
+  toDate?:Date;
+  page?:number;
+  limit?:number;
+}
+
 export const complaintService = {
   fileComplaint: async (formData: FormData) => {
     const response = await api.post("/complaints/creaate", formData, {

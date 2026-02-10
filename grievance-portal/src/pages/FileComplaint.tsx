@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import complaintService from "@/services/complaintService";
@@ -36,22 +36,28 @@ const FileComplaint = () => {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodeError, setGeocodeError] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const geocodeTimeoutRef = useRef<number | null>(null);
+  const geocodeAbortRef = useRef<AbortController | null>(null);
 
   const categories = [
-    { value: "roads", label: "Roads & Infrastructure" },
-    { value: "water", label: "Water Supply" },
-    { value: "electricity", label: "Electricity" },
-    { value: "sanitation", label: "Sanitation & Garbage" },
-    { value: "drainage", label: "Drainage & Sewage" },
-    { value: "streetlights", label: "Street Lights" },
-    { value: "parks", label: "Parks & Gardens" },
-    { value: "pollution", label: "Pollution" },
-    { value: "encroachment", label: "Encroachment" },
-    { value: "others", label: "Others" },
+    { value: "Roads & Infrastructure", label: "Roads & Infrastructure" },
+    { value: "Water Supply", label: "Water Supply" },
+    { value: "Electricity", label: "Electricity" },
+    { value: "Sanitation & Garbage", label: "Sanitation & Garbage" },
+    { value: "Drainage & Sewage", label: "Drainage & Sewage" },
+    { value: "Street Lights", label: "Street Lights" },
+    { value: "Parks & Gardens", label: "Parks & Gardens" },
+    { value: "Pollution", label: "Pollution" },
+    { value: "Encroachment", label: "Encroachment" },
+    { value: "Other", label: "Other" },
   ];
 
   const filteredCategories = categories.filter((cat) =>
@@ -65,21 +71,105 @@ const FileComplaint = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          const lat = Number(position.coords.latitude.toFixed(6));
+          const lng = Number(position.coords.longitude.toFixed(6));
           setAddress(
-            `Lat: ${position.coords.latitude.toFixed(6)}, Long: ${position.coords.longitude.toFixed(6)}`,
+            `Lat: ${lat}, Long: ${lng}`,
           );
+          setLatitude(lat);
+          setLongitude(lng);
+          setGeocodeError(null);
           setIsLocating(false);
         },
         () => {
           setAddress("Unable to get location. Please enter manually.");
+          setLatitude(null);
+          setLongitude(null);
+          setGeocodeError(null);
           setIsLocating(false);
         },
       );
     } else {
       setAddress("Geolocation not supported. Please enter manually.");
+      setLatitude(null);
+      setLongitude(null);
+      setGeocodeError(null);
       setIsLocating(false);
     }
   };
+
+  const isCoordinateAddress = (value: string) => {
+    return /^lat:\s*-?\d+(\.\d+)?\s*,\s*long:\s*-?\d+(\.\d+)?$/i.test(
+      value.trim(),
+    );
+  };
+
+  useEffect(() => {
+    const query = address.trim();
+    if (!query) {
+      setLatitude(null);
+      setLongitude(null);
+      setGeocodeError(null);
+      return;
+    }
+    if (isCoordinateAddress(query)) return;
+
+    if (geocodeTimeoutRef.current) {
+      window.clearTimeout(geocodeTimeoutRef.current);
+    }
+    if (geocodeAbortRef.current) {
+      geocodeAbortRef.current.abort();
+    }
+
+    geocodeTimeoutRef.current = window.setTimeout(async () => {
+      const controller = new AbortController();
+      geocodeAbortRef.current = controller;
+      setIsGeocoding(true);
+      setGeocodeError(null);
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Accept-Language": "en",
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("Geocoding failed");
+        }
+        const results = await response.json();
+        if (results && results.length > 0) {
+          const lat = Number(Number(results[0].lat).toFixed(6));
+          const lng = Number(Number(results[0].lon).toFixed(6));
+          setLatitude(lat);
+          setLongitude(lng);
+          setGeocodeError(null);
+        } else {
+          setLatitude(null);
+          setLongitude(null);
+          setGeocodeError("No location found for this address.");
+        }
+      } catch (error: any) {
+        if (error?.name !== "AbortError") {
+          setLatitude(null);
+          setLongitude(null);
+          setGeocodeError("Failed to geocode address.");
+        }
+      } finally {
+        setIsGeocoding(false);
+      }
+    }, 700);
+
+    return () => {
+      if (geocodeTimeoutRef.current) {
+        window.clearTimeout(geocodeTimeoutRef.current);
+      }
+      if (geocodeAbortRef.current) {
+        geocodeAbortRef.current.abort();
+      }
+    };
+  }, [address]);
 
   const handleFileSelect = useCallback(
     (files: FileList | null) => {
@@ -150,6 +240,8 @@ const FileComplaint = () => {
       formData.append("category", category);
       formData.append("description", description);
       formData.append("address", address);
+      if (latitude !== null) formData.append("latitude", String(latitude));
+      if (longitude !== null) formData.append("longitude", String(longitude));
 
       uploadedFiles.forEach((file) => {
         formData.append("attachments", file.file);
@@ -175,6 +267,11 @@ const FileComplaint = () => {
       files: uploadedFiles,
     });
   };
+
+  const mapEmbedUrl =
+    latitude !== null && longitude !== null
+      ? `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01}%2C${latitude - 0.01}%2C${longitude + 0.01}%2C${latitude + 0.01}&layer=mapnik&marker=${latitude}%2C${longitude}`
+      : null;
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -346,10 +443,28 @@ const FileComplaint = () => {
               </div>
 
               {/* Map Preview Placeholder */}
-              <div className="w-full h-48 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400">
-                <MapPin className="w-10 h-10 mb-2" />
-                <span className="text-sm">Map preview will appear here</span>
-              </div>
+              {mapEmbedUrl ? (
+                <div className="w-full h-48 rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                  <iframe
+                    title="Interactive map"
+                    src={mapEmbedUrl}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    allowFullScreen
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-48 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400">
+                  <MapPin className="w-10 h-10 mb-2" />
+                  <span className="text-sm">Map preview will appear here</span>
+                </div>
+              )}
+              {isGeocoding && (
+                <p className="text-sm text-gray-500">Finding location…</p>
+              )}
+              {geocodeError && (
+                <p className="text-sm text-red-500">{geocodeError}</p>
+              )}
             </div>
 
             {/* Media Upload */}

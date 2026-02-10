@@ -176,14 +176,11 @@ complaintSchema.index({ category: 1 });
 complaintSchema.index({ status: 1 });
 complaintSchema.index({ createdAt: -1 });
 
-complaintSchema.pre('save', async function(next) {
-  if (!this.complaintId) {
-    // Generate ID like: GR2024001234
-    const year = new Date().getFullYear();
-    const count = await mongoose.model('Complaint').countDocuments();
-    this.complaintId = `GR${year}${String(count + 1).padStart(6, '0')}`;
-  }
-  next();
+complaintSchema.pre('validate', async function() {
+  if (this.complaintId) return;
+  const year = new Date().getFullYear();
+  const count = await mongoose.model('Complaint').countDocuments();
+  this.complaintId = `GR${year}${String(count + 1).padStart(6, '0')}`;
 });
 
 
@@ -240,8 +237,17 @@ complaintSchema.methods.updateStatus = function(newStatus, userId, message) {
 };
 
 complaintSchema.statics.getStats = async function(userId) {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return {
+      total: 0,
+      pending: 0,
+      "in-progress": 0,
+      resolved: 0,
+      rejected: 0,
+    };
+  }
   const stats = await this.aggregate([
-    { $match: { user: mongoose.Types.ObjectId(userId) } },
+    { $match: { user: new mongoose.Types.ObjectId(userId) } },
     {
       $group: {
         _id: '$status',
@@ -253,7 +259,7 @@ complaintSchema.statics.getStats = async function(userId) {
   const result = {
     total: 0,
     pending: 0,
-    'in-progress': 0,
+    "in-progress": 0,
     resolved: 0,
     rejected: 0
   };
@@ -267,8 +273,11 @@ complaintSchema.statics.getStats = async function(userId) {
 };
 
 complaintSchema.statics.getCategoryBreakdown = async function(userId) {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return [];
+  }
   return await this.aggregate([
-    { $match: { user: mongoose.Types.ObjectId(userId) } },
+    { $match: { user: new mongoose.Types.ObjectId(userId) } },
     {
       $group: {
         _id: '$category',

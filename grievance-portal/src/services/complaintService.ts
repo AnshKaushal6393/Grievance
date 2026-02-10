@@ -13,7 +13,7 @@ export interface ComplaintFilters{
 
 export const complaintService = {
   fileComplaint: async (formData: FormData) => {
-    const response = await api.post("/complaints/creaate", formData, {
+    const response = await api.post("/complaints/create", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
@@ -22,8 +22,19 @@ export const complaintService = {
   },
 
   getMyComplaints: async (filters?: any) => {
-    const params = new URLSearchParams(filters).toString();
-    const response = await api.get(`/complaints/my-complaints?${params}`);
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if (value === "undefined") return;
+        if (value instanceof Date) {
+          params.append(key, value.toISOString());
+        } else {
+          params.append(key, String(value));
+        }
+      });
+    }
+    const response = await api.get(`/complaints/my-complaints?${params.toString()}`);
     return response.data;
   },
 

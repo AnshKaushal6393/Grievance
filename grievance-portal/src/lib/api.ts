@@ -10,7 +10,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("toekn");
+    const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -33,10 +33,15 @@ api.interceptors.response.use(
 
       switch (status) {
         case 401:
-          // Unauthorized - clear token and redirect to login
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
+          // Unauthorized - clear token and redirect to login (avoid loop on auth pages)
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          if (
+            typeof window !== "undefined" &&
+            !window.location.pathname.startsWith("/login")
+          ) {
+            window.location.href = "/login";
+          }
           break;
         case 403:
           // Forbidden

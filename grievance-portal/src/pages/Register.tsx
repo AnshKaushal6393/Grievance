@@ -63,6 +63,7 @@ const Register = () => {
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
+    if (isLoading) return;
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords do not match");
@@ -100,7 +101,17 @@ const Register = () => {
         },
       });
     } catch (error: any) {
-      toast.error("Registration failed. Please try again.");
+      if (error.response?.data?.message?.includes("already")) {
+        toast.info("User already exists. Redirecting to OTP verification....");
+        navigate("/verify-otp", {
+          state: {
+            email: formData.email,
+            phone: formData.phone,
+          },
+        });
+      } else {
+        toast.error(error.response?.data?.message || "Registration failed. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -476,9 +487,18 @@ const Register = () => {
                     </Button>
                     <Button
                       type="submit"
+                      disabled={isLoading}
                       className="flex-1 py-4 h-auto text-lg font-semibold bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl shadow-lg hover:shadow-xl transition-all"
                     >
-                      Create Account
+                      {" "}
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Creating....
+                        </>
+                      ) : (
+                        "Create Account"
+                      )}
                     </Button>
                   </div>
                 </motion.div>

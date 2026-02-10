@@ -138,7 +138,9 @@ export const verifyOTP = async (req, res) => {
         message: "Please provide userId and OTP",
       });
     }
-    const user = await User.findById(userId).select("+otp");
+    const user = await User.findById(userId).select(
+      "+otp.code +otp.expiresAt +otp.purpose",
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -380,7 +382,9 @@ export const verifyAadhaarOTP = async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId).select("+otp");
+    const user = await User.findById(userId).select(
+      "+otp.code +otp.expiresAt +otp.purpose",
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -481,7 +485,9 @@ export const verifyResetOTP = async (req,res)=>{
       });
     }
 
-    const user = await User.findById(userId).select('+otp');
+    const user = await User.findById(userId).select(
+      "+otp.code +otp.expiresAt +otp.purpose",
+    );
 
     if (!user) {
       return res.status(404).json({

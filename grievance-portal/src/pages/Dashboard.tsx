@@ -1,92 +1,167 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  FileText, Clock, CheckCircle, XCircle, Plus, 
-  ArrowRight, Calendar, HelpCircle, Folder,
-  Phone, MessageSquare, ChevronRight
+import {
+  FileText,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Plus,
+  ArrowRight,
+  Calendar,
+  HelpCircle,
+  Folder,
+  Phone,
+  MessageSquare,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
+import complaintService from "@/services/complaintService";
+import authService from "@/services/authService";
+
+interface DashboardStats {
+  total: number;
+  pending: number;
+  resolved: number;
+  rejected: number;
+}
+
+interface RecentComplaint {
+  id: string;
+  title: string;
+  category: string;
+  status: string;
+  date: string;
+}
+
+interface CategoryBreakdownItem {
+  name: string;
+  count: number;
+}
 
 const Dashboard = () => {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentComplaints, setRecentComplaints] = useState<RecentComplaint[]>(
+    [],
+  );
+  const [categories, setCategories] = useState<CategoryBreakdownItem[]>([]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-700";
+      case "in-progress":
+        return "bg-blue-100 text-blue-700";
+      case "resolved":
+        return "bg-green-100 text-green-700";
+      case "rejected":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      const response = await complaintService.getDashboardStats();
+      setStats(response.data.stats);
+      setRecentComplaints(
+        (response.data.recentComplaints || []).map((c: any) => ({
+          id: c.complaintId,
+          title: c.title,
+          category: c.category,
+          status: c.status,
+          date: new Date(c.createdAt).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+        })),
+      );
+      setCategories(
+        (response.data.categoryBreakdown || []).map((c: any) => ({
+          name: c._id,
+          count: c.count,
+        })),
+      );
+    } catch (error) {
+      console.error("Failed to fetch dashboard data");
+    }
+  };
   const [currentTime, setCurrentTime] = useState(new Date());
-  const userName = "Rahul Kumar";
+  const currentUser = authService.getCurrentUser();
+  const userName = currentUser?.name || "User";
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const stats = [
-    { 
-      label: "Total Complaints", 
-      value: 12, 
-      icon: FileText, 
-      color: "from-blue-500 to-blue-600",
-      bgColor: "bg-blue-50",
-      textColor: "text-blue-600"
-    },
-    { 
-      label: "Pending", 
-      value: 4, 
-      icon: Clock, 
-      color: "from-yellow-500 to-orange-500",
-      bgColor: "bg-yellow-50",
-      textColor: "text-yellow-600"
-    },
-    { 
-      label: "Resolved", 
-      value: 7, 
-      icon: CheckCircle, 
-      color: "from-green-500 to-emerald-500",
-      bgColor: "bg-green-50",
-      textColor: "text-green-600"
-    },
-    { 
-      label: "Rejected", 
-      value: 1, 
-      icon: XCircle, 
-      color: "from-red-500 to-rose-500",
-      bgColor: "bg-red-50",
-      textColor: "text-red-600"
-    },
-  ];
+  // const stats = [
+  //   {
+  //     label: "Total Complaints",
+  //     value: 12,
+  //     icon: FileText,
+  //     color: "from-blue-500 to-blue-600",
+  //     bgColor: "bg-blue-50",
+  //     textColor: "text-blue-600"
+  //   },
+  //   {
+  //     label: "Pending",
+  //     value: 4,
+  //     icon: Clock,
+  //     color: "from-yellow-500 to-orange-500",
+  //     bgColor: "bg-yellow-50",
+  //     textColor: "text-yellow-600"
+  //   },
+  //   {
+  //     label: "Resolved",
+  //     value: 7,
+  //     icon: CheckCircle,
+  //     color: "from-green-500 to-emerald-500",
+  //     bgColor: "bg-green-50",
+  //     textColor: "text-green-600"
+  //   },
+  //   {
+  //     label: "Rejected",
+  //     value: 1,
+  //     icon: XCircle,
+  //     color: "from-red-500 to-rose-500",
+  //     bgColor: "bg-red-50",
+  //     textColor: "text-red-600"
+  //   },
+  // ];
 
-  const recentComplaints = [
-    {
-      id: "GR2024001234",
-      title: "Street Light Not Working on Main Road",
-      category: "Infrastructure",
-      status: "Pending",
-      statusColor: "bg-yellow-100 text-yellow-700",
-      date: "15 Jan 2024"
-    },
-    {
-      id: "GR2024001198",
-      title: "Garbage Not Collected for 3 Days",
-      category: "Sanitation",
-      status: "In Progress",
-      statusColor: "bg-blue-100 text-blue-700",
-      date: "12 Jan 2024"
-    },
-    {
-      id: "GR2024001156",
-      title: "Water Supply Issue in Block C",
-      category: "Water",
-      status: "Resolved",
-      statusColor: "bg-green-100 text-green-700",
-      date: "08 Jan 2024"
-    },
-  ];
-
-  const categories = [
-    { name: "Roads & Infrastructure", count: 4 },
-    { name: "Water Supply", count: 3 },
-    { name: "Electricity", count: 2 },
-    { name: "Sanitation", count: 2 },
-    { name: "Others", count: 1 },
-  ];
+  // const recentComplaints = [
+  //   {
+  //     id: "GR2024001234",
+  //     title: "Street Light Not Working on Main Road",
+  //     category: "Infrastructure",
+  //     status: "Pending",
+  //     statusColor: "bg-yellow-100 text-yellow-700",
+  //     date: "15 Jan 2024"
+  //   },
+  //   {
+  //     id: "GR2024001198",
+  //     title: "Garbage Not Collected for 3 Days",
+  //     category: "Sanitation",
+  //     status: "In Progress",
+  //     statusColor: "bg-blue-100 text-blue-700",
+  //     date: "12 Jan 2024"
+  //   },
+  //   {
+  //     id: "GR2024001156",
+  //     title: "Water Supply Issue in Block C",
+  //     category: "Water",
+  //     status: "Resolved",
+  //     statusColor: "bg-green-100 text-green-700",
+  //     date: "08 Jan 2024"
+  //   },
+  // ];
 
   const quickLinks = [
     { label: "File New Complaint", icon: Plus, href: "/file-complaint" },
@@ -96,25 +171,25 @@ const Dashboard = () => {
   ];
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-IN', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString("en-IN", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-IN', { 
-      hour: '2-digit', 
-      minute: '2-digit'
+    return date.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Main Content */}
@@ -127,7 +202,8 @@ const Dashboard = () => {
             >
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                  Welcome back, <span className="text-blue-600">{userName}!</span>
+                  Welcome back,{" "}
+                  <span className="text-blue-600">{userName}!</span>
                 </h1>
                 <div className="flex items-center gap-2 text-gray-500 mt-1">
                   <Calendar className="w-4 h-4" />
@@ -140,21 +216,55 @@ const Dashboard = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {stats.map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group"
-                >
-                  <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                    <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                  <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-                </motion.div>
-              ))}
+              {stats &&
+                [
+                  {
+                    label: "Total Complaints",
+                    value: stats.total,
+                    icon: FileText,
+                    bgColor: "bg-blue-50",
+                    textColor: "text-blue-600",
+                  },
+                  {
+                    label: "Pending",
+                    value: stats.pending,
+                    icon: Clock,
+                    bgColor: "bg-yellow-50",
+                    textColor: "text-yellow-600",
+                  },
+                  {
+                    label: "Resolved",
+                    value: stats.resolved,
+                    icon: CheckCircle,
+                    bgColor: "bg-green-50",
+                    textColor: "text-green-600",
+                  },
+                  {
+                    label: "Rejected",
+                    value: stats.rejected,
+                    icon: XCircle,
+                    bgColor: "bg-red-50",
+                    textColor: "text-red-600",
+                  },
+                ].map((stat, index) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group"
+                  >
+                    <div
+                      className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
+                    >
+                      <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {stat.value}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
+                  </motion.div>
+                ))}
             </div>
 
             {/* Quick Action Button */}
@@ -171,8 +281,12 @@ const Dashboard = () => {
                         <Plus className="w-7 h-7" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold">File New Complaint</h3>
-                        <p className="text-blue-100 text-sm">Report an issue in your area</p>
+                        <h3 className="text-xl font-bold">
+                          File New Complaint
+                        </h3>
+                        <p className="text-blue-100 text-sm">
+                          Report an issue in your area
+                        </p>
                       </div>
                     </div>
                     <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
@@ -189,12 +303,14 @@ const Dashboard = () => {
               className="bg-white rounded-2xl shadow-sm p-6"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Recent Complaints</h2>
-                <Link 
-                  to="/my-complaints" 
+                <h2 className="text-xl font-bold text-gray-900">
+                  Recent Complaints
+                </h2>
+                <Link
+                  to="/my-complaints"
                   className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 group"
                 >
-                  View All 
+                  View All
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -211,8 +327,12 @@ const Dashboard = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-mono text-gray-400">{complaint.id}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${complaint.statusColor}`}>
+                          <span className="text-xs font-mono text-gray-400">
+                            {complaint.id}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(complaint.status)}`}
+                          >
                             {complaint.status}
                           </span>
                         </div>
@@ -223,17 +343,21 @@ const Dashboard = () => {
                           <span className="px-2 py-1 bg-gray-100 rounded-md text-xs text-gray-600">
                             {complaint.category}
                           </span>
-                          <span className="text-xs text-gray-400">{complaint.date}</span>
+                          <span className="text-xs text-gray-400">
+                            {complaint.date}
+                          </span>
                         </div>
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="shrink-0 group-hover:bg-blue-50 group-hover:border-blue-200 group-hover:text-blue-600"
-                      >
-                        View Details
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </Button>
+                      <Link to={`/track-complaint?complaintId=${complaint.id}`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 group-hover:bg-blue-50 group-hover:border-blue-200 group-hover:text-blue-600"
+                        >
+                          View Details
+                          <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </Link>
                     </div>
                   </motion.div>
                 ))}
@@ -250,7 +374,9 @@ const Dashboard = () => {
           >
             {/* Quick Links */}
             <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Links</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Quick Links
+              </h3>
               <div className="space-y-2">
                 {quickLinks.map((link) => (
                   <Link
@@ -279,7 +405,9 @@ const Dashboard = () => {
                     key={category.name}
                     className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    <span className="text-sm text-gray-700">{category.name}</span>
+                    <span className="text-sm text-gray-700">
+                      {category.name}
+                    </span>
                     <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-600">
                       {category.count}
                     </span>
@@ -295,10 +423,11 @@ const Dashboard = () => {
               </div>
               <h3 className="text-lg font-bold mb-2">Need Help?</h3>
               <p className="text-indigo-100 text-sm mb-4">
-                Our support team is available 24/7 to assist you with your queries.
+                Our support team is available 24/7 to assist you with your
+                queries.
               </p>
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 className="w-full bg-white text-indigo-600 hover:bg-indigo-50"
               >
                 Contact Support

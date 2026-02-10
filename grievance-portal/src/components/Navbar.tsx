@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, Menu, X, Globe, Bell, User, 
@@ -7,14 +7,19 @@ import {
   Settings, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import authService from "@/services/authService";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState("English");
-  const [isLoggedIn] = useState(false); // Toggle this to test logged-in state
+  const isLoggedIn = authService.isAuthenticated();
+  const currentUser = authService.getCurrentUser();
+  const displayName = currentUser?.name || "User";
+  const displayEmail = currentUser?.email || "user@example.com";
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navLinks = [
     { label: "Home", href: "/" },
@@ -36,6 +41,16 @@ const Navbar = () => {
 
   const isActiveLink = (href: string) => {
     return location.pathname === href;
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setIsProfileOpen(false);
+      setIsOpen(false);
+      navigate("/login");
+    }
   };
 
   return (
@@ -138,7 +153,7 @@ const Navbar = () => {
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center">
                       <User className="w-4 h-4 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-gray-700">John Doe</span>
+                    <span className="text-sm font-medium text-gray-700">{displayName}</span>
                     <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
                   </button>
 
@@ -151,8 +166,8 @@ const Navbar = () => {
                         className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
                       >
                         <div className="px-4 py-3 border-b border-gray-100">
-                          <p className="text-sm font-semibold text-gray-900">John Doe</p>
-                          <p className="text-xs text-gray-500">john.doe@example.com</p>
+                          <p className="text-sm font-semibold text-gray-900">{displayName}</p>
+                          <p className="text-xs text-gray-500">{displayEmail}</p>
                         </div>
                         {profileMenuItems.map((item) => (
                           <Link
@@ -166,7 +181,10 @@ const Navbar = () => {
                           </Link>
                         ))}
                         <div className="border-t border-gray-100 mt-2 pt-2">
-                          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                          <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
                             <LogOut className="w-4 h-4" />
                             Logout
                           </button>
@@ -272,8 +290,8 @@ const Navbar = () => {
                       <User className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">John Doe</p>
-                      <p className="text-xs text-gray-500">john.doe@example.com</p>
+                      <p className="text-sm font-semibold text-gray-900">{displayName}</p>
+                      <p className="text-xs text-gray-500">{displayEmail}</p>
                     </div>
                   </div>
                   {profileMenuItems.map((item) => (
@@ -287,7 +305,10 @@ const Navbar = () => {
                       {item.label}
                     </Link>
                   ))}
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-colors">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
                     <LogOut className="w-4 h-4" />
                     Logout
                   </button>

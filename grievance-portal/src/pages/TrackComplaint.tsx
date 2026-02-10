@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -16,7 +16,7 @@ import {
   HelpCircle,
   Shield,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ interface ComplaintResult {
 
 const TrackComplaint = () => {
   const [complaintId, setComplaintId] = useState("");
+  const [searchParams] = useSearchParams();
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<ComplaintResult | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -82,15 +83,17 @@ const TrackComplaint = () => {
   //     }
   //   };
 
-  const handleSearch = async () => {
-    if (!complaintId.trim()) return;
+  const handleSearch = async (presetId?: string) => {
+    const lookup = (presetId ?? complaintId).trim();
+    if (!lookup) return;
 
     setIsSearching(true);
     setNotFound(false);
     setResult(null);
     try {
-      const response = await complaintService.trackComplaint(complaintId);
+      const response = await complaintService.trackComplaint(lookup);
       setResult(response.data.complaint);
+      setHasSearched(true);
     } catch (error: any) {
       if (error.response?.status === 404) {
         setNotFound(true);
@@ -101,6 +104,15 @@ const TrackComplaint = () => {
       setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+    const preset = searchParams.get("complaintId");
+    if (preset) {
+      setComplaintId(preset);
+      handleSearch(preset);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const stages = [
     { key: "filed", label: "Filed", icon: FileText },
@@ -202,9 +214,9 @@ const TrackComplaint = () => {
                     className="pl-12 pr-4 py-6 text-lg rounded-xl border-2 border-gray-200 focus:border-blue-500 transition-colors"
                   />
                 </div>
-                <Button
-                  onClick={handleSearch}
-                  disabled={isSearching || !complaintId.trim()}
+                  <Button
+                    onClick={() => handleSearch()}
+                    disabled={isSearching || !complaintId.trim()}
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
                 >
                   {isSearching ? (

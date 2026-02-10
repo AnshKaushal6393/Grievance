@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CreditCard, Lock, Shield, Info, Loader2, CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import authService from "@/services/authService";
 
 const AadhaarVerification = () => {
   const [aadhaar, setAadhaar] = useState(["", "", ""]);
@@ -12,6 +14,7 @@ const AadhaarVerification = () => {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [maskedPhone, setMaskedPhone] = useState<string>("");
   const aadhaarRefs = useRef<(HTMLInputElement | null)[]>([]);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
@@ -54,19 +57,38 @@ const AadhaarVerification = () => {
   const isOtpComplete = otp.every((digit) => digit !== "");
 
   const handleSendOtp = async () => {
+    if (!isAadhaarValid || !consent) return;
+    const aadhaarNumber = aadhaar.join("");
     setIsSendingOtp(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsSendingOtp(false);
-    setOtpSent(true);
-    setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    try {
+      const response = await authService.sendAadhaarOTP({ aadhaarNumber });
+      setMaskedPhone(response?.data?.maskedPhone || "");
+      setOtpSent(true);
+      toast.success(response.message || "OTP sent successfully");
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to send Aadhaar OTP");
+    } finally {
+      setIsSendingOtp(false);
+    }
   };
 
   const handleVerify = async () => {
+    if (!isOtpComplete) return;
+    const otpCode = otp.join("");
     setIsVerifying(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsVerifying(false);
-    setIsVerified(true);
-    setTimeout(() => navigate("/dashboard"), 2000);
+    try {
+      const response = await authService.verifyAadhaarOTP(otpCode);
+      toast.success(response.message || "Aadhaar verified successfully");
+      setIsVerified(true);
+      setTimeout(() => navigate("/dashboard"), 2000);
+    } catch (error: any) {
+      toast.error(error?.message || "Invalid OTP. Please try again.");
+      setOtp(Array(6).fill(""));
+      setTimeout(() => otpRefs.current[0]?.focus(), 50);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleSkip = () => {
@@ -240,8 +262,12 @@ const AadhaarVerification = () => {
               <div className="space-y-4">
                 <div className="text-center">
                   <p className="text-gray-600">
-                    Enter OTP sent to Aadhaar-linked mobile ending with{" "}
-                    <span className="font-bold">****5678</span>
+                    Enter OTP sent to Aadhaar-linked mobile{" "}
+                    {maskedPhone ? (
+                      <span className="font-bold">{maskedPhone}</span>
+                    ) : (
+                      <span className="font-bold">****----</span>
+                    )}
                   </p>
                 </div>
 

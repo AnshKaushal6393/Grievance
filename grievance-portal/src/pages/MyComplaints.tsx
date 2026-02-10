@@ -73,6 +73,7 @@ const MyComplaints = () => {
     sortBy,
     dateRange,
     currentPage,
+    itemsPerPage,
   ]);
 
   // Sample complaints data
@@ -161,8 +162,14 @@ const MyComplaints = () => {
   const fetchComplaints = async () => {
     setIsLoading(true);
     try {
+      const statusParam =
+        statusFilter === "pending"
+          ? "filed"
+          : statusFilter === "in-progress"
+            ? "in_progress"
+            : statusFilter;
       const response = await complaintService.getMyComplaints({
-        status: statusFilter,
+        status: statusParam,
         category: categoryFilter,
         search: searchQuery,
         sortBy: sortBy,
@@ -171,7 +178,30 @@ const MyComplaints = () => {
         page: currentPage,
         limit: itemsPerPage,
       });
-      setComplaints(response.data.complaints);
+      const payload = response?.data?.complaints
+        ? response.data
+        : response?.data?.data
+          ? response.data.data
+          : {};
+      const mapped = (payload?.complaints || []).map((c: any) => ({
+        id: c.complaintId || c._id,
+        title: c.title,
+        category: c.category,
+        status:
+          c.status === "filed"
+            ? "pending"
+            : c.status === "in_progress"
+              ? "in-progress"
+              : c.status === "assigned"
+                ? "in-progress"
+                : c.status || "pending",
+        priority: c.priority || "medium",
+        filedDate: c.createdAt,
+        lastUpdated: c.updatedAt || c.createdAt,
+        description: c.description || "",
+      }));
+      // fallback to server-side stats/pagination if needed later
+      setComplaints(mapped);
     } catch (error) {
         toast.error("Failed to fetch complaints");
     } finally{
@@ -179,7 +209,18 @@ const MyComplaints = () => {
     }
   };
 
-  const categories = ["Roads", "Water", "Electricity", "Sanitation", "Other"];
+  const categories = [
+    "Roads & Infrastructure",
+    "Water Supply",
+    "Electricity",
+    "Sanitation & Garbage",
+    "Drainage & Sewage",
+    "Street Lights",
+    "Parks & Gardens",
+    "Pollution",
+    "Encroachment",
+    "Other",
+  ];
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -218,10 +259,15 @@ const MyComplaints = () => {
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      Roads: "bg-orange-100 text-orange-800",
-      Water: "bg-cyan-100 text-cyan-800",
+      "Roads & Infrastructure": "bg-orange-100 text-orange-800",
+      "Water Supply": "bg-cyan-100 text-cyan-800",
       Electricity: "bg-amber-100 text-amber-800",
-      Sanitation: "bg-emerald-100 text-emerald-800",
+      "Sanitation & Garbage": "bg-emerald-100 text-emerald-800",
+      "Drainage & Sewage": "bg-lime-100 text-lime-800",
+      "Street Lights": "bg-yellow-100 text-yellow-800",
+      "Parks & Gardens": "bg-green-100 text-green-800",
+      Pollution: "bg-red-100 text-red-800",
+      Encroachment: "bg-indigo-100 text-indigo-800",
       Other: "bg-purple-100 text-purple-800",
     };
     return colors[category] || "bg-gray-100 text-gray-800";
@@ -314,7 +360,7 @@ const MyComplaints = () => {
     }
 
     return result;
-  }, [searchQuery, statusFilter, categoryFilter, sortBy, dateRange]);
+  }, [complaints, searchQuery, statusFilter, categoryFilter, sortBy, dateRange]);
 
   // Pagination
   const totalPages = Math.ceil(filteredComplaints.length / itemsPerPage);
@@ -551,10 +597,12 @@ const MyComplaints = () => {
 
                           {/* Right Section - Action Button */}
                           <div className="lg:ml-4">
-                            <Button className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Details
-                            </Button>
+                            <Link to={`/track-complaint?complaintId=${complaint.id}`}>
+                              <Button className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Details
+                              </Button>
+                            </Link>
                           </div>
                         </div>
 

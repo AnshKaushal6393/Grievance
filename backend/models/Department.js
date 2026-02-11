@@ -8,6 +8,14 @@ const departmentSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    code: {
+      type: String,
+      required: [true, "Department code is required"],
+      unique: true,
+      trim: true,
+      uppercase: true,
+      maxLength: 10,
+    },
     description: {
       type: String,
       trim: true,
@@ -26,6 +34,16 @@ const departmentSchema = new mongoose.Schema(
           "pollution",
           "encroachment",
           "others",
+          "Roads & Infrastructure",
+          "Water Supply",
+          "Electricity",
+          "Sanitation",
+          "Traffic",
+          "Environment",
+          "Parks & Recreation",
+          "Municipal",
+          "Health",
+          "Education",
         ],
       },
     ],
@@ -57,6 +75,14 @@ const departmentSchema = new mongoose.Schema(
         trim: true,
       },
     },
+    maxCapacity: { type: Number, default: 50 },
+
+    slaTargets: {
+      low: { type: Number, default: 168 },
+      medium: { type: Number, default: 72 },
+      high: { type: Number, default: 24 },
+      critical: { type: Number, default: 4 },
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -67,8 +93,11 @@ const departmentSchema = new mongoose.Schema(
 
 departmentSchema.index({ name: 1 });
 departmentSchema.index({ categories: 1 });
+departmentSchema.index({ isActive: 1 });
 
-departmentSchema.methods.addOfficer = function(officerId) {
+
+
+departmentSchema.methods.addOfficer = function (officerId) {
   if (!this.officers.includes(officerId)) {
     this.officers.push(officerId);
     return this.save();
@@ -76,12 +105,14 @@ departmentSchema.methods.addOfficer = function(officerId) {
   return this;
 };
 
-departmentSchema.methods.removeOfficer = function(officerId) {
-  this.officers = this.officers.filter(id => id.toString() !== officerId.toString());
+departmentSchema.methods.removeOfficer = function (officerId) {
+  this.officers = this.officers.filter(
+    (id) => id.toString() !== officerId.toString(),
+  );
   return this.save();
 };
 
-departmentSchema.statics.findByCategory = function(category) {
+departmentSchema.statics.findByCategory = function (category) {
   return this.findOne({ categories: category, isActive: true });
 };
 

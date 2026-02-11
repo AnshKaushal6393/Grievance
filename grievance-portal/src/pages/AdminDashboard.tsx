@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import adminService from "@/services/adminService";
 import {
   FileText,
   TrendingUp,
-  TrendingDown,
   Clock,
   CheckCircle2,
   AlertTriangle,
@@ -40,55 +40,13 @@ import {
   Cell,
   Legend,
 } from "recharts";
-
-// Mock data for charts
-const trendData = [
-  { date: "Jan 1", filed: 45, resolved: 38 },
-  { date: "Jan 5", filed: 52, resolved: 45 },
-  { date: "Jan 10", filed: 48, resolved: 50 },
-  { date: "Jan 15", filed: 70, resolved: 55 },
-  { date: "Jan 20", filed: 65, resolved: 60 },
-  { date: "Jan 25", filed: 58, resolved: 62 },
-  { date: "Jan 30", filed: 72, resolved: 68 },
-];
-
-const categoryData = [
-  { name: "Roads", value: 35, color: "#3B82F6" },
-  { name: "Water", value: 25, color: "#06B6D4" },
-  { name: "Electricity", value: 20, color: "#F59E0B" },
-  { name: "Sanitation", value: 12, color: "#10B981" },
-  { name: "Others", value: 8, color: "#8B5CF6" },
-];
-
-const departmentData = [
-  { id: 1, name: "Roads & Infrastructure", total: 156, pending: 23, resolved: 133, avgTime: "3.2 days", score: 85 },
-  { id: 2, name: "Water Supply", total: 89, pending: 15, resolved: 74, avgTime: "2.8 days", score: 92 },
-  { id: 3, name: "Electricity Board", total: 124, pending: 45, resolved: 79, avgTime: "4.5 days", score: 64 },
-  { id: 4, name: "Sanitation", total: 67, pending: 8, resolved: 59, avgTime: "2.1 days", score: 88 },
-  { id: 5, name: "Public Works", total: 45, pending: 12, resolved: 33, avgTime: "5.2 days", score: 73 },
-];
-
-const activityData = [
-  { id: 1, type: "filed", message: "New complaint filed by Rahul Kumar", time: "2 mins ago", color: "bg-blue-500" },
-  { id: 2, type: "assigned", message: "GR2024001234 assigned to Roads Dept", time: "15 mins ago", color: "bg-purple-500" },
-  { id: 3, type: "resolved", message: "GR2024001189 marked as resolved", time: "32 mins ago", color: "bg-green-500" },
-  { id: 4, type: "sla", message: "SLA breached for GR2024000987", time: "1 hour ago", color: "bg-red-500" },
-  { id: 5, type: "filed", message: "New complaint filed by Priya Singh", time: "1.5 hours ago", color: "bg-blue-500" },
-  { id: 6, type: "resolved", message: "GR2024001156 marked as resolved", time: "2 hours ago", color: "bg-green-500" },
-  { id: 7, type: "assigned", message: "GR2024001245 assigned to Water Dept", time: "3 hours ago", color: "bg-purple-500" },
-  { id: 8, type: "filed", message: "New complaint filed by Amit Patel", time: "4 hours ago", color: "bg-blue-500" },
-];
-
-const alerts = [
-  { id: 1, title: "5 complaints breaching SLA", type: "critical", icon: AlertTriangle },
-  { id: 2, title: "3 departments overloaded", type: "warning", icon: Users },
-  { id: 3, title: "12 complaints pending >7 days", type: "critical", icon: Clock },
-];
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState<string>("total");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [alerts, setAlerts] = useState<any[]>([]);
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -98,9 +56,16 @@ const AdminDashboard = () => {
       setSortDirection("desc");
     }
   };
+  const [statsData, setStatsData] = useState<any[]>([]);
+  const [trendChartData, setTrendChartData] = useState<any[]>([]);
+  const [categoryChartData, setCategoryChartData] = useState<any[]>([]);
+  const [deptData, setDeptData] = useState<any[]>([]);
+  const [activityFeed, setActivityFeed] = useState<any[]>([]);
 
-  const sortedDepartments = [...departmentData]
-    .filter((dept) => dept.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const sortedDepartments = [...deptData]
+    .filter((dept) =>
+      dept.name.toLowerCase().includes(searchTerm.toLowerCase()),
+    )
     .sort((a, b) => {
       const aVal = a[sortColumn as keyof typeof a];
       const bVal = b[sortColumn as keyof typeof b];
@@ -116,48 +81,73 @@ const AdminDashboard = () => {
     return "bg-red-500";
   };
 
-  const stats = [
-    {
-      title: "Total Complaints",
-      value: "2,847",
-      subtitle: "All time",
-      trend: "+12.5%",
-      trendUp: true,
-      icon: FileText,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-    },
-    {
-      title: "Today's Complaints",
-      value: "47",
-      subtitle: "Since midnight",
-      trend: "+8.2%",
-      trendUp: true,
-      icon: TrendingUp,
-      iconBg: "bg-green-100",
-      iconColor: "text-green-600",
-    },
-    {
-      title: "Pending Review",
-      value: "156",
-      subtitle: "Awaiting action",
-      trend: "-5.3%",
-      trendUp: false,
-      icon: Clock,
-      iconBg: "bg-orange-100",
-      iconColor: "text-orange-600",
-    },
-    {
-      title: "Resolution Rate",
-      value: "87.3%",
-      subtitle: "Last 30 days",
-      trend: "+2.1%",
-      trendUp: true,
-      icon: CheckCircle2,
-      iconBg: "bg-purple-100",
-      iconColor: "text-purple-600",
-    },
-  ];
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const res = await adminService.getDashboardStats();
+      const {
+        stats,
+        trendData,
+        categoryBreakdown,
+        deptPerformance,
+        recentActivity,
+        alerts
+      } = res.data;
+      setAlerts(alerts);
+      setStatsData([
+        {
+          title: "Total Complaints",
+          value: stats.totalComplaints,
+          subtitle: "All time",
+          trend: stats.totalTrend,
+          trendUp: stats.totalTrendUp,
+          icon: FileText,
+          iconBg: "bg-blue-100",
+          iconColor: "text-blue-600",
+        },
+        {
+          title: "Today's Complaints",
+          value: stats.todayComplaints,
+          subtitle: "Since midnight",
+          trend: stats.todayTrend,
+          trendUp: stats.todayTrendUp,
+          icon: TrendingUp,
+          iconBg: "bg-green-100",
+          iconColor: "text-green-600",
+        },
+        {
+          title: "Pending Review",
+          value: stats.pendingReview,
+          subtitle: "Awaiting action",
+          trend: stats.pendingTrend,
+          trendUp: stats.pendingTrendUp,
+          icon: Clock,
+          iconBg: "bg-orange-100",
+          iconColor: "text-orange-600",
+        },
+        {
+          title: "Resolution Rate",
+          value: stats.resolutionRate,
+          subtitle: "Last 30 days",
+          trend: stats.resolutionTrend,
+          trendUp: stats.resolutionTrendUp,
+          icon: CheckCircle2,
+          iconBg: "bg-purple-100",
+          iconColor: "text-purple-600",
+        },
+      ]);
+      setTrendChartData(trendData);
+      setCategoryChartData(categoryBreakdown);
+      setDeptData(deptPerformance);
+      setActivityFeed(recentActivity);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to load dashbpard");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -174,8 +164,12 @@ const AdminDashboard = () => {
                   <BarChart3 className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                  <p className="text-xs text-gray-500">Grievance Management System</p>
+                  <h1 className="text-xl font-bold text-gray-900">
+                    Admin Dashboard
+                  </h1>
+                  <p className="text-xs text-gray-500">
+                    Grievance Management System
+                  </p>
                 </div>
               </div>
             </div>
@@ -232,14 +226,18 @@ const AdminDashboard = () => {
                 >
                   <alert.icon
                     className={`w-5 h-5 ${
-                      alert.type === "critical" ? "text-red-600" : "text-orange-600"
+                      alert.type === "critical"
+                        ? "text-red-600"
+                        : "text-orange-600"
                     }`}
                   />
                 </div>
                 <div className="flex-1">
                   <p
                     className={`font-medium ${
-                      alert.type === "critical" ? "text-red-800" : "text-orange-800"
+                      alert.type === "critical"
+                        ? "text-red-800"
+                        : "text-orange-800"
                     }`}
                   >
                     {alert.title}
@@ -247,7 +245,9 @@ const AdminDashboard = () => {
                 </div>
                 <ChevronRight
                   className={`w-5 h-5 ${
-                    alert.type === "critical" ? "text-red-400" : "text-orange-400"
+                    alert.type === "critical"
+                      ? "text-red-400"
+                      : "text-orange-400"
                   }`}
                 />
               </div>
@@ -257,7 +257,7 @@ const AdminDashboard = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
+          {statsData.map((stat, index) => (
             <motion.div
               key={stat.title}
               initial={{ opacity: 0, y: 20 }}
@@ -271,7 +271,9 @@ const AdminDashboard = () => {
                 </div>
                 <div
                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                    stat.trendUp ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    stat.trendUp
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
                   }`}
                 >
                   {stat.trendUp ? (
@@ -283,7 +285,9 @@ const AdminDashboard = () => {
                 </div>
               </div>
               <div className="mt-4">
-                <h3 className="text-3xl font-bold text-gray-900">{stat.value}</h3>
+                <h3 className="text-3xl font-bold text-gray-900">
+                  {stat.value}
+                </h3>
                 <p className="text-sm text-gray-500 mt-1">{stat.title}</p>
                 <p className="text-xs text-gray-400">{stat.subtitle}</p>
               </div>
@@ -302,7 +306,9 @@ const AdminDashboard = () => {
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Complaints Trend</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Complaints Trend
+                </h3>
                 <p className="text-sm text-gray-500">Last 30 Days</p>
               </div>
               <Button variant="ghost" size="icon">
@@ -311,7 +317,7 @@ const AdminDashboard = () => {
             </div>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData}>
+                <LineChart data={trendChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
                   <YAxis stroke="#9ca3af" fontSize={12} />
@@ -363,7 +369,9 @@ const AdminDashboard = () => {
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Complaints by Category</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Complaints by Category
+                </h3>
                 <p className="text-sm text-gray-500">Distribution Overview</p>
               </div>
               <Button variant="ghost" size="icon">
@@ -374,7 +382,7 @@ const AdminDashboard = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={categoryData}
+                    data={categoryChartData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -382,8 +390,8 @@ const AdminDashboard = () => {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {categoryChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color||"#3B82F6"} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -393,12 +401,14 @@ const AdminDashboard = () => {
                       borderRadius: "12px",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
-                    formatter={(value: number) => [`${value}%`, "Percentage"]}
+                    formatter={(value: number |undefined) => [`${value ?? 0}%`, "Percentage"]}
                   />
                   <Legend
                     verticalAlign="bottom"
                     height={36}
-                    formatter={(value) => <span className="text-sm text-gray-600">{value}</span>}
+                    formatter={(value) => (
+                      <span className="text-sm text-gray-600">{value}</span>
+                    )}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -416,8 +426,12 @@ const AdminDashboard = () => {
           <div className="p-6 border-b border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Department Performance</h3>
-                <p className="text-sm text-gray-500">Track and compare department metrics</p>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Department Performance
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Track and compare department metrics
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -458,7 +472,9 @@ const AdminDashboard = () => {
                       <div className="flex items-center gap-2">
                         {column.label}
                         {sortColumn === column.key && (
-                          <span className="text-blue-600">{sortDirection === "asc" ? "↑" : "↓"}</span>
+                          <span className="text-blue-600">
+                            {sortDirection === "asc" ? "↑" : "↓"}
+                          </span>
                         )}
                       </div>
                     </th>
@@ -476,10 +492,14 @@ const AdminDashboard = () => {
                         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
                           <Building2 className="w-5 h-5 text-blue-600" />
                         </div>
-                        <span className="font-medium text-gray-900">{dept.name}</span>
+                        <span className="font-medium text-gray-900">
+                          {dept.name}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-gray-900">{dept.total}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">
+                      {dept.total}
+                    </td>
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
                         {dept.pending}
@@ -499,7 +519,9 @@ const AdminDashboard = () => {
                             style={{ width: `${dept.score}%` }}
                           />
                         </div>
-                        <span className="text-sm font-medium text-gray-700">{dept.score}%</span>
+                        <span className="text-sm font-medium text-gray-700">
+                          {dept.score}%
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -518,8 +540,12 @@ const AdminDashboard = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-              <p className="text-sm text-gray-500">Latest updates and actions</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Recent Activity
+              </h3>
+              <p className="text-sm text-gray-500">
+                Latest updates and actions
+              </p>
             </div>
             <Button variant="ghost" size="sm" className="gap-2 text-blue-600">
               View All
@@ -528,7 +554,7 @@ const AdminDashboard = () => {
           </div>
 
           <div className="space-y-4">
-            {activityData.map((activity, index) => (
+            {activityFeed.map((activity, index) => (
               <motion.div
                 key={activity.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -538,7 +564,7 @@ const AdminDashboard = () => {
               >
                 <div className="relative">
                   <div className={`w-3 h-3 rounded-full ${activity.color}`} />
-                  {index < activityData.length - 1 && (
+                  {index < activityFeed.length - 1 && (
                     <div className="absolute top-4 left-1/2 -translate-x-1/2 w-0.5 h-8 bg-gray-200" />
                   )}
                 </div>

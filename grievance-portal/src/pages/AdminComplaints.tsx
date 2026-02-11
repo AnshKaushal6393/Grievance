@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import adminService from "@/services/adminService";
 import {
   Search,
   Filter,
@@ -22,7 +22,6 @@ import {
   ChevronRight,
   FileSpreadsheet,
   Users,
-  AlertTriangle,
   Clock,
   CheckCircle,
   Circle,
@@ -69,6 +68,7 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import Navbar from "@/components/Navbar";
+import { toast } from "sonner";
 
 interface Complaint {
   id: string;
@@ -83,165 +83,6 @@ interface Complaint {
   filedDate: string;
   lastUpdated: string;
 }
-
-const allComplaints: Complaint[] = [
-  {
-    id: "GR2024001234",
-    title: "Pothole on Main Street causing accidents",
-    description: "Large pothole near the intersection of Main St and Oak Ave. Multiple vehicles have been damaged.",
-    category: "Roads & Infrastructure",
-    status: "pending",
-    priority: "high",
-    citizenName: "Rahul Sharma",
-    citizenEmail: "rahul@email.com",
-    department: null,
-    filedDate: "2024-01-15",
-    lastUpdated: "2024-01-15",
-  },
-  {
-    id: "GR2024001235",
-    title: "Water supply disruption in Sector 5",
-    description: "No water supply for the past 3 days in the entire sector.",
-    category: "Water Supply",
-    status: "assigned",
-    priority: "critical",
-    citizenName: "Priya Patel",
-    citizenEmail: "priya@email.com",
-    department: "Water Department",
-    filedDate: "2024-01-14",
-    lastUpdated: "2024-01-16",
-  },
-  {
-    id: "GR2024001236",
-    title: "Streetlight not working near bus stop",
-    description: "The streetlight near the central bus stop has been non-functional for a week.",
-    category: "Electricity",
-    status: "in-progress",
-    priority: "medium",
-    citizenName: "Amit Kumar",
-    citizenEmail: "amit@email.com",
-    department: "Electricity Board",
-    filedDate: "2024-01-13",
-    lastUpdated: "2024-01-17",
-  },
-  {
-    id: "GR2024001237",
-    title: "Garbage not collected for a week",
-    description: "Garbage bins overflowing in residential area Block B.",
-    category: "Sanitation",
-    status: "resolved",
-    priority: "medium",
-    citizenName: "Sneha Gupta",
-    citizenEmail: "sneha@email.com",
-    department: "Sanitation Department",
-    filedDate: "2024-01-10",
-    lastUpdated: "2024-01-18",
-  },
-  {
-    id: "GR2024001238",
-    title: "Broken traffic signal at Market Road",
-    description: "Traffic signal malfunction causing traffic jams during peak hours.",
-    category: "Traffic",
-    status: "assigned",
-    priority: "high",
-    citizenName: "Vikram Singh",
-    citizenEmail: "vikram@email.com",
-    department: "Traffic Police",
-    filedDate: "2024-01-12",
-    lastUpdated: "2024-01-14",
-  },
-  {
-    id: "GR2024001239",
-    title: "Sewage overflow on Park Street",
-    description: "Sewage water overflowing onto the main road creating health hazard.",
-    category: "Sanitation",
-    status: "pending",
-    priority: "critical",
-    citizenName: "Meera Joshi",
-    citizenEmail: "meera@email.com",
-    department: null,
-    filedDate: "2024-01-16",
-    lastUpdated: "2024-01-16",
-  },
-  {
-    id: "GR2024001240",
-    title: "Noise pollution from construction site",
-    description: "Construction work continuing after permitted hours in residential zone.",
-    category: "Environment",
-    status: "in-progress",
-    priority: "low",
-    citizenName: "Raj Malhotra",
-    citizenEmail: "raj@email.com",
-    department: "Environment Agency",
-    filedDate: "2024-01-11",
-    lastUpdated: "2024-01-15",
-  },
-  {
-    id: "GR2024001241",
-    title: "Public park maintenance needed",
-    description: "Playground equipment broken and grass overgrown in Central Park.",
-    category: "Parks & Recreation",
-    status: "pending",
-    priority: "low",
-    citizenName: "Anita Verma",
-    citizenEmail: "anita@email.com",
-    department: null,
-    filedDate: "2024-01-09",
-    lastUpdated: "2024-01-09",
-  },
-  {
-    id: "GR2024001242",
-    title: "Illegal parking blocking fire lane",
-    description: "Vehicles regularly parked in fire lane at shopping complex.",
-    category: "Traffic",
-    status: "rejected",
-    priority: "medium",
-    citizenName: "Suresh Reddy",
-    citizenEmail: "suresh@email.com",
-    department: "Traffic Police",
-    filedDate: "2024-01-08",
-    lastUpdated: "2024-01-12",
-  },
-  {
-    id: "GR2024001243",
-    title: "Bridge repair needed urgently",
-    description: "Cracks visible on the old bridge connecting two districts.",
-    category: "Roads & Infrastructure",
-    status: "assigned",
-    priority: "critical",
-    citizenName: "Kiran Rao",
-    citizenEmail: "kiran@email.com",
-    department: "PWD",
-    filedDate: "2024-01-07",
-    lastUpdated: "2024-01-10",
-  },
-  {
-    id: "GR2024001244",
-    title: "Water contamination in well",
-    description: "Residents reporting illness after drinking well water in village area.",
-    category: "Water Supply",
-    status: "in-progress",
-    priority: "critical",
-    citizenName: "Lakshmi Devi",
-    citizenEmail: "lakshmi@email.com",
-    department: "Health Department",
-    filedDate: "2024-01-06",
-    lastUpdated: "2024-01-16",
-  },
-  {
-    id: "GR2024001245",
-    title: "Street vendor encroachment",
-    description: "Unauthorized vendors blocking pedestrian walkway near station.",
-    category: "Municipal",
-    status: "pending",
-    priority: "medium",
-    citizenName: "Deepak Nair",
-    citizenEmail: "deepak@email.com",
-    department: null,
-    filedDate: "2024-01-05",
-    lastUpdated: "2024-01-05",
-  },
-];
 
 const categories = [
   "Roads & Infrastructure",
@@ -268,6 +109,8 @@ const statuses = ["pending", "assigned", "in-progress", "resolved", "rejected"];
 const priorities = ["low", "medium", "high", "critical"];
 
 const AdminComplaints = () => {
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -282,126 +125,148 @@ const AdminComplaints = () => {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [quickViewComplaint, setQuickViewComplaint] = useState<Complaint | null>(null);
+  const [quickViewComplaint, setQuickViewComplaint] =
+    useState<Complaint | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [totalPages,setTotalPages]=useState(1);
+
+  const fetchComplaints = async () => {
+    setIsLoading(true);
+    try {
+      const res = await adminService.getAllComplaints({
+        search: searchQuery,
+        status: selectedStatuses.join(","),
+        priority: selectedPriority,
+        department: selectedDepartment,
+        sortBy: sortColumn,
+        sortDir: sortDirection,
+        page: currentPage,
+        limit: itemsPerPage,
+      });
+      setComplaints(res.data.complaints);
+      setTotalPages(res.data.totalPages);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchComplaints();
+  }, [
+    searchQuery,
+    currentPage,
+    sortColumn,
+    sortDirection,
+    selectedStatuses,
+    selectedPriority,
+    selectedDepartment,
+    itemsPerPage,
+  ]);
 
   const getStatusConfig = (status: string) => {
     switch (status) {
       case "pending":
-        return { label: "Pending", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", icon: Clock };
+        return {
+          label: "Pending",
+          className:
+            "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+          icon: Clock,
+        };
       case "assigned":
-        return { label: "Assigned", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", icon: Users };
+        return {
+          label: "Assigned",
+          className:
+            "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+          icon: Users,
+        };
       case "in-progress":
-        return { label: "In Progress", className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400", icon: Loader2 };
+        return {
+          label: "In Progress",
+          className:
+            "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+          icon: Loader2,
+        };
       case "resolved":
-        return { label: "Resolved", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: CheckCircle };
+        return {
+          label: "Resolved",
+          className:
+            "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+          icon: CheckCircle,
+        };
       case "rejected":
-        return { label: "Rejected", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", icon: XCircle };
+        return {
+          label: "Rejected",
+          className:
+            "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+          icon: XCircle,
+        };
       default:
-        return { label: status, className: "bg-gray-100 text-gray-800", icon: Circle };
+        return {
+          label: status,
+          className: "bg-gray-100 text-gray-800",
+          icon: Circle,
+        };
     }
   };
 
   const getPriorityConfig = (priority: string) => {
     switch (priority) {
       case "low":
-        return { label: "Low", dotClass: "bg-gray-400", textClass: "text-gray-600" };
+        return {
+          label: "Low",
+          dotClass: "bg-gray-400",
+          textClass: "text-gray-600",
+        };
       case "medium":
-        return { label: "Medium", dotClass: "bg-amber-400", textClass: "text-amber-600" };
+        return {
+          label: "Medium",
+          dotClass: "bg-amber-400",
+          textClass: "text-amber-600",
+        };
       case "high":
-        return { label: "High", dotClass: "bg-orange-500", textClass: "text-orange-600" };
+        return {
+          label: "High",
+          dotClass: "bg-orange-500",
+          textClass: "text-orange-600",
+        };
       case "critical":
-        return { label: "Critical", dotClass: "bg-red-500", textClass: "text-red-600" };
+        return {
+          label: "Critical",
+          dotClass: "bg-red-500",
+          textClass: "text-red-600",
+        };
       default:
-        return { label: priority, dotClass: "bg-gray-400", textClass: "text-gray-600" };
+        return {
+          label: priority,
+          dotClass: "bg-gray-400",
+          textClass: "text-gray-600",
+        };
     }
   };
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      "Roads & Infrastructure": "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-      "Water Supply": "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
-      "Electricity": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-      "Sanitation": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-      "Traffic": "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
-      "Environment": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-      "Parks & Recreation": "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
-      "Municipal": "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+      "Roads & Infrastructure":
+        "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+      "Water Supply":
+        "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+      Electricity:
+        "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+      Sanitation:
+        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+      Traffic:
+        "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+      Environment:
+        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+      "Parks & Recreation":
+        "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
+      Municipal:
+        "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
     };
     return colors[category] || "bg-gray-100 text-gray-700";
   };
-
-  const filteredComplaints = useMemo(() => {
-    let result = [...allComplaints];
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.id.toLowerCase().includes(query) ||
-          c.title.toLowerCase().includes(query) ||
-          c.description.toLowerCase().includes(query)
-      );
-    }
-
-    // Status filter
-    if (selectedStatuses.length > 0) {
-      result = result.filter((c) => selectedStatuses.includes(c.status));
-    }
-
-    // Category filter
-    if (selectedCategories.length > 0) {
-      result = result.filter((c) => selectedCategories.includes(c.category));
-    }
-
-    // Department filter
-    if (selectedDepartment) {
-      result = result.filter((c) => c.department === selectedDepartment);
-    }
-
-    // Priority filter
-    if (selectedPriority) {
-      result = result.filter((c) => c.priority === selectedPriority);
-    }
-
-    // Date range filter
-    if (dateFrom) {
-      result = result.filter((c) => new Date(c.filedDate) >= dateFrom);
-    }
-    if (dateTo) {
-      result = result.filter((c) => new Date(c.filedDate) <= dateTo);
-    }
-
-    // Sorting
-    result.sort((a, b) => {
-      let aVal: string | number = a[sortColumn as keyof Complaint] || "";
-      let bVal: string | number = b[sortColumn as keyof Complaint] || "";
-
-      if (sortColumn === "filedDate" || sortColumn === "lastUpdated") {
-        aVal = new Date(aVal as string).getTime();
-        bVal = new Date(bVal as string).getTime();
-      }
-
-      if (sortColumn === "priority") {
-        const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-        aVal = priorityOrder[aVal as keyof typeof priorityOrder] || 0;
-        bVal = priorityOrder[bVal as keyof typeof priorityOrder] || 0;
-      }
-
-      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
-      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return result;
-  }, [searchQuery, selectedStatuses, selectedCategories, selectedDepartment, selectedPriority, dateFrom, dateTo, sortColumn, sortDirection]);
-
-  const totalPages = Math.ceil(filteredComplaints.length / itemsPerPage);
-  const paginatedComplaints = filteredComplaints.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedComplaints = complaints;
+  
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -462,20 +327,44 @@ const AdminComplaints = () => {
     });
   };
 
-  const SortableHeader = ({ column, children }: { column: string; children: React.ReactNode }) => (
+  const SortableHeader = ({
+    column,
+    children,
+  }: {
+    column: string;
+    children: React.ReactNode;
+  }) => (
     <TableHead
       className="cursor-pointer hover:bg-muted/50 transition-colors select-none"
       onClick={() => handleSort(column)}
     >
       <div className="flex items-center gap-2">
         {children}
-        <ArrowUpDown className={`h-4 w-4 ${sortColumn === column ? "text-primary" : "text-muted-foreground"}`} />
-        {sortColumn === column && (
-          sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-        )}
+        <ArrowUpDown
+          className={`h-4 w-4 ${sortColumn === column ? "text-primary" : "text-muted-foreground"}`}
+        />
+        {sortColumn === column &&
+          (sortDirection === "asc" ? (
+            <ChevronUp className="h-3 w-3" />
+          ) : (
+            <ChevronDown className="h-3 w-3" />
+          ))}
       </div>
     </TableHead>
   );
+
+  const handleAssign = async (id: string, departmentId: string) => {
+    await adminService.assignComplaint(id, { departmentId });
+    toast.success("Complaint assigned!");
+    fetchComplaints();
+  };
+
+  const handleBulkAssign = async (departmentId: string) => {
+    await adminService.bulkAssign(selectedRows, departmentId);
+    toast.success(`${selectedRows.length} complaints assigned!`);
+    setSelectedRows([]);
+    fetchComplaints();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -485,9 +374,11 @@ const AdminComplaints = () => {
         {/* Page Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground">All Complaints</h1>
+            <h1 className="text-3xl font-bold text-foreground">
+              All Complaints
+            </h1>
             <Badge variant="secondary" className="text-lg px-3 py-1">
-              {filteredComplaints.length}
+              {complaints.length}
             </Badge>
           </div>
 
@@ -503,7 +394,12 @@ const AdminComplaints = () => {
             >
               <Filter className="h-4 w-4" />
               Advanced Filters
-              {(selectedStatuses.length > 0 || selectedCategories.length > 0 || selectedDepartment || selectedPriority || dateFrom || dateTo) && (
+              {(selectedStatuses.length > 0 ||
+                selectedCategories.length > 0 ||
+                selectedDepartment ||
+                selectedPriority ||
+                dateFrom ||
+                dateTo) && (
                 <Badge className="ml-1 bg-primary-foreground text-primary h-5 w-5 p-0 flex items-center justify-center rounded-full">
                   !
                 </Badge>
@@ -526,7 +422,9 @@ const AdminComplaints = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {/* Search */}
                     <div className="lg:col-span-2">
-                      <label className="text-sm font-medium mb-2 block">Search</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        Search
+                      </label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -540,11 +438,18 @@ const AdminComplaints = () => {
 
                     {/* Status Multi-select */}
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Status</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        Status
+                      </label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-between">
-                            {selectedStatuses.length > 0 ? `${selectedStatuses.length} selected` : "All Statuses"}
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between"
+                          >
+                            {selectedStatuses.length > 0
+                              ? `${selectedStatuses.length} selected`
+                              : "All Statuses"}
                             <ChevronDown className="h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -555,8 +460,12 @@ const AdminComplaints = () => {
                               className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer"
                               onClick={() => toggleStatusFilter(status)}
                             >
-                              <Checkbox checked={selectedStatuses.includes(status)} />
-                              <span className="capitalize">{status.replace("-", " ")}</span>
+                              <Checkbox
+                                checked={selectedStatuses.includes(status)}
+                              />
+                              <span className="capitalize">
+                                {status.replace("-", " ")}
+                              </span>
                             </div>
                           ))}
                         </PopoverContent>
@@ -565,11 +474,18 @@ const AdminComplaints = () => {
 
                     {/* Category Multi-select */}
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Category</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        Category
+                      </label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-between">
-                            {selectedCategories.length > 0 ? `${selectedCategories.length} selected` : "All Categories"}
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between"
+                          >
+                            {selectedCategories.length > 0
+                              ? `${selectedCategories.length} selected`
+                              : "All Categories"}
                             <ChevronDown className="h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -580,7 +496,9 @@ const AdminComplaints = () => {
                               className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer"
                               onClick={() => toggleCategoryFilter(category)}
                             >
-                              <Checkbox checked={selectedCategories.includes(category)} />
+                              <Checkbox
+                                checked={selectedCategories.includes(category)}
+                              />
                               <span className="text-sm">{category}</span>
                             </div>
                           ))}
@@ -590,8 +508,13 @@ const AdminComplaints = () => {
 
                     {/* Department */}
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Department</label>
-                      <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                      <label className="text-sm font-medium mb-2 block">
+                        Department
+                      </label>
+                      <Select
+                        value={selectedDepartment}
+                        onValueChange={setSelectedDepartment}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="All Departments" />
                         </SelectTrigger>
@@ -608,15 +531,24 @@ const AdminComplaints = () => {
 
                     {/* Priority */}
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Priority</label>
-                      <Select value={selectedPriority} onValueChange={setSelectedPriority}>
+                      <label className="text-sm font-medium mb-2 block">
+                        Priority
+                      </label>
+                      <Select
+                        value={selectedPriority}
+                        onValueChange={setSelectedPriority}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="All Priorities" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Priorities</SelectItem>
                           {priorities.map((priority) => (
-                            <SelectItem key={priority} value={priority} className="capitalize">
+                            <SelectItem
+                              key={priority}
+                              value={priority}
+                              className="capitalize"
+                            >
                               {priority}
                             </SelectItem>
                           ))}
@@ -626,12 +558,19 @@ const AdminComplaints = () => {
 
                     {/* Date From */}
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Date From</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        Date From
+                      </label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start gap-2">
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start gap-2"
+                          >
                             <Calendar className="h-4 w-4" />
-                            {dateFrom ? format(dateFrom, "dd MMM yyyy") : "Select date"}
+                            {dateFrom
+                              ? format(dateFrom, "dd MMM yyyy")
+                              : "Select date"}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -647,12 +586,19 @@ const AdminComplaints = () => {
 
                     {/* Date To */}
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Date To</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        Date To
+                      </label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start gap-2">
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start gap-2"
+                          >
                             <Calendar className="h-4 w-4" />
-                            {dateTo ? format(dateTo, "dd MMM yyyy") : "Select date"}
+                            {dateTo
+                              ? format(dateTo, "dd MMM yyyy")
+                              : "Select date"}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -668,7 +614,9 @@ const AdminComplaints = () => {
                   </div>
 
                   <div className="flex gap-3 mt-4 pt-4 border-t">
-                    <Button onClick={() => setCurrentPage(1)}>Apply Filters</Button>
+                    <Button onClick={() => setCurrentPage(1)}>
+                      Apply Filters
+                    </Button>
                     <Button variant="outline" onClick={clearAllFilters}>
                       Clear All
                     </Button>
@@ -692,7 +640,9 @@ const AdminComplaints = () => {
                 <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <Check className="h-5 w-5 text-primary" />
-                    <span className="font-medium">{selectedRows.length} complaints selected</span>
+                    <span className="font-medium">
+                      {selectedRows.length} complaints selected
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" className="gap-2">
@@ -707,7 +657,11 @@ const AdminComplaints = () => {
                       <CheckCircle className="h-4 w-4" />
                       Mark as Reviewed
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setSelectedRows([])}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelectedRows([])}
+                    >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
@@ -726,7 +680,10 @@ const AdminComplaints = () => {
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedRows.length === paginatedComplaints.length && paginatedComplaints.length > 0}
+                        checked={
+                          selectedRows.length === paginatedComplaints.length &&
+                          paginatedComplaints.length > 0
+                        }
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>
@@ -735,17 +692,27 @@ const AdminComplaints = () => {
                     <SortableHeader column="category">Category</SortableHeader>
                     <SortableHeader column="status">Status</SortableHeader>
                     <SortableHeader column="priority">Priority</SortableHeader>
-                    <SortableHeader column="citizenName">Citizen</SortableHeader>
-                    <SortableHeader column="department">Department</SortableHeader>
-                    <SortableHeader column="filedDate">Filed Date</SortableHeader>
-                    <SortableHeader column="lastUpdated">Last Updated</SortableHeader>
+                    <SortableHeader column="citizenName">
+                      Citizen
+                    </SortableHeader>
+                    <SortableHeader column="department">
+                      Department
+                    </SortableHeader>
+                    <SortableHeader column="filedDate">
+                      Filed Date
+                    </SortableHeader>
+                    <SortableHeader column="lastUpdated">
+                      Last Updated
+                    </SortableHeader>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedComplaints.map((complaint) => {
                     const statusConfig = getStatusConfig(complaint.status);
-                    const priorityConfig = getPriorityConfig(complaint.priority);
+                    const priorityConfig = getPriorityConfig(
+                      complaint.priority,
+                    );
                     const StatusIcon = statusConfig.icon;
 
                     return (
@@ -753,37 +720,61 @@ const AdminComplaints = () => {
                         <TableRow
                           key={complaint.id}
                           className={`hover:bg-muted/30 transition-colors cursor-pointer ${
-                            selectedRows.includes(complaint.id) ? "bg-primary/5" : ""
+                            selectedRows.includes(complaint.id)
+                              ? "bg-primary/5"
+                              : ""
                           }`}
-                          onClick={() => setExpandedRow(expandedRow === complaint.id ? null : complaint.id)}
+                          onClick={() =>
+                            setExpandedRow(
+                              expandedRow === complaint.id
+                                ? null
+                                : complaint.id,
+                            )
+                          }
                         >
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={selectedRows.includes(complaint.id)}
-                              onCheckedChange={(checked) => handleSelectRow(complaint.id, checked as boolean)}
+                              onCheckedChange={(checked) =>
+                                handleSelectRow(
+                                  complaint.id,
+                                  checked as boolean,
+                                )
+                              }
                             />
                           </TableCell>
                           <TableCell className="font-mono text-sm font-medium text-primary">
                             {complaint.id}
                           </TableCell>
                           <TableCell className="max-w-[200px]">
-                            <p className="truncate font-medium">{complaint.title}</p>
+                            <p className="truncate font-medium">
+                              {complaint.title}
+                            </p>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className={getCategoryColor(complaint.category)}>
+                            <Badge
+                              variant="secondary"
+                              className={getCategoryColor(complaint.category)}
+                            >
                               {complaint.category}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={`${statusConfig.className} gap-1`}>
+                            <Badge
+                              className={`${statusConfig.className} gap-1`}
+                            >
                               <StatusIcon className="h-3 w-3" />
                               {statusConfig.label}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full ${priorityConfig.dotClass}`} />
-                              <span className={`text-sm ${priorityConfig.textClass}`}>
+                              <span
+                                className={`w-2 h-2 rounded-full ${priorityConfig.dotClass}`}
+                              />
+                              <span
+                                className={`text-sm ${priorityConfig.textClass}`}
+                              >
                                 {priorityConfig.label}
                               </span>
                             </div>
@@ -791,13 +782,21 @@ const AdminComplaints = () => {
                           <TableCell>{complaint.citizenName}</TableCell>
                           <TableCell>
                             {complaint.department ? (
-                              <span className="text-sm">{complaint.department}</span>
+                              <span className="text-sm">
+                                {complaint.department}
+                              </span>
                             ) : (
-                              <span className="text-muted-foreground text-sm italic">Unassigned</span>
+                              <span className="text-muted-foreground text-sm italic">
+                                Unassigned
+                              </span>
                             )}
                           </TableCell>
-                          <TableCell className="text-sm">{formatDate(complaint.filedDate)}</TableCell>
-                          <TableCell className="text-sm">{formatDate(complaint.lastUpdated)}</TableCell>
+                          <TableCell className="text-sm">
+                            {formatDate(complaint.filedDate)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatDate(complaint.lastUpdated)}
+                          </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
                               <Button
@@ -816,12 +815,20 @@ const AdminComplaints = () => {
                               >
                                 <UserPlus className="h-4 w-4" />
                               </Button>
-                              <Button size="icon" variant="ghost" className="h-8 w-8">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                              >
                                 <Flag className="h-4 w-4" />
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button size="icon" variant="ghost" className="h-8 w-8">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                  >
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
@@ -858,12 +865,20 @@ const AdminComplaints = () => {
                                 >
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                      <h4 className="font-medium mb-2">Description</h4>
-                                      <p className="text-sm text-muted-foreground">{complaint.description}</p>
+                                      <h4 className="font-medium mb-2">
+                                        Description
+                                      </h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        {complaint.description}
+                                      </p>
                                     </div>
                                     <div>
-                                      <h4 className="font-medium mb-2">Contact Details</h4>
-                                      <p className="text-sm text-muted-foreground">{complaint.citizenEmail}</p>
+                                      <h4 className="font-medium mb-2">
+                                        Contact Details
+                                      </h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        {complaint.citizenEmail}
+                                      </p>
                                     </div>
                                   </div>
                                 </motion.div>
@@ -882,7 +897,13 @@ const AdminComplaints = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Showing</span>
-                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={(v) => {
+                    setItemsPerPage(Number(v));
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger className="w-20 h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -893,9 +914,7 @@ const AdminComplaints = () => {
                     <SelectItem value="100">100</SelectItem>
                   </SelectContent>
                 </Select>
-                <span>
-                  of {filteredComplaints.length} complaints
-                </span>
+                <span>of {complaints.length} complaints</span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -925,7 +944,9 @@ const AdminComplaints = () => {
                     return (
                       <Button
                         key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
+                        variant={
+                          currentPage === pageNum ? "default" : "outline"
+                        }
                         size="sm"
                         className="w-8 h-8 p-0"
                         onClick={() => setCurrentPage(pageNum)}
@@ -939,7 +960,9 @@ const AdminComplaints = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
                   disabled={currentPage === totalPages}
                 >
                   Next
@@ -952,13 +975,22 @@ const AdminComplaints = () => {
       </div>
 
       {/* Quick View Modal */}
-      <Dialog open={!!quickViewComplaint} onOpenChange={() => setQuickViewComplaint(null)}>
+      <Dialog
+        open={!!quickViewComplaint}
+        onOpenChange={() => setQuickViewComplaint(null)}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-              <span className="font-mono text-primary">{quickViewComplaint?.id}</span>
+              <span className="font-mono text-primary">
+                {quickViewComplaint?.id}
+              </span>
               {quickViewComplaint && (
-                <Badge className={getStatusConfig(quickViewComplaint.status).className}>
+                <Badge
+                  className={
+                    getStatusConfig(quickViewComplaint.status).className
+                  }
+                >
                   {getStatusConfig(quickViewComplaint.status).label}
                 </Badge>
               )}
@@ -968,42 +1000,65 @@ const AdminComplaints = () => {
           {quickViewComplaint && (
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold text-lg">{quickViewComplaint.title}</h3>
-                <p className="text-muted-foreground mt-2">{quickViewComplaint.description}</p>
+                <h3 className="font-semibold text-lg">
+                  {quickViewComplaint.title}
+                </h3>
+                <p className="text-muted-foreground mt-2">
+                  {quickViewComplaint.description}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                 <div>
                   <p className="text-sm text-muted-foreground">Category</p>
-                  <Badge variant="secondary" className={getCategoryColor(quickViewComplaint.category)}>
+                  <Badge
+                    variant="secondary"
+                    className={getCategoryColor(quickViewComplaint.category)}
+                  >
                     {quickViewComplaint.category}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Priority</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`w-2 h-2 rounded-full ${getPriorityConfig(quickViewComplaint.priority).dotClass}`} />
-                    <span className={getPriorityConfig(quickViewComplaint.priority).textClass}>
+                    <span
+                      className={`w-2 h-2 rounded-full ${getPriorityConfig(quickViewComplaint.priority).dotClass}`}
+                    />
+                    <span
+                      className={
+                        getPriorityConfig(quickViewComplaint.priority).textClass
+                      }
+                    >
                       {getPriorityConfig(quickViewComplaint.priority).label}
                     </span>
                   </div>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Citizen</p>
-                  <p className="font-medium">{quickViewComplaint.citizenName}</p>
-                  <p className="text-sm text-muted-foreground">{quickViewComplaint.citizenEmail}</p>
+                  <p className="font-medium">
+                    {quickViewComplaint.citizenName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {quickViewComplaint.citizenEmail}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Department</p>
-                  <p className="font-medium">{quickViewComplaint.department || "Unassigned"}</p>
+                  <p className="font-medium">
+                    {quickViewComplaint.department || "Unassigned"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Filed Date</p>
-                  <p className="font-medium">{formatDate(quickViewComplaint.filedDate)}</p>
+                  <p className="font-medium">
+                    {formatDate(quickViewComplaint.filedDate)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Last Updated</p>
-                  <p className="font-medium">{formatDate(quickViewComplaint.lastUpdated)}</p>
+                  <p className="font-medium">
+                    {formatDate(quickViewComplaint.lastUpdated)}
+                  </p>
                 </div>
               </div>
 

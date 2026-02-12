@@ -92,11 +92,14 @@ export const register = async (req, res) => {
     await user.save();
 
     await sendOTPEmail(email, otp, name);
-    await sendOTPSMS(phone, otp);
+    const smsResult = await sendOTPSMS(phone, otp);
 
     res.status(201).json({
       success: true,
-      message: "Registration successful! OTP sent to your email and phone",
+      message:
+        smsResult.success
+          ? "Registration successful! OTP sent to your email and phone"
+          : "Registration successful! OTP sent to your email. SMS delivery unavailable on this number.",
       data: {
         userId: user._id,
         email: user.email,
@@ -215,11 +218,13 @@ export const resendOTP = async (req, res) => {
 
     // Send OTP
     await sendOTPEmail(user.email, otp, user.name);
-    await sendOTPSMS(user.phone, otp);
+    const smsResult = await sendOTPSMS(user.phone, otp);
 
     res.status(200).json({
       success: true,
-      message: "OTP resent successfully",
+      message: smsResult.success
+        ? "OTP resent successfully"
+        : "OTP resent to email. SMS delivery unavailable on this number.",
     });
   } catch (error) {
     console.error("Resend OTP error:", error);
@@ -351,7 +356,15 @@ export const sendAadhaarOTP = async (req, res) => {
 
     // In production, this would call actual Aadhaar API
     // For now, send OTP to user's registered phone
-    await sendOTPSMS(user.phone, otp);
+    const smsResult = await sendOTPSMS(user.phone, otp);
+    if (!smsResult.success) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "SMS delivery unavailable for this number (Twilio trial requires verified recipients). Please verify the number in Twilio or use a verified phone.",
+        code: smsResult.code,
+      });
+    }
 
     res.status(200).json({
       success: true,

@@ -2,9 +2,9 @@ import { Router } from 'express';
 const router = Router();
 import { protect, authorize } from '../middleware/auth.js';
 
-import { getAllComplaints, assignComplaint, updateComplaintStatus, bulkAssign, getDashboardStats, getAnalytics } from '../controllers/adminComplaintController';
+import { getAllComplaints, assignComplaint, updateComplaintStatus, bulkAssign, getDashboardStats, getAnalytics } from '../controllers/adminController.js';
 
-import { getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment, addOfficer, removeOfficer, getAllUsers } from '../controllers/departmentController';
+import { getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment, addOfficer, removeOfficer, getAllUsers } from '../controllers/departmentController.js';
 
 // All routes require admin role
 router.use(protect, authorize('admin'));

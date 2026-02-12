@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { FileText, Search, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -58,14 +59,18 @@ const HeroSection = () => {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="flex flex-col sm:flex-row gap-4 justify-center mb-16"
           >
-            <Button size="lg" className="gradient-bg text-lg px-8 py-6 rounded-xl glow-effect hover:scale-105 transition-transform">
-              <FileText className="w-5 h-5 mr-2" />
-              File a Complaint
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-xl glass border-white/20 hover:bg-white/10 transition-all">
-              <Search className="w-5 h-5 mr-2" />
-              Track Complaint
-            </Button>
+            <Link to="/file-complaint">
+              <Button size="lg" className="gradient-bg text-lg px-8 py-6 rounded-xl glow-effect hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5 mr-2" />
+                File a Complaint
+              </Button>
+            </Link>
+            <Link to="/track-complaint">
+              <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-xl glass border-white/20 hover:bg-white/10 transition-all">
+                <Search className="w-5 h-5 mr-2" />
+                Track Complaint
+              </Button>
+            </Link>
           </motion.div>
 
           <motion.div

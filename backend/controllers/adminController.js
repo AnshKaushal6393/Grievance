@@ -1,5 +1,5 @@
-import { find, countDocuments, aggregate, findById, updateMany } from '../models/Complaint';
-import { aggregate as _aggregate } from '../models/Department';
+import Complaint from "../models/Complaint.js";
+import Department from "../models/Department.js";
 
 
 // @desc    Get all complaints (Admin)
@@ -40,7 +40,7 @@ export async function getAllComplaints(req, res) {
     const sort = { [sortBy === 'filedDate' ? 'createdAt' : sortBy]: sortDir === 'asc' ? 1 : -1 };
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const complaints = await find(query)
+    const complaints = await Complaint.find(query)
       .sort(sort)
       .limit(parseInt(limit))
       .skip(skip)
@@ -48,10 +48,10 @@ export async function getAllComplaints(req, res) {
       .populate('department', 'name code')
       .populate('assignedOfficer', 'name email');
 
-    const total = await countDocuments(query);
+    const total = await Complaint.countDocuments(query);
 
     // Summary stats
-    const stats = await aggregate([
+    const stats = await Complaint.aggregate([
       { $match: { isDraft: false } },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
@@ -143,7 +143,7 @@ export async function bulkAssign(req, res) {
     if (departmentId) update.department = departmentId;
     if (officerId) update.assignedOfficer = officerId;
 
-    await updateMany({ _id: { $in: complaintIds } }, update);
+    await Complaint.updateMany({ _id: { $in: complaintIds } }, update);
 
     res.status(200).json({ success: true, message: `${complaintIds.length} complaints assigned successfully` });
   } catch (error) {
@@ -160,19 +160,19 @@ export async function getDashboardStats(req, res) {
     today.setHours(0, 0, 0, 0);
 
     const [totalComplaints, todayComplaints, statusBreakdown, categoryBreakdown, trendData, deptPerformance, recentActivity] = await Promise.all([
-      countDocuments({ isDraft: false }),
-      countDocuments({ createdAt: { $gte: today }, isDraft: false }),
-      aggregate([
+      Complaint.countDocuments({ isDraft: false }),
+      Complaint.countDocuments({ createdAt: { $gte: today }, isDraft: false }),
+      Complaint.aggregate([
         { $match: { isDraft: false } },
         { $group: { _id: '$status', count: { $sum: 1 } } }
       ]),
-      aggregate([
+      Complaint.aggregate([
         { $match: { isDraft: false } },
         { $group: { _id: '$category', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
       // Last 30 days trend
-      aggregate([
+      Complaint.aggregate([
         {
           $match: {
             createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
@@ -189,7 +189,7 @@ export async function getDashboardStats(req, res) {
         { $sort: { _id: 1 } }
       ]),
       // Department performance
-      _aggregate([
+      Department.aggregate([
         {
           $lookup: {
             from: 'complaints',
@@ -217,7 +217,7 @@ export async function getDashboardStats(req, res) {
         }
       ]),
       // Recent activity (last 8)
-      find({ isDraft: false })
+      Complaint.find({ isDraft: false })
         .sort({ updatedAt: -1 })
         .limit(8)
         .select('complaintId title status updatedAt')
@@ -273,20 +273,20 @@ export async function getAnalytics(req, res) {
     const matchQuery = { createdAt: { $gte: startDate, $lte: endDate }, isDraft: false };
 
     const [totalFiled, totalResolved, categoryBreakdown, statusDist, trendData, deptPerf] = await Promise.all([
-      countDocuments(matchQuery),
-      countDocuments({ ...matchQuery, status: 'resolved' }),
-      aggregate([
+      Complaint.countDocuments(matchQuery),
+      Complaint.countDocuments({ ...matchQuery, status: 'resolved' }),
+      Complaint.aggregate([
         { $match: matchQuery },
         { $group: { _id: '$category', value: { $sum: 1 } } },
         { $project: { name: '$_id', value: 1, _id: 0 } },
         { $sort: { value: -1 } }
       ]),
-      aggregate([
+      Complaint.aggregate([
         { $match: matchQuery },
         { $group: { _id: '$status', value: { $sum: 1 } } },
         { $project: { name: '$_id', value: 1, _id: 0 } }
       ]),
-      aggregate([
+      Complaint.aggregate([
         { $match: matchQuery },
         {
           $group: {
@@ -299,7 +299,7 @@ export async function getAnalytics(req, res) {
         { $sort: { _id: 1 } },
         { $project: { name: { $concat: ['Week ', { $toString: '$_id' }] }, filed: 1, resolved: 1, pending: 1, _id: 0 } }
       ]),
-      _aggregate([
+      Department.aggregate([
         { $lookup: { from: 'complaints', localField: '_id', foreignField: 'department', as: 'complaints' } },
         {
           $project: {

@@ -24,6 +24,7 @@ const departmentSchema = new mongoose.Schema(
       {
         type: String,
         enum: [
+          // legacy keys
           "roads",
           "water",
           "electricity",
@@ -34,12 +35,25 @@ const departmentSchema = new mongoose.Schema(
           "pollution",
           "encroachment",
           "others",
+          // full list matching frontend allCategories
           "Roads & Infrastructure",
+          "Bridges",
+          "Public Buildings",
           "Water Supply",
+          "Pipelines",
+          "Water Quality",
           "Electricity",
+          "Streetlights",
+          "Power Outages",
           "Sanitation",
+          "Waste Collection",
+          "Sewage",
           "Traffic",
+          "Road Safety",
+          "Signals",
           "Environment",
+          "Pollution",
+          "Green Initiatives",
           "Parks & Recreation",
           "Municipal",
           "Health",

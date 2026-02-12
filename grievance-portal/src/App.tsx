@@ -13,13 +13,14 @@ import FileComplaint from "./pages/FileComplaint";
 import VerifyOTP from "./pages/VerifyOTP";
  import AadhaarVerification from "./pages/AadhaarVerification";
 import ForgotPassword from "./pages/ForgotPassword";
-// import AdminDashboard from "./pages/AdminDashboard";
-// import AdminComplaints from "./pages/AdminComplaints";
-// import DepartmentManagement from "./pages/DepartmentManagement";
-// import OfficerDashboard from "./pages/OfficerDashboard";
-// import UpdateComplaintStatus from "./pages/UpdateComplaintStatus";
-// import AnalyticsDashboard from "./pages/AnalyticsDashboard";
-// import NotFound from "./pages/NotFound";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminComplaints from "./pages/AdminComplaints";
+import DepartmentManagement from "./pages/DepartmentManagement";
+import OfficerDashboard from "./pages/OfficerDashboard";
+import UpdateComplaintStatus from "./pages/UpdateComplaintStatus";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -30,25 +31,73 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/aadhaar-verification" element={<AadhaarVerification />} />
-          <Route path="/file-complaint" element={<FileComplaint />} />
-          <Route path="/my-complaints" element={<MyComplaints />} />
+          <Route path="/file-complaint" element={<ProtectedRoute><FileComplaint /></ProtectedRoute>} />
+          <Route path="/my-complaints" element={<ProtectedRoute><MyComplaints /></ProtectedRoute>} />
           <Route path="/track-complaint" element={<TrackComplaint />} />
-          {/* Commented routes */}
-          {/*
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/complaints" element={<AdminComplaints />} />
-          <Route path="/admin/departments" element={<DepartmentManagement />} />
-          <Route path="/officer" element={<OfficerDashboard />} />
-          <Route path="/officer/update-status" element={<UpdateComplaintStatus />} />
-          <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
-          <Route path="*" element={<NotFound />} /> */}
+
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/complaints"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <AdminComplaints />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/departments"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <DepartmentManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/officer"
+            element={
+              <ProtectedRoute roles={["officer", "admin"]}>
+                <OfficerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/officer/update-status"
+            element={
+              <ProtectedRoute roles={["officer", "admin"]}>
+                <UpdateComplaintStatus />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <AnalyticsDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

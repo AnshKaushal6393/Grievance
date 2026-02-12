@@ -226,3 +226,28 @@ export const removeOfficer = async (req,res)=>{
   }
 }
 
+// Minimal user listing for admin panel
+export const getAllUsers = async (req, res) => {
+  try {
+    const { role, search } = req.query;
+    const query = {};
+    if (role && role !== "all") query.role = role;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const users = await User.find(query).select("name email phone role");
+
+    res.status(200).json({
+      success: true,
+      data: { users, count: users.length },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

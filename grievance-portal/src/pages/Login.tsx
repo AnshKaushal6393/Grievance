@@ -33,7 +33,14 @@ const Login = () => {
       });
 
       toast.success(response.message || "Login successful 🎉");
-      navigate("/dashboard");
+      const role = response?.data?.user?.role;
+      if (role === "admin") {
+        navigate("/admin");
+      } else if (role === "officer") {
+        navigate("/officer");
+      } else {
+        navigate("/dashboard");
+      }
 
     } catch (error: any) {
       toast.error(error?.message || "Invalid email or password");

@@ -192,6 +192,19 @@ export async function sendOTPSMS(phone, otp) {
     console.log("SMS sent successfully:", message.sid);
     return { success: true, messageSid: message.sid };
   } catch (error) {
+    // Handle common Twilio trial restriction explicitly
+    if (error?.code === 21608) {
+      console.warn(
+        "Twilio trial account cannot send to unverified number.",
+        formatPhoneE164(phone),
+      );
+      return {
+        success: false,
+        code: 21608,
+        error: "Twilio trial cannot send to unverified number",
+      };
+    }
+
     console.error("Error sending SMS:", error);
     return { success: false, error: error.message };
   }

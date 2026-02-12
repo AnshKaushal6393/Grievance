@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  FileText, Menu, X, Globe, Bell, User, 
+  FileText, Menu, X, Globe, Bell, User, Users,
   ChevronDown, LayoutDashboard, FileQuestion, 
   Settings, LogOut
 } from "lucide-react";
@@ -21,11 +21,18 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navLinks = [
-    { label: "Home", href: "/" },
-    { label: "About", href: "/about" },
-    { label: "Track Complaint", href: "/track" },
-  ];
+  const navLinks =
+    currentUser?.role === "admin"
+      ? [
+          { label: "Admin Dashboard", href: "/admin" },
+          { label: "Complaints", href: "/admin/complaints" },
+          { label: "Departments", href: "/admin/departments" },
+        ]
+      : [
+          { label: "Home", href: "/" },
+          { label: "About", href: "/about" },
+          { label: "Track Complaint", href: "/track-complaint" },
+        ];
 
   const languages = [
     { code: "en", label: "English", flag: "🇺🇸" },
@@ -33,11 +40,19 @@ const Navbar = () => {
     { code: "ur", label: "اردو", flag: "🇵🇰" },
   ];
 
-  const profileMenuItems = [
-    { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
-    { label: "My Complaints", icon: FileQuestion, href: "/my-complaints" },
-    { label: "Profile", icon: User, href: "/profile" },
-  ];
+  const profileMenuItems =
+    currentUser?.role === "admin"
+      ? [
+          { label: "Admin Dashboard", icon: LayoutDashboard, href: "/admin" },
+          { label: "All Complaints", icon: FileQuestion, href: "/admin/complaints" },
+          { label: "Departments", icon: Users, href: "/admin/departments" },
+          { label: "Profile", icon: User, href: "/profile" },
+        ]
+      : [
+          { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
+          { label: "My Complaints", icon: FileQuestion, href: "/my-complaints" },
+          { label: "Profile", icon: User, href: "/profile" },
+        ];
 
   const isActiveLink = (href: string) => {
     return location.pathname === href;

@@ -5,6 +5,7 @@ import morgan from "morgan";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import complaintRoutes from "./routes/complaint.js"
+import adminRoutes from "./routes/admin.js";
 dotenv.config();
 
 connectDB();
@@ -35,6 +36,7 @@ app.get("/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/complaints",complaintRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
@@ -68,7 +70,7 @@ app.use((err, req, res, next) => {
   res.status(err.statusCode || 500).json({
     success: false,
     message: err.message || "Internal server error",
-    ...app(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(process.env.NODE_ENV === "development" ? { stack: err.stack } : {}),
   });
 });
 

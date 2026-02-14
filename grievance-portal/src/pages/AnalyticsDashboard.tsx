@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Calendar, Download, FileText, Clock, Star,
+  ArrowLeft, Calendar, Download, FileText, Clock,
   CheckCircle, TrendingUp, TrendingDown, Lightbulb, ChevronRight,
   ArrowUpRight, ArrowDownRight, MapPin,
 } from "lucide-react";
@@ -151,6 +151,14 @@ const AnalyticsDashboard = () => {
           name: c.name ?? c._id ?? "Unknown",
           value: c.value ?? c.count ?? 0,
           color: CHART_COLORS[i % CHART_COLORS.length],
+        })));
+        setCategoryBreakdown(d.categoryBreakdown.map((c: any) => ({
+          category: c.name ?? c._id ?? "Unknown",
+          total: c.total ?? c.count ?? 0,
+          pending: c.pending ?? 0,
+          avgTime: c.avgTime ?? "N/A",
+          trend: c.trend ?? [0, 0, 0, 0, 0, 0, 0],
+          trendDirection: c.trendDirection ?? "up",
         })));
       }
 

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, Menu, X, Globe, Bell, User, Users,
   ChevronDown, LayoutDashboard, FileQuestion, 
-  Settings, LogOut
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import authService from "@/services/authService";

@@ -178,31 +178,81 @@ export const deleteDepartment = async(req,res)=>{
 
 export const addOfficer = async (req,res)=>{
     try {
-    const { userId, designation } = req.body;
+    const { userId, designation, createUser } = req.body;
 
     const department = await Department.findById(req.params.id);
     if (!department) return res.status(404).json({ success: false, message: 'Department not found' });
 
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    let user = null;
 
-    if (department.officers.includes(userId)) {
+    if (userId) {
+      user = await User.findById(userId);
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    } else if (createUser) {
+      const {
+        name,
+        email,
+        phone,
+        password,
+        street,
+        city,
+        state,
+        pincode,
+      } = createUser;
+
+      if (!name || !email || !phone || !password || !street || !city || !state || !pincode) {
+        return res.status(400).json({
+          success: false,
+          message: 'All new officer fields are required',
+        });
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const existingUser = await User.findOne({
+        $or: [{ email: normalizedEmail }, { phone }],
+      });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'User already exists with this email or phone number',
+        });
+      }
+
+      user = await User.create({
+        name,
+        email: normalizedEmail,
+        phone,
+        password,
+        role: 'officer',
+        isEmailVerified: true,
+        isPhoneVerified: true,
+        address: { street, city, state, pincode },
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Provide either userId or createUser payload',
+      });
+    }
+
+    if (department.officers.some((id) => id.toString() === user._id.toString())) {
       return res.status(400).json({ success: false, message: 'Officer already in this department' });
     }
 
-    department.officers.push(userId);
+    department.officers.push(user._id);
     await department.save();
 
-    // Update user role to officer
-    user.role = 'officer';
-    if (designation) user.designation = designation;
-    await user.save();
+    // Ensure existing user also becomes officer
+    if (user.role !== 'officer') {
+      user.role = 'officer';
+      await user.save();
+    }
 
     await department.populate('officers', 'name email phone');
 
     res.status(200).json({
       success: true,
-      message: 'Officer added successfully',
+      message: createUser ? 'Officer account created and assigned successfully' : 'Officer added successfully',
       data: { department }
     });
   } catch (error) {

@@ -64,6 +64,13 @@ interface Officer {
   designation: string;
 }
 
+interface AvailableUser {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
+}
+
 interface Department {
   _id?: string; // backend id
   id: string;
@@ -116,14 +123,6 @@ const allCategories = [
   "Municipal",
   "Health",
   "Education",
-];
-
-const availableUsers = [
-  { id: "u1", name: "Arun Kumar", email: "arun@gov.in" },
-  { id: "u2", name: "Meera Reddy", email: "meera@gov.in" },
-  { id: "u3", name: "Sanjay Gupta", email: "sanjay@gov.in" },
-  { id: "u4", name: "Kavitha N", email: "kavitha@gov.in" },
-  { id: "u5", name: "Rahul Singh", email: "rahul@gov.in" },
 ];
 
 const departmentIcons = [
@@ -185,6 +184,7 @@ const initialDepartments: Department[] = [];
 const DepartmentManagement = () => {
   const [departments, setDepartments] =
     useState<Department[]>(initialDepartments);
+  const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [isOfficersModalOpen, setIsOfficersModalOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(
@@ -211,10 +211,20 @@ const DepartmentManagement = () => {
   const [newOfficer, setNewOfficer] = useState({
     userId: "",
     designation: "",
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    street: "",
+    city: "",
+    state: "",
+    pincode: "",
   });
+  const [officerMode, setOfficerMode] = useState<"existing" | "create">("existing");
 
   useEffect(() => {
     fetchDepartments();
+    fetchUsers();
   }, []);
 
   const decorateDepartment = (dept: any, idx: number): Department => {
@@ -256,15 +266,35 @@ const DepartmentManagement = () => {
     };
   };
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = async (): Promise<Department[]> => {
     try {
       const res = await adminService.getDepartments();
       const data = res?.data?.departments ?? [];
-      setDepartments(
-        data.map((d: any, idx: number) => decorateDepartment(d, idx)),
-      );
+      const mapped = data.map((d: any, idx: number) => decorateDepartment(d, idx));
+      setDepartments(mapped);
+      return mapped;
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to load departments");
+      return [];
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await adminService.getAllUsers();
+      const users = res?.data?.users ?? [];
+      setAvailableUsers(
+        users
+          .filter((u: any) => u.role !== "admin")
+          .map((u: any) => ({
+            id: u._id ?? u.id,
+            name: u.name ?? "Unknown",
+            email: u.email ?? "",
+            role: u.role,
+          })),
+      );
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to load users");
     }
   };
 
@@ -309,22 +339,59 @@ const DepartmentManagement = () => {
   };
 
   const handleAddOfficer = async () => {
-    if (
-      !selectedDepartment?._id ||
-      !newOfficer.userId ||
-      !newOfficer.designation
-    )
-      return;
+    if (!selectedDepartment?._id) return;
     try {
-      await adminService.addOfficer(
-        selectedDepartment._id,
-        newOfficer.userId,
-        newOfficer.designation,
-      );
+      if (officerMode === "existing") {
+        if (!newOfficer.userId || !newOfficer.designation) return;
+        await adminService.addOfficer(selectedDepartment._id, {
+          userId: newOfficer.userId,
+          designation: newOfficer.designation,
+        });
+      } else {
+        const required = [
+          newOfficer.name,
+          newOfficer.email,
+          newOfficer.phone,
+          newOfficer.password,
+          newOfficer.street,
+          newOfficer.city,
+          newOfficer.state,
+          newOfficer.pincode,
+          newOfficer.designation,
+        ];
+        if (required.some((v) => !v)) {
+          toast.error("Please fill all new officer details");
+          return;
+        }
+        await adminService.addOfficer(selectedDepartment._id, {
+          designation: newOfficer.designation,
+          createUser: {
+            name: newOfficer.name,
+            email: newOfficer.email,
+            phone: newOfficer.phone,
+            password: newOfficer.password,
+            street: newOfficer.street,
+            city: newOfficer.city,
+            state: newOfficer.state,
+            pincode: newOfficer.pincode,
+          },
+        });
+      }
       toast.success("Officer added!");
-      setNewOfficer({ userId: "", designation: "" });
-      await fetchDepartments();
-      const updated = departments.find((d) => d._id === selectedDepartment._id);
+      setNewOfficer({
+        userId: "",
+        designation: "",
+        name: "",
+        email: "",
+        phone: "",
+        password: "",
+        street: "",
+        city: "",
+        state: "",
+        pincode: "",
+      });
+      const updatedDepartments = await fetchDepartments();
+      const updated = updatedDepartments.find((d) => d._id === selectedDepartment._id);
       if (updated) setSelectedDepartment(updated);
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to add officer");
@@ -363,7 +430,7 @@ const DepartmentManagement = () => {
   };
 
   const renderStars = (rating: number) => {
-     Array.from({ length: 5 }, (_, i) => (
+    return Array.from({ length: 5 }, (_, i) => (
       <Star
         key={i}
         className={`h-4 w-4 ${
@@ -514,14 +581,14 @@ const DepartmentManagement = () => {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">
-                          Current Workload
+                          Complaint Workload
                         </span>
                         <div className="flex items-center gap-2">
                           <WorkloadIcon
                             className={`h-4 w-4 ${workloadStatus.color}`}
                           />
                           <span className="font-medium">
-                            {dept.currentWorkload}/{dept.maxCapacity}
+                            {dept.currentWorkload}/{dept.maxCapacity} complaints
                           </span>
                         </div>
                       </div>
@@ -961,33 +1028,117 @@ const DepartmentManagement = () => {
                 Add New Officer
               </Label>
 
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Select
-                  value={newOfficer.userId}
-                  onValueChange={(v) =>
-                    setNewOfficer({ ...newOfficer, userId: v })
-                  }
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={officerMode === "existing" ? "default" : "outline"}
+                  onClick={() => setOfficerMode("existing")}
                 >
-                  <SelectTrigger className="pl-10">
-                    <SelectValue placeholder="Search and select user..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableUsers
-                      .filter(
-                        (u) =>
-                          !selectedDepartment?.officers.some(
-                            (o) => o.email === u.email,
-                          ),
-                      )
-                      .map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name} ({user.email})
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  Existing User
+                </Button>
+                <Button
+                  type="button"
+                  variant={officerMode === "create" ? "default" : "outline"}
+                  onClick={() => setOfficerMode("create")}
+                >
+                  Create Officer
+                </Button>
               </div>
+
+              {officerMode === "existing" ? (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Select
+                    value={newOfficer.userId}
+                    onValueChange={(v) =>
+                      setNewOfficer({ ...newOfficer, userId: v })
+                    }
+                  >
+                    <SelectTrigger className="pl-10">
+                      <SelectValue placeholder="Search and select user..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUsers
+                        .filter(
+                          (u) =>
+                            !selectedDepartment?.officers.some(
+                              (o) => (o._id ?? o.id) === u.id,
+                            ),
+                        )
+                        .map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name} ({user.email})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  <Input
+                    placeholder="Full Name"
+                    value={newOfficer.name}
+                    onChange={(e) =>
+                      setNewOfficer({ ...newOfficer, name: e.target.value })
+                    }
+                  />
+                  <Input
+                    placeholder="Email"
+                    type="email"
+                    value={newOfficer.email}
+                    onChange={(e) =>
+                      setNewOfficer({ ...newOfficer, email: e.target.value })
+                    }
+                  />
+                  <Input
+                    placeholder="Phone (10 digits)"
+                    value={newOfficer.phone}
+                    onChange={(e) =>
+                      setNewOfficer({ ...newOfficer, phone: e.target.value })
+                    }
+                    maxLength={10}
+                  />
+                  <Input
+                    placeholder="Temporary Password"
+                    type="password"
+                    value={newOfficer.password}
+                    onChange={(e) =>
+                      setNewOfficer({ ...newOfficer, password: e.target.value })
+                    }
+                  />
+                  <Input
+                    placeholder="Street"
+                    value={newOfficer.street}
+                    onChange={(e) =>
+                      setNewOfficer({ ...newOfficer, street: e.target.value })
+                    }
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="City"
+                      value={newOfficer.city}
+                      onChange={(e) =>
+                        setNewOfficer({ ...newOfficer, city: e.target.value })
+                      }
+                    />
+                    <Input
+                      placeholder="State"
+                      value={newOfficer.state}
+                      onChange={(e) =>
+                        setNewOfficer({ ...newOfficer, state: e.target.value })
+                      }
+                    />
+                  </div>
+                  <Input
+                    placeholder="Pincode (6 digits)"
+                    value={newOfficer.pincode}
+                    onChange={(e) =>
+                      setNewOfficer({ ...newOfficer, pincode: e.target.value })
+                    }
+                    maxLength={6}
+                  />
+                </div>
+              )}
 
               <Input
                 placeholder="Designation (e.g., Chief Engineer)"
@@ -1000,11 +1151,23 @@ const DepartmentManagement = () => {
 
               <Button
                 onClick={handleAddOfficer}
-                disabled={!newOfficer.userId || !newOfficer.designation}
+                disabled={
+                  officerMode === "existing"
+                    ? !newOfficer.userId || !newOfficer.designation
+                    : !newOfficer.name ||
+                      !newOfficer.email ||
+                      !newOfficer.phone ||
+                      !newOfficer.password ||
+                      !newOfficer.street ||
+                      !newOfficer.city ||
+                      !newOfficer.state ||
+                      !newOfficer.pincode ||
+                      !newOfficer.designation
+                }
                 className="w-full gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Add Officer
+                {officerMode === "existing" ? "Add Officer" : "Create & Add Officer"}
               </Button>
             </div>
           </div>

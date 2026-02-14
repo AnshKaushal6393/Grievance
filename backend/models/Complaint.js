@@ -154,7 +154,29 @@ const complaintSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-
+    rejectionDetails: {
+      reason: String,
+      explanation: String,
+    },
+    resolutionDetails: {
+      summary: String,
+      images: [String],
+      completedAt: Date,
+      readyForFeedback: Boolean,
+    },
+    timeline: [
+      {
+        status: String,
+        message: String,
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        updatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        attachments: [String],
+        metadata: mongoose.Schema.Types.Mixed,
+      },
+    ],
     isDraft: {
       type: Boolean,
       default: false,
@@ -176,15 +198,14 @@ complaintSchema.index({ category: 1 });
 complaintSchema.index({ status: 1 });
 complaintSchema.index({ createdAt: -1 });
 
-complaintSchema.pre('validate', async function() {
+complaintSchema.pre("validate", async function () {
   if (this.complaintId) return;
   const year = new Date().getFullYear();
-  const count = await mongoose.model('Complaint').countDocuments();
-  this.complaintId = `GR${year}${String(count + 1).padStart(6, '0')}`;
+  const count = await mongoose.model("Complaint").countDocuments();
+  this.complaintId = `GR${year}${String(count + 1).padStart(6, "0")}`;
 });
 
-
-complaintSchema.virtual('ageInDays').get(function() {
+complaintSchema.virtual("ageInDays").get(function () {
   const now = new Date();
   const filed = this.createdAt;
   const diffTime = Math.abs(now - filed);
@@ -192,51 +213,51 @@ complaintSchema.virtual('ageInDays').get(function() {
   return diffDays;
 });
 
-complaintSchema.methods.addUpdate = function(message, userId) {
+complaintSchema.methods.addUpdate = function (message, userId) {
   this.updates.push({
     message,
-    updatedBy: userId
+    updatedBy: userId,
   });
   return this.save();
 };
 
-complaintSchema.methods.addInternalNote = function(note, userId) {
+complaintSchema.methods.addInternalNote = function (note, userId) {
   this.internalNotes.push({
     note,
-    addedBy: userId
+    addedBy: userId,
   });
   return this.save();
 };
 
-complaintSchema.methods.assignTo = function(departmentId, officerId) {
+complaintSchema.methods.assignTo = function (departmentId, officerId) {
   this.department = departmentId;
   this.assignedOfficer = officerId;
   this.assignedDate = new Date();
-  this.status = 'assigned';
-  
+  this.status = "assigned";
+
   // Set estimated resolution (7 days from now by default)
   const estimatedDate = new Date();
   estimatedDate.setDate(estimatedDate.getDate() + 7);
   this.estimatedResolution = estimatedDate;
-  
+
   return this.save();
 };
 
-complaintSchema.methods.updateStatus = function(newStatus, userId, message) {
+complaintSchema.methods.updateStatus = function (newStatus, userId, message) {
   this.status = newStatus;
-  
-  if (newStatus === 'resolved') {
+
+  if (newStatus === "resolved") {
     this.resolvedDate = new Date();
   }
-  
+
   if (message) {
     this.addUpdate(message, userId);
   }
-  
+
   return this.save();
 };
 
-complaintSchema.statics.getStats = async function(userId) {
+complaintSchema.statics.getStats = async function (userId) {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return {
       total: 0,
@@ -250,10 +271,10 @@ complaintSchema.statics.getStats = async function(userId) {
     { $match: { user: new mongoose.Types.ObjectId(userId) } },
     {
       $group: {
-        _id: '$status',
-        count: { $sum: 1 }
-      }
-    }
+        _id: "$status",
+        count: { $sum: 1 },
+      },
+    },
   ]);
 
   const result = {
@@ -261,10 +282,10 @@ complaintSchema.statics.getStats = async function(userId) {
     pending: 0,
     "in-progress": 0,
     resolved: 0,
-    rejected: 0
+    rejected: 0,
   };
 
-  stats.forEach(stat => {
+  stats.forEach((stat) => {
     result[stat._id] = stat.count;
     result.total += stat.count;
   });
@@ -272,7 +293,7 @@ complaintSchema.statics.getStats = async function(userId) {
   return result;
 };
 
-complaintSchema.statics.getCategoryBreakdown = async function(userId) {
+complaintSchema.statics.getCategoryBreakdown = async function (userId) {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return [];
   }
@@ -280,11 +301,11 @@ complaintSchema.statics.getCategoryBreakdown = async function(userId) {
     { $match: { user: new mongoose.Types.ObjectId(userId) } },
     {
       $group: {
-        _id: '$category',
-        count: { $sum: 1 }
-      }
+        _id: "$category",
+        count: { $sum: 1 },
+      },
     },
-    { $sort: { count: -1 } }
+    { $sort: { count: -1 } },
   ]);
 };
 

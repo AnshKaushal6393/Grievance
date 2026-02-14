@@ -20,7 +20,15 @@ export const register = async (req, res) => {
       city,
       state,
       pincode,
+      role,
     } = req.body;
+
+    if (role === "officer") {
+      return res.status(403).json({
+        success: false,
+        message: "Officer accounts can only be created by admin",
+      });
+    }
 
     if (!name || !email || !phone || !password || !confirmPassword) {
       return res.status(400).json({
@@ -80,6 +88,7 @@ export const register = async (req, res) => {
       email: normalizedEmail,
       phone,
       password,
+      role: "user",
       address: {
         street,
         city,

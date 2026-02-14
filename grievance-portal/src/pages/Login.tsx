@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, FileText, Mic, AlertCircle, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, FileText, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import authService from "@/services/authService";

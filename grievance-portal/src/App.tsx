@@ -19,6 +19,7 @@ import DepartmentManagement from "./pages/DepartmentManagement";
 import OfficerDashboard from "./pages/OfficerDashboard";
 import UpdateComplaintStatus from "./pages/UpdateComplaintStatus";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -47,6 +48,7 @@ const App = () => (
           <Route path="/aadhaar-verification" element={<AadhaarVerification />} />
           <Route path="/file-complaint" element={<ProtectedRoute><FileComplaint /></ProtectedRoute>} />
           <Route path="/my-complaints" element={<ProtectedRoute><MyComplaints /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/track-complaint" element={<TrackComplaint />} />
 
           <Route

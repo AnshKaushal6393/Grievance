@@ -502,7 +502,17 @@ const MyComplaints = () => {
 
         {/* Complaints List */}
         <AnimatePresence mode="wait">
-          {paginatedComplaints.length > 0 ? (
+          {isLoading ? (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex justify-center py-12"
+            >
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </motion.div>
+          ) : paginatedComplaints.length > 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

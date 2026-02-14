@@ -6,6 +6,7 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import complaintRoutes from "./routes/complaint.js"
 import adminRoutes from "./routes/admin.js";
+import officerRoutes from "./routes/officer.js"
 dotenv.config();
 
 connectDB();
@@ -37,7 +38,7 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/complaints",complaintRoutes);
 app.use("/api/admin", adminRoutes);
-
+app.use("/api/officer",officerRoutes);
 app.use((req, res) => {
   res.status(404).json({
     success: false,

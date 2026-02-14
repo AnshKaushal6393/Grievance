@@ -235,7 +235,7 @@ const AdminComplaints = () => {
       setIsExporting(true);
       const res = await adminService.getAllComplaints(buildQuery({ page: 1, limit: 2000 }));
       const raw = res?.data?.complaints ?? [];
-      const rows = raw.map(mapComplaint);
+      const rows: Complaint[] = raw.map(mapComplaint);
       const headers = ["ID","Title","Category","Status","Priority","Citizen","Email","Department","Filed Date","Last Updated"];
       const csv = [
         headers.join(","),

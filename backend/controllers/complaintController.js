@@ -2,6 +2,49 @@ import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
 import { getFileType } from "../config/cloudinary.js";
 
+const ACTIVE_COMPLAINT_STATUSES = ["filed", "assigned", "pending", "in-progress", "in_progress"];
+
+const CATEGORY_ALIASES = {
+  "Sanitation & Garbage": ["Sanitation", "Waste Collection", "sanitation"],
+  "Drainage & Sewage": ["Sewage", "drainage"],
+  "Street Lights": ["Streetlights", "streetlights"],
+  "Parks & Gardens": ["Parks & Recreation", "parks"],
+  Other: ["others"],
+};
+
+const findDepartmentForCategory = async (category) => {
+  const aliases = CATEGORY_ALIASES[category] || [];
+  return await Department.findOne({
+    isActive: true,
+    categories: { $in: [category, ...aliases] },
+  }).select("_id slaTargets officers");
+};
+
+const pickLeastLoadedOfficer = async (department) => {
+  if (!department?.officers?.length) return null;
+
+  const workload = await Complaint.aggregate([
+    {
+      $match: {
+        department: department._id,
+        assignedOfficer: { $in: department.officers },
+        status: { $in: ACTIVE_COMPLAINT_STATUSES },
+      },
+    },
+    { $group: { _id: "$assignedOfficer", activeCount: { $sum: 1 } } },
+  ]);
+
+  const loadMap = new Map(workload.map((w) => [String(w._id), w.activeCount]));
+
+  return [...department.officers]
+    .sort((a, b) => {
+      const loadA = loadMap.get(String(a)) || 0;
+      const loadB = loadMap.get(String(b)) || 0;
+      if (loadA !== loadB) return loadA - loadB;
+      return String(a).localeCompare(String(b));
+    })[0];
+};
+
 export const fileComplaint = async (req, res) => {
   try {
     const {
@@ -48,14 +91,28 @@ export const fileComplaint = async (req, res) => {
       isDraft: isDraft || false,
     });
     if (!isDraft) {
-      const department = await Department.findByCategory(category);
+      const department = await findDepartmentForCategory(category);
       if (department) {
         complaint.department = department._id;
+
+        const selectedOfficer = await pickLeastLoadedOfficer(department);
+        if (selectedOfficer) {
+          complaint.assignedOfficer = selectedOfficer;
+          complaint.status = "assigned";
+          complaint.assignedDate = new Date();
+
+          const slaHours = department.slaTargets?.[complaint.priority] || 72;
+          complaint.estimatedResolution = new Date(
+            Date.now() + slaHours * 60 * 60 * 1000,
+          );
+        }
+
         await complaint.save();
       }
     }
     await complaint.populate("user", "name email phone");
     await complaint.populate("department", "name contactInfo");
+    await complaint.populate("assignedOfficer", "name email phone");
 
     res.status(201).json({
       success: true,

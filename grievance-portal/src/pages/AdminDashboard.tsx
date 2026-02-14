@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import adminService from "@/services/adminService";
+import authService from "@/services/authService";
 import {
   FileText, TrendingUp, Clock, CheckCircle2, AlertTriangle,
   BarChart3, Users, Settings, Download, Bell, ChevronRight,
   ArrowUpRight, ArrowDownRight, Search, Filter, MoreHorizontal,
-  Building2, Menu,
+  Building2, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -45,6 +47,7 @@ const ACTIVITY_COLOR_MAP: Record<string, string> = {
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<"all" | "active" | "resolved" | "unassigned">("all");
   const [sortColumn, setSortColumn] = useState<string>("total");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [alerts, setAlerts] = useState<any[]>([]);
@@ -65,6 +68,12 @@ const AdminDashboard = () => {
 
   const sortedDepartments = [...deptData]
     .filter(dept => dept.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter(dept => {
+      if (departmentFilter === "active") return (dept.pending ?? 0) > 0;
+      if (departmentFilter === "resolved") return (dept.resolved ?? 0) > 0;
+      if (departmentFilter === "unassigned") return (dept.total ?? 0) === 0;
+      return true;
+    })
     .sort((a, b) => {
       const aVal = a[sortColumn];
       const bVal = b[sortColumn];
@@ -81,6 +90,14 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => { fetchStats(); }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      navigate("/login");
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -263,6 +280,15 @@ const AdminDashboard = () => {
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                onClick={handleSignOut}
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </Button>
             </div>
 
             {/* Mobile actions in dropdown */}
@@ -287,6 +313,13 @@ const AdminDashboard = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => toast.info("Settings page is under construction")}>
                     <Settings className="w-4 h-4 mr-2" /> Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="text-red-600 focus:text-red-700"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" /> Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -439,7 +472,42 @@ const AdminDashboard = () => {
                   <input type="text" placeholder="Search departments..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full sm:w-64" />
                 </div>
-                <Button variant="outline" size="sm" className="gap-2"><Filter className="w-4 h-4" />Filter</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Filter className="w-4 h-4" />
+                      Filter
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Department Filter</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuCheckboxItem
+                      checked={departmentFilter === "all"}
+                      onCheckedChange={() => setDepartmentFilter("all")}
+                    >
+                      All Departments
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={departmentFilter === "active"}
+                      onCheckedChange={() => setDepartmentFilter("active")}
+                    >
+                      Has Pending Complaints
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={departmentFilter === "resolved"}
+                      onCheckedChange={() => setDepartmentFilter("resolved")}
+                    >
+                      Has Resolved Complaints
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={departmentFilter === "unassigned"}
+                      onCheckedChange={() => setDepartmentFilter("unassigned")}
+                    >
+                      No Assigned Complaints
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
@@ -485,6 +553,13 @@ const AdminDashboard = () => {
                     </td>
                   </tr>
                 ))}
+                {sortedDepartments.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                      No departments match the current filters.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

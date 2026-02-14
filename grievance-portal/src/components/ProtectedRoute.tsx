@@ -1,8 +1,9 @@
 import { Navigate, useLocation } from "react-router-dom";
+import type { ReactNode } from "react";
 import authService from "@/services/authService";
 
 interface ProtectedRouteProps {
-  children: JSX.Element;
+  children: ReactNode;
   roles?: string[];
 }
 

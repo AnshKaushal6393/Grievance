@@ -44,7 +44,6 @@ const TrackComplaint = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<ComplaintResult | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
 
   //   // Sample data for demo
   //   const sampleComplaints: Record<string, ComplaintResult> = {
@@ -93,7 +92,6 @@ const TrackComplaint = () => {
     try {
       const response = await complaintService.trackComplaint(lookup);
       setResult(response.data.complaint);
-      setHasSearched(true);
     } catch (error: any) {
       if (error.response?.status === 404) {
         setNotFound(true);

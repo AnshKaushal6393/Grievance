@@ -97,8 +97,24 @@ export const adminService = {
   },
 
   // POST /api/admin/departments/:id/officers
-  addOfficer: async (departmentId: string, userId: string, designation: string) => {
-    const res = await api.post(`/admin/departments/${departmentId}/officers`, { userId, designation });
+  addOfficer: async (
+    departmentId: string,
+    data: {
+      userId?: string;
+      designation?: string;
+      createUser?: {
+        name: string;
+        email: string;
+        phone: string;
+        password: string;
+        street: string;
+        city: string;
+        state: string;
+        pincode: string;
+      };
+    },
+  ) => {
+    const res = await api.post(`/admin/departments/${departmentId}/officers`, data);
     return res.data;
   },
 

@@ -14,6 +14,8 @@ import {
   Phone,
   MessageSquare,
   ChevronRight,
+  Bell,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
@@ -40,12 +42,33 @@ interface CategoryBreakdownItem {
   count: number;
 }
 
+interface CitizenAnalyticsSummary {
+  totalComplaints: number;
+  pendingCount: number;
+  resolvedCount: number;
+  rejectedCount: number;
+  resolutionRate: string;
+  avgResolutionDays: string;
+}
+
+interface NotificationItem {
+  id: string;
+  complaintId: string;
+  title: string;
+  status: string;
+  message: string;
+  updatedAt: string;
+  isRead?: boolean;
+}
+
 const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentComplaints, setRecentComplaints] = useState<RecentComplaint[]>(
     [],
   );
   const [categories, setCategories] = useState<CategoryBreakdownItem[]>([]);
+  const [analytics, setAnalytics] = useState<CitizenAnalyticsSummary | null>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -67,10 +90,15 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await complaintService.getDashboardStats();
-      setStats(response.data.stats);
+      const [dashboardResponse, analyticsResponse, notificationsResponse] = await Promise.all([
+        complaintService.getDashboardStats(),
+        complaintService.getCitizenAnalytics(),
+        complaintService.getNotifications(8),
+      ]);
+
+      setStats(dashboardResponse.data.stats);
       setRecentComplaints(
-        (response.data.recentComplaints || []).map((c: any) => ({
+        (dashboardResponse.data.recentComplaints || []).map((c: any) => ({
           id: c.complaintId,
           title: c.title,
           category: c.category,
@@ -83,13 +111,37 @@ const Dashboard = () => {
         })),
       );
       setCategories(
-        (response.data.categoryBreakdown || []).map((c: any) => ({
+        (dashboardResponse.data.categoryBreakdown || []).map((c: any) => ({
           name: c._id,
           count: c.count,
         })),
       );
+      setAnalytics(analyticsResponse.data.summary || null);
+      setNotifications(notificationsResponse.data.notifications || []);
     } catch (error) {
       console.error("Failed to fetch dashboard data");
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await complaintService.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    } catch {
+      console.error("Failed to mark all notifications as read");
+    }
+  };
+
+  const handleMarkNotificationRead = async (notificationId: string) => {
+    try {
+      await complaintService.markNotificationRead(notificationId);
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notificationId ? { ...item, isRead: true } : item,
+        ),
+      );
+    } catch {
+      console.error("Failed to mark notification as read");
     }
   };
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -363,6 +415,39 @@ const Dashboard = () => {
                 ))}
               </div>
             </motion.div>
+
+            {/* Citizen Analytics Snapshot */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+              className="bg-white rounded-2xl shadow-sm p-6"
+            >
+              <div className="flex items-center gap-2 mb-6">
+                <TrendingUp className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-xl font-bold text-gray-900">Analytics Snapshot</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="rounded-xl bg-indigo-50 p-4">
+                  <p className="text-sm text-indigo-700">Resolution Rate</p>
+                  <p className="text-2xl font-bold text-indigo-900">
+                    {analytics?.resolutionRate || "0%"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-emerald-50 p-4">
+                  <p className="text-sm text-emerald-700">Avg Resolution Time</p>
+                  <p className="text-2xl font-bold text-emerald-900">
+                    {analytics?.avgResolutionDays || "0 days"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-amber-50 p-4">
+                  <p className="text-sm text-amber-700">Open Complaints</p>
+                  <p className="text-2xl font-bold text-amber-900">
+                    {analytics?.pendingCount ?? 0}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           </div>
 
           {/* Sidebar */}
@@ -432,6 +517,58 @@ const Dashboard = () => {
               >
                 Contact Support
               </Button>
+            </div>
+
+            {/* Notifications */}
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-blue-600" />
+                  Status Notifications
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">
+                    {notifications.filter((n) => !n.isRead).length} unread
+                  </span>
+                  {notifications.some((n) => !n.isRead) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={handleMarkAllNotificationsRead}
+                    >
+                      Mark all read
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {notifications.length === 0 && (
+                  <p className="text-sm text-gray-500">No recent status updates.</p>
+                )}
+                {notifications.map((notification, idx) => (
+                  <Link
+                    key={`${notification.complaintId}-${idx}`}
+                    to={`/track-complaint?complaintId=${notification.complaintId}`}
+                    onClick={() => handleMarkNotificationRead(notification.id)}
+                    className={`block rounded-xl border p-3 transition-colors ${
+                      notification.isRead
+                        ? "border-gray-100 bg-gray-50"
+                        : "border-blue-200 bg-blue-50 hover:border-blue-300"
+                    }`}
+                  >
+                    <p className="text-xs text-blue-600 font-semibold">
+                      {notification.complaintId}
+                    </p>
+                    <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                      {notification.message}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(notification.updatedAt).toLocaleString()}
+                    </p>
+                  </Link>
+                ))}
+              </div>
             </div>
           </motion.div>
         </div>

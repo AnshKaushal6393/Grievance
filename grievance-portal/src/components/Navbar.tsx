@@ -1,19 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, Menu, X, Globe, Bell, User, Users,
   ChevronDown, LayoutDashboard, FileQuestion, 
-  LogOut
+  LogOut, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import authService from "@/services/authService";
+import complaintService from "@/services/complaintService";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState("English");
+  const [notificationCount, setNotificationCount] = useState(0);
   const isLoggedIn = authService.isAuthenticated();
   const currentUser = authService.getCurrentUser();
   const displayName = currentUser?.name || "User";
@@ -21,12 +23,30 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!isLoggedIn) {
+        setNotificationCount(0);
+        return;
+      }
+      try {
+        const response = await complaintService.getNotifications(10);
+        setNotificationCount(response?.data?.unreadCount || 0);
+      } catch {
+        setNotificationCount(0);
+      }
+    };
+
+    fetchNotifications();
+  }, [isLoggedIn, location.pathname]);
+
   const navLinks =
     currentUser?.role === "admin"
       ? [
           { label: "Admin Dashboard", href: "/admin" },
           { label: "Complaints", href: "/admin/complaints" },
           { label: "Departments", href: "/admin/departments" },
+          { label: "Analytics", href: "/admin/analytics" },
         ]
       : [
           { label: "Home", href: "/" },
@@ -46,6 +66,7 @@ const Navbar = () => {
           { label: "Admin Dashboard", icon: LayoutDashboard, href: "/admin" },
           { label: "All Complaints", icon: FileQuestion, href: "/admin/complaints" },
           { label: "Departments", icon: Users, href: "/admin/departments" },
+          { label: "Analytics", icon: BarChart3, href: "/admin/analytics" },
           { label: "Profile", icon: User, href: "/profile" },
         ]
       : [
@@ -151,9 +172,11 @@ const Navbar = () => {
                 {/* Notification Bell */}
                 <button className="relative p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
                   <Bell className="w-5 h-5" />
-                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    3
-                  </span>
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                      {notificationCount > 99 ? "99+" : notificationCount}
+                    </span>
+                  )}
                 </button>
 
                 {/* Profile Dropdown */}

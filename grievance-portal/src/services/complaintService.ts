@@ -50,6 +50,30 @@ export const complaintService = {
     const response = await api.get('/complaints/dashboard/stats');
     return response.data;
   },
+  getCitizenAnalytics: async () => {
+    const response = await api.get('/complaints/dashboard/analytics');
+    return response.data;
+  },
+  getNotifications: async (limit: number = 20) => {
+    const response = await api.get(`/complaints/notifications?limit=${limit}`);
+    return response.data;
+  },
+  markNotificationRead: async (notificationId: string) => {
+    const response = await api.post(`/complaints/notifications/${notificationId}/read`);
+    return response.data;
+  },
+  markAllNotificationsRead: async () => {
+    const response = await api.post("/complaints/notifications/mark-all-read");
+    return response.data;
+  },
+  getComplaintHistory: async (id: string) => {
+    const response = await api.get(`/complaints/${id}/history`);
+    return response.data;
+  },
+  submitFeedback: async (id: string, rating: number, comment: string) => {
+    const response = await api.post(`/complaints/${id}/feedback`, { rating, comment });
+    return response.data;
+  },
   getDrafts: async () => {
     const response = await api.get('/complaints/drafts');
     return response.data;

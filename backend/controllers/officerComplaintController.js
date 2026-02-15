@@ -1,5 +1,6 @@
 import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
+import { createStatusNotification } from "../utils/notification.js";
 export const getMyAssignedComplaints = async (req, res) => {
   try {
     const officerId = req.user.id;
@@ -375,14 +376,17 @@ export const updateComplaintStatus = async (req, res) => {
 
     const normalizedStatus = statusMap[status] || status.toLowerCase();
 
-    // Update complaint status
-    complaint.status = normalizedStatus;
+    // Update complaint status and record status history for citizen notifications
+    complaint.recordStatusChange(
+      normalizedStatus,
+      officerId,
+      actionNotes,
+      "officer",
+    );
 
     // Set resolution date if resolved
     if (normalizedStatus === "resolved") {
-      complaint.resolvedDate = completionDate
-        ? new Date(completionDate)
-        : new Date();
+      complaint.resolvedDate = completionDate ? new Date(completionDate) : new Date();
 
       // Store resolution details in complaint schema (if field exists)
       if (!complaint.resolutionDetails) {
@@ -427,6 +431,17 @@ export const updateComplaintStatus = async (req, res) => {
     complaint.timeline.unshift(timelineUpdate);
 
     await complaint.save();
+
+    await createStatusNotification({
+      userId: complaint.user,
+      complaint,
+      status: normalizedStatus,
+      message: actionNotes || `Complaint status updated to ${status}`,
+      source: "officer",
+      metadata: {
+        officerId,
+      },
+    });
 
     // Populate response
     const updatedComplaint = await Complaint.findById(complaint._id)

@@ -1,6 +1,8 @@
 import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
+import Notification from "../models/Notification.js";
 import { getFileType } from "../config/cloudinary.js";
+import { createStatusNotification } from "../utils/notification.js";
 
 const ACTIVE_COMPLAINT_STATUSES = ["filed", "assigned", "pending", "in-progress", "in_progress"];
 
@@ -90,6 +92,22 @@ export const fileComplaint = async (req, res) => {
       attachments,
       isDraft: isDraft || false,
     });
+
+    if (!isDraft) {
+      complaint.recordStatusChange(
+        "filed",
+        req.user.id,
+        "Complaint filed by citizen",
+        "user",
+      );
+      complaint.timeline.unshift({
+        status: "filed",
+        message: "Complaint filed by citizen",
+        updatedBy: req.user.id,
+        updatedAt: new Date(),
+      });
+    }
+
     if (!isDraft) {
       const department = await findDepartmentForCategory(category);
       if (department) {
@@ -98,8 +116,26 @@ export const fileComplaint = async (req, res) => {
         const selectedOfficer = await pickLeastLoadedOfficer(department);
         if (selectedOfficer) {
           complaint.assignedOfficer = selectedOfficer;
-          complaint.status = "assigned";
           complaint.assignedDate = new Date();
+          complaint.recordStatusChange(
+            "assigned",
+            selectedOfficer,
+            "Complaint assigned to department officer",
+            "system",
+          );
+          complaint.timeline.unshift({
+            status: "assigned",
+            message: "Complaint assigned to department officer",
+            updatedBy: selectedOfficer,
+            updatedAt: new Date(),
+          });
+          await createStatusNotification({
+            userId: complaint.user,
+            complaint,
+            status: "assigned",
+            message: "Your complaint has been assigned to an officer.",
+            source: "system",
+          });
 
           const slaHours = department.slaTargets?.[complaint.priority] || 72;
           complaint.estimatedResolution = new Date(
@@ -148,7 +184,11 @@ export const getMyComplaints = async (req, res) => {
 
     const query = { user: req.user.id, isDraft: false };
     if (status && status !== "all") {
-      query.status = status;
+      if (status === "in_progress" || status === "in-progress") {
+        query.status = { $in: ["in_progress", "in-progress", "assigned"] };
+      } else {
+        query.status = status;
+      }
     }
     if (category && category !== "all") {
       query.category = category;
@@ -285,7 +325,10 @@ export const trackComplaint = async (req, res) => {
           id: complaint.complaintId,
           title: complaint.title,
           category: complaint.category,
-          status: complaint.status,
+          status:
+            complaint.status === "in_progress"
+              ? "in-progress"
+              : complaint.status,
           filedDate: complaint.createdAt,
           assignedDate: complaint.assignedDate,
           lastUpdate: complaint.updatedAt,
@@ -429,6 +472,307 @@ export const getDashboardStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch dashboard stats",
+      error: error.message,
+    });
+  }
+};
+
+export const getCitizenAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setMonth(startDate.getMonth() - 5);
+    startDate.setDate(1);
+
+    const [totalComplaints, resolvedCount, rejectedCount, pendingCount, avgResolutionAgg, monthlyTrend] =
+      await Promise.all([
+        Complaint.countDocuments({ user: userId, isDraft: false }),
+        Complaint.countDocuments({ user: userId, isDraft: false, status: "resolved" }),
+        Complaint.countDocuments({ user: userId, isDraft: false, status: "rejected" }),
+        Complaint.countDocuments({
+          user: userId,
+          isDraft: false,
+          status: { $in: ["filed", "assigned", "in-progress", "in_progress"] },
+        }),
+        Complaint.aggregate([
+          {
+            $match: {
+              user: req.user._id,
+              isDraft: false,
+              status: "resolved",
+              resolvedDate: { $ne: null },
+            },
+          },
+          {
+            $project: {
+              resolutionDays: {
+                $divide: [{ $subtract: ["$resolvedDate", "$createdAt"] }, 1000 * 60 * 60 * 24],
+              },
+            },
+          },
+          { $group: { _id: null, avgDays: { $avg: "$resolutionDays" } } },
+        ]),
+        Complaint.aggregate([
+          {
+            $match: {
+              user: req.user._id,
+              isDraft: false,
+              createdAt: { $gte: startDate },
+            },
+          },
+          {
+            $group: {
+              _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+              total: { $sum: 1 },
+              resolved: { $sum: { $cond: [{ $eq: ["$status", "resolved"] }, 1, 0] } },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ]),
+      ]);
+
+    const resolutionRate = totalComplaints > 0 ? ((resolvedCount / totalComplaints) * 100).toFixed(1) : "0.0";
+    const avgResolutionDays = Number(avgResolutionAgg?.[0]?.avgDays || 0).toFixed(1);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          totalComplaints,
+          pendingCount,
+          resolvedCount,
+          rejectedCount,
+          resolutionRate: `${resolutionRate}%`,
+          avgResolutionDays: `${avgResolutionDays} days`,
+        },
+        monthlyTrend: monthlyTrend.map((m) => ({
+          month: m._id,
+          filed: m.total,
+          resolved: m.resolved,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Citizen analytics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch citizen analytics",
+      error: error.message,
+    });
+  }
+};
+
+export const getCitizenNotifications = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit || "20", 10), 100);
+
+    const notifications = await Notification.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const unreadCount = await Notification.countDocuments({
+      user: req.user.id,
+      isRead: false,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        notifications: notifications.map((n) => ({
+          id: n._id,
+          complaintId: n.complaintId,
+          title: n.title,
+          status: n.status,
+          message: n.message,
+          source: n.source,
+          type: n.type,
+          isRead: n.isRead,
+          readAt: n.readAt,
+          updatedAt: n.createdAt,
+        })),
+        unreadCount,
+      },
+    });
+  } catch (error) {
+    console.error("Citizen notifications error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch notifications",
+      error: error.message,
+    });
+  }
+};
+
+export const markNotificationRead = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const notification = await Notification.findOne({
+      _id: notificationId,
+      user: req.user.id,
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    if (!notification.isRead) {
+      notification.isRead = true;
+      notification.readAt = new Date();
+      await notification.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Notification marked as read",
+    });
+  } catch (error) {
+    console.error("Mark notification read error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update notification",
+      error: error.message,
+    });
+  }
+};
+
+export const markAllNotificationsRead = async (req, res) => {
+  try {
+    const result = await Notification.updateMany(
+      { user: req.user.id, isRead: false },
+      { $set: { isRead: true, readAt: new Date() } },
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "All notifications marked as read",
+      data: { updated: result.modifiedCount || 0 },
+    });
+  } catch (error) {
+    console.error("Mark all notifications read error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update notifications",
+      error: error.message,
+    });
+  }
+};
+
+export const getComplaintHistory = async (req, res) => {
+  try {
+    const complaintId = req.params.id;
+    const complaint = await Complaint.findOne({ _id: complaintId, user: req.user.id })
+      .select("complaintId title status createdAt resolvedDate statusHistory timeline updates")
+      .populate("statusHistory.updatedBy", "name role")
+      .populate("timeline.updatedBy", "name role")
+      .populate("updates.updatedBy", "name role");
+
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: "Complaint not found",
+      });
+    }
+
+    const history = [
+      ...(complaint.statusHistory || []).map((entry) => ({
+        status: entry.status,
+        message: entry.message || `Status changed to ${entry.status}`,
+        updatedAt: entry.updatedAt,
+        updatedBy: entry.updatedBy?.name || "System",
+        source: entry.source || "system",
+      })),
+      ...(complaint.timeline || []).map((entry) => ({
+        status: entry.status || complaint.status,
+        message: entry.message || "Complaint updated",
+        updatedAt: entry.updatedAt,
+        updatedBy: entry.updatedBy?.name || "System",
+        source: "timeline",
+      })),
+    ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        complaintId: complaint.complaintId,
+        title: complaint.title,
+        currentStatus: complaint.status,
+        createdAt: complaint.createdAt,
+        resolvedDate: complaint.resolvedDate,
+        history,
+      },
+    });
+  } catch (error) {
+    console.error("Complaint history error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch complaint history",
+      error: error.message,
+    });
+  }
+};
+
+export const submitComplaintFeedback = async (req, res) => {
+  try {
+    const { rating, comment = "" } = req.body;
+    const complaint = await Complaint.findOne({ _id: req.params.id, user: req.user.id });
+
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: "Complaint not found",
+      });
+    }
+
+    if (complaint.status !== "resolved") {
+      return res.status(400).json({
+        success: false,
+        message: "Feedback can only be submitted after complaint resolution",
+      });
+    }
+
+    const numericRating = Number(rating);
+    if (!numericRating || numericRating < 1 || numericRating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be between 1 and 5",
+      });
+    }
+
+    complaint.feedback = {
+      rating: numericRating,
+      comment: String(comment || "").trim(),
+      submittedAt: new Date(),
+      submittedBy: req.user.id,
+    };
+
+    complaint.timeline.unshift({
+      status: complaint.status,
+      message: `Citizen submitted feedback (${numericRating}/5)`,
+      updatedBy: req.user.id,
+      updatedAt: new Date(),
+      metadata: { rating: numericRating },
+    });
+
+    await complaint.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Feedback submitted successfully",
+      data: {
+        complaintId: complaint.complaintId,
+        feedback: complaint.feedback,
+      },
+    });
+  } catch (error) {
+    console.error("Submit feedback error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to submit feedback",
       error: error.message,
     });
   }

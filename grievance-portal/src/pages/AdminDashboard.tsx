@@ -252,6 +252,12 @@ const AdminDashboard = () => {
             </div>
             {/* Desktop actions */}
             <div className="hidden md:flex items-center gap-3">
+              <Link to="/admin/analytics">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Analytics
+                </Button>
+              </Link>
               <Link to="/admin/complaints">
                 <Button variant="outline" size="sm" className="gap-2"><FileText className="w-4 h-4" />All Complaints</Button>
               </Link>
@@ -300,13 +306,16 @@ const AdminDashboard = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Navigate</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => navigate("/admin/complaints")}>
-                    <FileText className="w-4 h-4 mr-2" /> All Complaints
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/admin/departments")}>
-                    <Users className="w-4 h-4 mr-2" /> Departments
-                  </DropdownMenuItem>
+                <DropdownMenuLabel>Navigate</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => navigate("/admin/complaints")}>
+                  <FileText className="w-4 h-4 mr-2" /> All Complaints
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/admin/analytics")}>
+                  <BarChart3 className="w-4 h-4 mr-2" /> Analytics
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/admin/departments")}>
+                  <Users className="w-4 h-4 mr-2" /> Departments
+                </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => toast.info("Report generation coming soon")}>
                     <Download className="w-4 h-4 mr-2" /> Generate Report

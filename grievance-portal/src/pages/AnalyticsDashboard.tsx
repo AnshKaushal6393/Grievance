@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Calendar, Download, FileText, Clock,
   CheckCircle, TrendingUp, TrendingDown, Lightbulb, ChevronRight,
-  ArrowUpRight, ArrowDownRight, MapPin,
+  ArrowUpRight, ArrowDownRight, MapPin, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import { format, subDays } from "date-fns";
 import adminService from "@/services/adminService";
+import { toast } from "sonner";
 
 const timeRanges = [
   { label: "Today", value: "today" },
@@ -26,56 +27,14 @@ const timeRanges = [
   { label: "Custom", value: "custom" },
 ];
 
-// Static fallback data shown until API loads
-const FALLBACK_TREND = [
-  { name: "Week 1", filed: 120, resolved: 95, pending: 25 },
-  { name: "Week 2", filed: 145, resolved: 110, pending: 35 },
-  { name: "Week 3", filed: 130, resolved: 125, pending: 40 },
-  { name: "Week 4", filed: 165, resolved: 140, pending: 65 },
-];
-const FALLBACK_DEPT = [
-  { name: "Public Works", time: 4.2 },{ name: "Water Dept", time: 3.8 },
-  { name: "Electricity", time: 5.1 },{ name: "Sanitation", time: 3.2 },
-];
-const FALLBACK_CATEGORY = [
-  { name: "Roads", value: 28 },{ name: "Water", value: 22 },
-  { name: "Electricity", value: 18 },{ name: "Sanitation", value: 15 },{ name: "Others", value: 17 },
-];
-const FALLBACK_STATUS = [
-  { name: "Pending", value: 245, color: "hsl(48 96% 53%)" },
-  { name: "In Progress", value: 180, color: "hsl(221 83% 53%)" },
-  { name: "Resolved", value: 520, color: "hsl(142 76% 36%)" },
-  { name: "Rejected", value: 45, color: "hsl(0 84% 60%)" },
-];
-const FALLBACK_METRICS = [
-  { title: "Total Complaints Filed", value: "—", change: 0, trend: "up", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
-  { title: "Resolution Rate", value: "—", change: 0, trend: "up", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
-  { title: "Avg Resolution Time", value: "—", change: 0, trend: "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
-  { title: "SLA Compliance", value: "—", change: 0, trend: "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
-];
-const FALLBACK_BREAKDOWN = [
-  { category: "Roads & Potholes", total: 456, pending: 78, avgTime: "3.2 days", trend: [12,18,15,22,19,25,28], trendDirection: "up" },
-  { category: "Water Supply",     total: 389, pending: 45, avgTime: "4.1 days", trend: [20,22,18,15,12,14,11], trendDirection: "down" },
-  { category: "Electricity",      total: 312, pending: 62, avgTime: "5.5 days", trend: [8,12,15,18,20,22,25],  trendDirection: "up" },
+const EMPTY_METRICS = [
+  { title: "Total Complaints Filed", value: "0", change: 0, trend: "up", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
+  { title: "Resolution Rate", value: "0%", change: 0, trend: "up", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
+  { title: "Avg Resolution Time", value: "0.0 days", change: 0, trend: "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
+  { title: "SLA Compliance", value: "0%", change: 0, trend: "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
 ];
 
 const CHART_COLORS = ["hsl(221 83% 53%)","hsl(142 76% 36%)","hsl(48 96% 53%)","hsl(0 84% 60%)","hsl(280 65% 60%)"];
-
-const heatmapZones = [
-  { id: 1, name: "North Zone", complaints: 78, density: "high", x: 45, y: 15 },
-  { id: 2, name: "South Zone", complaints: 42, density: "medium", x: 55, y: 70 },
-  { id: 3, name: "East Zone", complaints: 65, density: "high", x: 80, y: 40 },
-  { id: 4, name: "West Zone", complaints: 28, density: "medium", x: 15, y: 45 },
-  { id: 5, name: "Central Zone", complaints: 95, density: "high", x: 50, y: 45 },
-];
-
-const insights = [
-  { id: 1, text: "45% increase in water complaints this week", type: "warning", category: "Water Supply" },
-  { id: 2, text: "North Zone showing 30% longer resolution time", type: "alert", category: "Performance" },
-  { id: 3, text: "Road complaints spike on weekends", type: "info", category: "Trends" },
-  { id: 4, text: "3 departments need additional staff", type: "critical", category: "Resources" },
-  { id: 5, text: "Citizen satisfaction improved by 12% this month", type: "success", category: "Satisfaction" },
-];
 
 const SparklineChart = ({ data, direction }: { data: number[]; direction: "up" | "down" }) => {
   const max = Math.max(...data), min = Math.min(...data), range = max - min || 1;
@@ -94,20 +53,25 @@ const AnalyticsDashboard = () => {
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
   const [hoveredZone, setHoveredZone] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Chart data — start with fallbacks, replace when API loads
-  const [keyMetrics, setKeyMetrics] = useState(FALLBACK_METRICS);
-  const [trendData, setTrendData] = useState(FALLBACK_TREND);
-  const [deptData, setDeptData] = useState(FALLBACK_DEPT);
-  const [categoryData, setCategoryData] = useState(FALLBACK_CATEGORY);
-  const [statusData] = useState(FALLBACK_STATUS);   // status doesn't change with range
-  const [categoryBreakdown, setCategoryBreakdown] = useState(FALLBACK_BREAKDOWN);
+  const [keyMetrics, setKeyMetrics] = useState(EMPTY_METRICS);
+  const [trendData, setTrendData] = useState<any[]>([]);
+  const [deptData, setDeptData] = useState<any[]>([]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [statusData, setStatusData] = useState<any[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [heatmapZones, setHeatmapZones] = useState<any[]>([]);
+  const [insights, setInsights] = useState<any[]>([]);
 
   // ✅ Prevent infinite loop: track last fetched params
   const lastFetchRef = useRef<string>("");
 
   useEffect(() => {
     // Only re-fetch when range or custom dates actually change
+    if (selectedRange === "custom" && (!dateFrom || !dateTo)) return;
     const key = selectedRange === "custom"
       ? `custom-${dateFrom?.toDateString()}-${dateTo?.toDateString()}`
       : selectedRange;
@@ -118,6 +82,8 @@ const AnalyticsDashboard = () => {
 
   const fetchAnalytics = async () => {
     try {
+      if (selectedRange === "custom" && (!dateFrom || !dateTo)) return;
+      setIsLoading(true);
       const res = await adminService.getAnalytics(
         selectedRange,
         selectedRange === "custom" ? dateFrom?.toISOString() : undefined,
@@ -129,9 +95,10 @@ const AnalyticsDashboard = () => {
       // ✅ Map metrics
       if (d.keyMetrics) {
         setKeyMetrics([
-          { title: "Total Complaints Filed", value: d.keyMetrics.totalFiled ?? "—", change: 0, trend: "up", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
-          { title: "Resolution Rate", value: d.keyMetrics.resolutionRate ?? "—", change: 0, trend: "up", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
-          { title: "SLA Compliance", value: d.keyMetrics.slaCompliance ?? "—", change: 0, trend: "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
+          { title: "Total Complaints Filed", value: d.keyMetrics.totalFiled ?? "0", change: 0, trend: "up", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
+          { title: "Resolution Rate", value: d.keyMetrics.resolutionRate ?? "0%", change: 0, trend: "up", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
+          { title: "Avg Resolution Time", value: d.keyMetrics.avgResolutionTime ?? "0.0 days", change: 0, trend: "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
+          { title: "SLA Compliance", value: d.keyMetrics.slaCompliance ?? "0%", change: 0, trend: "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
         ]);
       }
 
@@ -166,13 +133,129 @@ const AnalyticsDashboard = () => {
       if (d.departmentPerformance?.length) {
         setDeptData(d.departmentPerformance.map((dp: any) => ({
           name: dp.name ?? "Unknown",
-          time: dp.avgTime ?? dp.time ?? 0,
+          time: Number(dp.avgTime ?? dp.time ?? 0).toFixed(1),
           color: CHART_COLORS[0],
         })));
+      } else {
+        setDeptData([]);
       }
 
-    } catch (_err) {
-      // silently keep fallback data — no crash
+      if (d.statusDistribution?.length) {
+        setStatusData(d.statusDistribution.map((s: any, i: number) => ({
+          name: s.name ?? "Other",
+          value: s.value ?? 0,
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        })));
+      } else {
+        setStatusData([]);
+      }
+
+      if (d.heatmapZones?.length) {
+        setHeatmapZones(d.heatmapZones);
+      } else {
+        setHeatmapZones([]);
+      }
+
+      if (d.insights?.length) {
+        setInsights(d.insights);
+      } else {
+        setInsights([]);
+      }
+
+    } catch (_err: any) {
+      setKeyMetrics(EMPTY_METRICS);
+      setTrendData([]);
+      setDeptData([]);
+      setCategoryData([]);
+      setStatusData([]);
+      setCategoryBreakdown([]);
+      setHeatmapZones([]);
+      setInsights([]);
+      toast.error("Failed to load analytics data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const csvEscape = (value: string | number) => {
+    const str = String(value ?? "");
+    if (/[",\n]/.test(str)) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const handleExportReport = () => {
+    try {
+      if (selectedRange === "custom" && (!dateFrom || !dateTo)) {
+        toast.error("Select both start and end dates for custom range");
+        return;
+      }
+      if (selectedRange === "custom" && dateFrom && dateTo && dateFrom > dateTo) {
+        toast.error("Start date cannot be after end date");
+        return;
+      }
+
+      setIsExporting(true);
+
+      const lines: string[] = [];
+      const now = new Date();
+      const rangeLabel =
+        selectedRange === "custom"
+          ? `${format(dateFrom!, "yyyy-MM-dd")} to ${format(dateTo!, "yyyy-MM-dd")}`
+          : timeRanges.find((r) => r.value === selectedRange)?.label || selectedRange;
+
+      lines.push("Admin Analytics Report");
+      lines.push(`Generated At,${csvEscape(now.toISOString())}`);
+      lines.push(`Time Range,${csvEscape(rangeLabel)}`);
+      lines.push("");
+
+      lines.push("Key Metrics");
+      lines.push("Metric,Value");
+      keyMetrics.forEach((m) => lines.push(`${csvEscape(m.title)},${csvEscape(m.value)}`));
+      lines.push("");
+
+      lines.push("Trend Data");
+      lines.push("Period,Filed,Resolved,Pending");
+      trendData.forEach((t: any) =>
+        lines.push(
+          `${csvEscape(t.name ?? "")},${csvEscape(t.filed ?? 0)},${csvEscape(t.resolved ?? 0)},${csvEscape(t.pending ?? 0)}`,
+        ),
+      );
+      lines.push("");
+
+      lines.push("Category Distribution");
+      lines.push("Category,Value");
+      categoryData.forEach((c: any) =>
+        lines.push(`${csvEscape(c.name ?? "")},${csvEscape(c.value ?? 0)}`),
+      );
+      lines.push("");
+
+      lines.push("Department Performance");
+      lines.push("Department,Avg Resolution Time (days)");
+      deptData.forEach((d: any) =>
+        lines.push(`${csvEscape(d.name ?? "")},${csvEscape(d.time ?? 0)}`),
+      );
+      lines.push("");
+
+      lines.push("Status Distribution");
+      lines.push("Status,Value");
+      statusData.forEach((s: any) =>
+        lines.push(`${csvEscape(s.name ?? "")},${csvEscape(s.value ?? 0)}`),
+      );
+
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `admin-analytics-${selectedRange}-${format(now, "yyyyMMdd-HHmm")}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Report exported");
+    } catch {
+      toast.error("Failed to export report");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -206,8 +289,20 @@ const AnalyticsDashboard = () => {
                 <p className="text-muted-foreground text-sm">Comprehensive grievance analytics and insights</p>
               </div>
             </div>
-            <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white">
-              <Download className="h-4 w-4 mr-2" />Export Report
+            <Button
+              onClick={handleExportReport}
+              disabled={
+                isExporting ||
+                (selectedRange === "custom" && (!dateFrom || !dateTo))
+              }
+              className="hidden sm:inline-flex bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {isExporting ? "Exporting..." : "Export Report"}
             </Button>
           </div>
         </div>
@@ -247,9 +342,35 @@ const AnalyticsDashboard = () => {
                   </Popover>
                 </div>
               )}
+              <div className="ml-auto">
+                <Button
+                  onClick={handleExportReport}
+                  disabled={
+                    isExporting ||
+                    (selectedRange === "custom" && (!dateFrom || !dateTo))
+                  }
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  {isExporting ? "Exporting..." : "Export Report"}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        {isLoading && (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
+              Loading analytics...
+            </CardContent>
+          </Card>
+        )}
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -277,39 +398,51 @@ const AnalyticsDashboard = () => {
           <Card className="min-h-[380px]">
             <CardHeader><CardTitle className="text-lg">Complaint Trends Over Time</CardTitle></CardHeader>
             <CardContent>
-              <div className="w-full" style={{ height: 300, minHeight: 300, minWidth: 0 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                    <YAxis stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    <Legend />
-                    <Line type="monotone" dataKey="filed" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} name="Filed" />
-                    <Line type="monotone" dataKey="resolved" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} name="Resolved" />
-                    <Line type="monotone" dataKey="pending" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} name="Pending" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {trendData.length === 0 ? (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+                  No trend data for selected range
+                </div>
+              ) : (
+                <div className="w-full" style={{ height: 300, minHeight: 300, minWidth: 0 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                      <Legend />
+                      <Line type="monotone" dataKey="filed" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} name="Filed" />
+                      <Line type="monotone" dataKey="resolved" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} name="Resolved" />
+                      <Line type="monotone" dataKey="pending" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} name="Pending" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <Card className="min-h-[380px]">
             <CardHeader><CardTitle className="text-lg">Department Avg Resolution Time</CardTitle></CardHeader>
             <CardContent>
-              <div className="w-full" style={{ height: 300, minHeight: 300, minWidth: 0 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={deptData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v} days`, "Avg Resolution"]} />
-                    <Bar dataKey="time" radius={[4, 4, 0, 0]}>
-                      {deptData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {deptData.length === 0 ? (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+                  No department performance data
+                </div>
+              ) : (
+                <div className="w-full" style={{ height: 300, minHeight: 300, minWidth: 0 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={deptData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v} days`, "Avg Resolution"]} />
+                      <Bar dataKey="time" radius={[4, 4, 0, 0]}>
+                        {deptData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -321,20 +454,26 @@ const AnalyticsDashboard = () => {
             <CardContent>
               <div className="flex flex-col md:flex-row items-center gap-4">
                 <div className="w-full" style={{ height: 280, minHeight: 280, minWidth: 0 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={categoryData} cx="50%" cy="50%" outerRadius={100} dataKey="value"
-                        label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
-                        labelLine={false} onClick={d => setSelectedCategory(d.name)} style={{ cursor: "pointer" }}
-                      >
-                        {categoryData.map((entry, i) => (
-                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}
-                            opacity={selectedCategory === null || selectedCategory === entry.name ? 1 : 0.4} />
-                        ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v}%`, "Percentage"]} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {categoryData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                      No category distribution data
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={categoryData} cx="50%" cy="50%" outerRadius={100} dataKey="value"
+                          label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
+                          labelLine={false} onClick={d => setSelectedCategory(d.name)} style={{ cursor: "pointer" }}
+                        >
+                          {categoryData.map((entry, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}
+                              opacity={selectedCategory === null || selectedCategory === entry.name ? 1 : 0.4} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v}`, "Count"]} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
                   {categoryData.map((cat, i) => (
@@ -356,14 +495,20 @@ const AnalyticsDashboard = () => {
             <CardContent>
               <div className="flex flex-col md:flex-row items-center gap-4">
                 <div className="w-full" style={{ height: 280, minHeight: 280, minWidth: 0 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ value }) => value}>
-                        {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {statusData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                      No status distribution data
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ value }) => value}>
+                          {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                        </Pie>
+                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
                 <div className="space-y-3">
                   {statusData.map(s => (
@@ -401,6 +546,11 @@ const AnalyticsDashboard = () => {
                   <span className="text-white font-bold text-xs">{zone.complaints}</span>
                 </div>
               ))}
+              {heatmapZones.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+                  No geo-density data for selected range
+                </div>
+              )}
               <div className="absolute bottom-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 border border-border">
                 <p className="text-xs font-semibold text-foreground mb-2">Density</p>
                 <div className="space-y-1">
@@ -420,6 +570,11 @@ const AnalyticsDashboard = () => {
           <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-600" />AI-Generated Insights</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {insights.length === 0 && (
+                <div className="p-3 bg-card rounded-lg border border-border text-sm text-muted-foreground">
+                  No insights available for selected range.
+                </div>
+              )}
               {insights.map(insight => (
                 <div key={insight.id} className="flex items-center justify-between p-3 bg-card rounded-lg border border-border hover:shadow-md transition-shadow cursor-pointer group">
                   <div className="flex items-center gap-3">
@@ -448,7 +603,13 @@ const AnalyticsDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {categoryBreakdown.map(row => (
+                {categoryBreakdown.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      No category breakdown data
+                    </TableCell>
+                  </TableRow>
+                ) : categoryBreakdown.map(row => (
                   <TableRow key={row.category} className="cursor-pointer hover:bg-muted/50">
                     <TableCell className="font-medium">{row.category}</TableCell>
                     <TableCell className="text-right">{row.total}</TableCell>

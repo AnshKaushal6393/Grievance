@@ -16,6 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FileX2,
+  History,
+  Star,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -41,8 +43,17 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Complaint {
+  dbId: string;
   id: string;
   title: string;
   category: string;
@@ -51,6 +62,8 @@ interface Complaint {
   filedDate: string;
   lastUpdated: string;
   description: string;
+  feedbackRating?: number;
+  feedbackComment?: string;
 }
 
 const MyComplaints = () => {
@@ -63,6 +76,17 @@ const MyComplaints = () => {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyEvents, setHistoryEvents] = useState<any[]>([]);
+  const [historyComplaintId, setHistoryComplaintId] = useState("");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(
+    null,
+  );
 
   useEffect(() => {
     fetchComplaints();
@@ -184,6 +208,7 @@ const MyComplaints = () => {
           ? response.data.data
           : {};
       const mapped = (payload?.complaints || []).map((c: any) => ({
+        dbId: c._id,
         id: c.complaintId || c._id,
         title: c.title,
         category: c.category,
@@ -199,6 +224,8 @@ const MyComplaints = () => {
         filedDate: c.createdAt,
         lastUpdated: c.updatedAt || c.createdAt,
         description: c.description || "",
+        feedbackRating: c.feedback?.rating || 0,
+        feedbackComment: c.feedback?.comment || "",
       }));
       // fallback to server-side stats/pagination if needed later
       setComplaints(mapped);
@@ -206,6 +233,52 @@ const MyComplaints = () => {
         toast.error("Failed to fetch complaints");
     } finally{
         setIsLoading(false);
+    }
+  };
+
+  const openHistory = async (complaint: Complaint) => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    setHistoryComplaintId(complaint.id);
+    try {
+      const response = await complaintService.getComplaintHistory(complaint.dbId);
+      setHistoryEvents(response?.data?.history || []);
+    } catch (error) {
+      toast.error("Failed to fetch complaint history");
+      setHistoryEvents([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openFeedback = (complaint: Complaint) => {
+    setSelectedComplaint(complaint);
+    setFeedbackRating(complaint.feedbackRating || 0);
+    setFeedbackComment(complaint.feedbackComment || "");
+    setFeedbackOpen(true);
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!selectedComplaint) return;
+    if (feedbackRating < 1 || feedbackRating > 5) {
+      toast.error("Please select a rating between 1 and 5");
+      return;
+    }
+
+    setFeedbackSubmitting(true);
+    try {
+      await complaintService.submitFeedback(
+        selectedComplaint.dbId,
+        feedbackRating,
+        feedbackComment,
+      );
+      toast.success("Feedback submitted successfully");
+      setFeedbackOpen(false);
+      fetchComplaints();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to submit feedback");
+    } finally {
+      setFeedbackSubmitting(false);
     }
   };
 
@@ -607,12 +680,38 @@ const MyComplaints = () => {
 
                           {/* Right Section - Action Button */}
                           <div className="lg:ml-4">
-                            <Link to={`/track-complaint?complaintId=${complaint.id}`}>
-                              <Button className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Details
+                            <div className="flex flex-col lg:flex-row gap-2">
+                              <Button
+                                variant="outline"
+                                className="w-full lg:w-auto rounded-xl"
+                                onClick={() => openHistory(complaint)}
+                              >
+                                <History className="w-4 h-4 mr-2" />
+                                History
                               </Button>
-                            </Link>
+                              <Link to={`/track-complaint?complaintId=${complaint.id}`}>
+                                <Button className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Details
+                                </Button>
+                              </Link>
+                              {complaint.status === "resolved" && !complaint.feedbackRating && (
+                                <Button
+                                  variant="secondary"
+                                  className="w-full lg:w-auto rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                  onClick={() => openFeedback(complaint)}
+                                >
+                                  <Star className="w-4 h-4 mr-2" />
+                                  Rate
+                                </Button>
+                              )}
+                              {complaint.status === "resolved" &&
+                                (complaint.feedbackRating || 0) > 0 && (
+                                  <Badge className="bg-green-100 text-green-800 border-green-200 px-3 py-1 rounded-lg">
+                                    Rated {complaint.feedbackRating}/5
+                                  </Badge>
+                                )}
+                            </div>
                           </div>
                         </div>
 
@@ -746,6 +845,97 @@ const MyComplaints = () => {
           </motion.div>
         )}
       </main>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-2xl bg-white">
+          <DialogHeader>
+            <DialogTitle>Complaint History - {historyComplaintId}</DialogTitle>
+          </DialogHeader>
+          {historyLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto space-y-3 pr-1">
+              {historyEvents.length === 0 && (
+                <p className="text-sm text-gray-500">No history available.</p>
+              )}
+              {historyEvents.map((event, idx) => (
+                <div key={idx} className="rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-gray-900 capitalize">
+                      {(event.status || "updated").replaceAll("_", " ").replaceAll("-", " ")}
+                    </p>
+                    <span className="text-xs text-gray-500">
+                      {new Date(event.updatedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-700 mt-1">{event.message}</p>
+                  <p className="text-xs text-gray-500 mt-1">By: {event.updatedBy || "System"}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+        <DialogContent className="max-w-lg bg-white">
+          <DialogHeader>
+            <DialogTitle>Rate Resolution</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Share feedback for complaint{" "}
+              <span className="font-medium">{selectedComplaint?.id}</span>
+            </p>
+            <div className="flex items-center gap-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setFeedbackRating(star)}
+                  className="p-1"
+                >
+                  <Star
+                    className={cn(
+                      "w-7 h-7",
+                      star <= feedbackRating
+                        ? "fill-amber-400 text-amber-500"
+                        : "text-gray-300",
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+            <Textarea
+              value={feedbackComment}
+              onChange={(e) => setFeedbackComment(e.target.value)}
+              placeholder="Optional comments about resolution quality..."
+              className="min-h-28"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setFeedbackOpen(false)}
+              disabled={feedbackSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitFeedback} disabled={feedbackSubmitting}>
+              {feedbackSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit Feedback"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

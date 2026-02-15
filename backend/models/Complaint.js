@@ -85,7 +85,15 @@ const complaintSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["filed", "assigned", "in_progress", "resolved", "rejected"],
+      enum: [
+        "filed",
+        "assigned",
+        "pending",
+        "in_progress",
+        "in-progress",
+        "resolved",
+        "rejected",
+      ],
       default: "filed",
     },
     priority: {
@@ -164,6 +172,55 @@ const complaintSchema = new mongoose.Schema(
       completedAt: Date,
       readyForFeedback: Boolean,
     },
+    feedback: {
+      rating: {
+        type: Number,
+        min: 1,
+        max: 5,
+        default: null,
+      },
+      comment: {
+        type: String,
+        trim: true,
+        maxlength: [1000, "Feedback cannot exceed 1000 characters"],
+        default: "",
+      },
+      submittedAt: {
+        type: Date,
+        default: null,
+      },
+      submittedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+    },
+    statusHistory: [
+      {
+        status: {
+          type: String,
+          required: true,
+        },
+        message: {
+          type: String,
+          default: "",
+        },
+        updatedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+        },
+        updatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        source: {
+          type: String,
+          enum: ["system", "admin", "officer", "user"],
+          default: "system",
+        },
+      },
+    ],
     timeline: [
       {
         status: String,
@@ -255,6 +312,27 @@ complaintSchema.methods.updateStatus = function (newStatus, userId, message) {
   }
 
   return this.save();
+};
+
+complaintSchema.methods.recordStatusChange = function (
+  newStatus,
+  userId,
+  message = "",
+  source = "system",
+) {
+  this.status = newStatus;
+
+  if (newStatus === "resolved") {
+    this.resolvedDate = new Date();
+  }
+
+  this.statusHistory.unshift({
+    status: newStatus,
+    message,
+    updatedBy: userId || null,
+    source,
+    updatedAt: new Date(),
+  });
 };
 
 complaintSchema.statics.getStats = async function (userId) {

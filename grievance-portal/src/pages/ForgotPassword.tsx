@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, ArrowLeft, Loader2, KeyRound, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import authService from "@/services/authService";
 
 type Step = "email" | "otp" | "newPassword" | "success";
 
@@ -16,6 +18,8 @@ const ForgotPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [timer, setTimer] = useState(45);
+  const [resetUserId, setResetUserId] = useState("");
+  const [resetToken, setResetToken] = useState("");
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
 
@@ -29,12 +33,31 @@ const ForgotPassword = () => {
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      toast.error("Please enter your email address");
+      return;
+    }
+
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setStep("otp");
-    setTimer(45);
-    setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    try {
+      const response = await authService.forgotPassword({ email: email.trim() });
+      const userId = response?.data?.userId;
+      if (!userId) {
+        toast.success(response.message || "If your email is registered, you will receive an OTP");
+        return;
+      }
+
+      setResetUserId(userId);
+      setOtp(Array(6).fill(""));
+      setStep("otp");
+      setTimer(45);
+      toast.success(response.message || "OTP sent to your email");
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to send reset OTP");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -57,18 +80,40 @@ const ForgotPassword = () => {
   const isOtpComplete = otp.every((digit) => digit !== "");
 
   const handleVerifyOtp = async () => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setStep("newPassword");
-  };
-
-  // Auto-submit OTP
-  useEffect(() => {
-    if (isOtpComplete && step === "otp" && !isLoading) {
-      handleVerifyOtp();
+    if (!resetUserId) {
+      toast.error("Please request OTP again");
+      setStep("email");
+      return;
     }
-  }, [otp, step]);
+
+    const otpCode = otp.join("");
+    if (otpCode.length !== 6) {
+      toast.error("Please enter a valid 6-digit OTP");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await authService.verifyResetOTP({
+        userId: resetUserId,
+        otp: otpCode,
+      });
+
+      const token = response?.data?.resetToken;
+      if (!token) {
+        toast.error("Failed to verify OTP");
+        return;
+      }
+
+      setResetToken(token);
+      setStep("newPassword");
+      toast.success(response.message || "OTP verified");
+    } catch (error: any) {
+      toast.error(error?.message || "OTP verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getPasswordStrength = () => {
     if (!newPassword) return { strength: 0, label: "", color: "" };
@@ -94,11 +139,38 @@ const ForgotPassword = () => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!resetToken) {
+      toast.error("Session expired. Please verify OTP again");
+      setStep("otp");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setStep("success");
-    setTimeout(() => navigate("/login"), 3000);
+    try {
+      const response = await authService.resetPassword({
+        resetToken,
+        newPassword,
+        confirmPassword,
+      });
+      toast.success(response.message || "Password reset successful");
+      setStep("success");
+      setTimeout(() => navigate("/login"), 3000);
+    } catch (error: any) {
+      toast.error(error?.message || "Password reset failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatTimer = (seconds: number) => {
@@ -108,12 +180,31 @@ const ForgotPassword = () => {
   };
 
   const handleResendOtp = async () => {
+    if (!email.trim()) {
+      toast.error("Please enter your email again");
+      setStep("email");
+      return;
+    }
+
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setTimer(45);
-    setOtp(Array(6).fill(""));
-    otpRefs.current[0]?.focus();
+    try {
+      const response = await authService.forgotPassword({ email: email.trim() });
+      const userId = response?.data?.userId;
+      if (!userId) {
+        toast.success(response.message || "If your email is registered, you will receive an OTP");
+        return;
+      }
+
+      setResetUserId(userId);
+      setTimer(45);
+      setOtp(Array(6).fill(""));
+      toast.success(response.message || "OTP resent");
+      otpRefs.current[0]?.focus();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to resend OTP");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const slideVariants = {

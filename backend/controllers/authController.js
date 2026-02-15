@@ -453,14 +453,15 @@ export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
+    if (!email || !email.trim()) {
       return res.status(400).json({
         success: false,
         message: "Please provide email address",
       });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       // Don't reveal if user exists or not (security)

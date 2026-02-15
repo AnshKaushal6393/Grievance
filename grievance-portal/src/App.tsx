@@ -20,6 +20,7 @@ import OfficerDashboard from "./pages/OfficerDashboard";
 import UpdateComplaintStatus from "./pages/UpdateComplaintStatus";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import Profile from "./pages/Profile";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -41,6 +42,7 @@ const App = () => (
             }
           />
           <Route path="/" element={<Index />} />
+          <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />

@@ -5,8 +5,10 @@ import { Mail, Lock, Eye, EyeOff, FileText, AlertCircle, Loader2 } from "lucide-
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import authService from "@/services/authService";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Login = () => {
+  const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +21,7 @@ const Login = () => {
     e.preventDefault();
 
     if (!email || !password) {
-      toast.error("Please enter email and password");
+      toast.error(t("login.errorMissingCreds"));
       return;
     }
 
@@ -32,7 +34,7 @@ const Login = () => {
         rememberMe,
       });
 
-      toast.success(response.message || "Login successful 🎉");
+      toast.success(response.message || t("login.success"));
       const role = response?.data?.user?.role;
       if (role === "admin") {
         navigate("/admin");
@@ -43,7 +45,7 @@ const Login = () => {
       }
 
     } catch (error: any) {
-      toast.error(error?.message || "Invalid email or password");
+      toast.error(error?.message || t("login.errorInvalidCreds"));
     } finally {
       setIsLoading(false);
     }
@@ -65,9 +67,9 @@ const Login = () => {
               <FileText className="w-10 h-10 text-white" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-gray-900">Welcome Back</h1>
+              <h1 className="text-4xl font-bold text-gray-900">{t("login.welcomeBack")}</h1>
               <p className="text-gray-500 text-lg">
-                Access your Grievance Portal account
+                {t("login.accessAccount")}
               </p>
             </div>
           </div>
@@ -80,7 +82,7 @@ const Login = () => {
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
               <input
                 type="email"
-                placeholder="Email or Phone Number"
+                placeholder={t("login.emailOrPhone")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
@@ -93,7 +95,7 @@ const Login = () => {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
               <input
                 type={showPassword ? "text" : "password"}
-                placeholder="Password"
+                placeholder={t("login.password")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
@@ -123,13 +125,13 @@ const Login = () => {
                   disabled={isLoading}
                   className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
                 />
-                <span className="text-gray-600 text-sm">Remember me</span>
+                <span className="text-gray-600 text-sm">{t("login.rememberMe")}</span>
               </label>
               <Link
                 to="/forgot-password"
                 className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
               >
-                Forgot password?
+                {t("login.forgotPassword")}
               </Link>
             </div>
 
@@ -142,10 +144,10 @@ const Login = () => {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Signing In...
+                  {t("login.signingIn")}
                 </>
               ) : (
-                "Sign In"
+                t("login.signIn")
               )}
             </Button>
           </form>
@@ -153,12 +155,12 @@ const Login = () => {
           {/* Footer */}
           <div className="space-y-4 pt-4">
             <p className="text-center text-gray-600">
-              Don't have an account?{" "}
+              {t("login.noAccount")}{" "}
               <Link
                 to="/register"
                 className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
               >
-                Sign up now
+                {t("login.signUpNow")}
               </Link>
             </p>
             <Link
@@ -167,7 +169,7 @@ const Login = () => {
             >
               <AlertCircle className="w-4 h-4" />
               <span className="text-sm">
-                Track your complaint without login
+                {t("login.trackWithoutLogin")}
               </span>
             </Link>
           </div>

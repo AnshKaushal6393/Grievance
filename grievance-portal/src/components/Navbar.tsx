@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  FileText, Menu, X, Globe, Bell, User, Users,
-  ChevronDown, LayoutDashboard, FileQuestion, 
-  LogOut, BarChart3
-} from "lucide-react";
+import { FileText, Menu, X, Bell, User, Users, ChevronDown, LayoutDashboard, FileQuestion, LogOut, BarChart3, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import authService from "@/services/authService";
 import complaintService from "@/services/complaintService";
+import adminService from "@/services/adminService";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const Navbar = () => {
+type NavbarProps = {
+  branding?: {
+    siteName?: string;
+    logoDataUrl?: string;
+  };
+};
+
+const Navbar = ({ branding }: NavbarProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [currentLanguage, setCurrentLanguage] = useState("English");
   const [notificationCount, setNotificationCount] = useState(0);
   const isLoggedIn = authService.isAuthenticated();
   const currentUser = authService.getCurrentUser();
@@ -22,6 +25,9 @@ const Navbar = () => {
   const displayEmail = currentUser?.email || "user@example.com";
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useLanguage();
+  const [brandName, setBrandName] = useState("Grievance Portal");
+  const [brandLogo, setBrandLogo] = useState("");
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -40,48 +46,78 @@ const Navbar = () => {
     fetchNotifications();
   }, [isLoggedIn, location.pathname]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    if (branding) {
+      setBrandName(branding.siteName?.trim() || "Grievance Portal");
+      setBrandLogo(branding.logoDataUrl || "");
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const loadBranding = async () => {
+      if (currentUser?.role !== "admin") {
+        setBrandName("Grievance Portal");
+        setBrandLogo("");
+        return;
+      }
+      try {
+        const response = await adminService.getSettings();
+        const general = response?.data?.settings?.general;
+        if (!mounted) return;
+        setBrandName(general?.siteName?.trim() || "Grievance Portal");
+        setBrandLogo(general?.logoDataUrl || "");
+      } catch {
+        if (!mounted) return;
+        setBrandName("Grievance Portal");
+        setBrandLogo("");
+      }
+    };
+
+    void loadBranding();
+    return () => {
+      mounted = false;
+    };
+  }, [branding, currentUser?.role, location.pathname]);
+
   const navLinks =
     currentUser?.role === "admin"
       ? [
-          { label: "Admin Dashboard", href: "/admin" },
-          { label: "Complaints", href: "/admin/complaints" },
-          { label: "Users", href: "/admin/users" },
-          { label: "Departments", href: "/admin/departments" },
-          { label: "Reports", href: "/admin/reports" },
-          { label: "Analytics", href: "/admin/analytics" },
+          { label: t("nav.adminDashboard"), href: "/admin" },
+          { label: t("nav.complaints"), href: "/admin/complaints" },
+          { label: t("nav.users"), href: "/admin/users" },
+          { label: t("nav.departments"), href: "/admin/departments" },
+          { label: t("nav.reports"), href: "/admin/reports" },
+          { label: t("nav.analytics"), href: "/admin/analytics" },
         ]
       : [
-          { label: "Home", href: "/" },
-          { label: "About", href: "/about" },
-          { label: "Track Complaint", href: "/track-complaint" },
+          { label: t("nav.home"), href: "/" },
+          { label: "Voice Complaint", href: "/voice-complaint" },
+          { label: t("nav.about"), href: "/about" },
+          { label: t("nav.trackComplaint"), href: "/track-complaint" },
         ];
-
-  const languages = [
-    { code: "en", label: "English", flag: "🇺🇸" },
-    { code: "hi", label: "हिंदी", flag: "🇮🇳" },
-    { code: "ur", label: "اردو", flag: "🇵🇰" },
-  ];
 
   const profileMenuItems =
     currentUser?.role === "admin"
       ? [
-          { label: "Admin Dashboard", icon: LayoutDashboard, href: "/admin" },
-          { label: "All Complaints", icon: FileQuestion, href: "/admin/complaints" },
-          { label: "Users", icon: Users, href: "/admin/users" },
-          { label: "Departments", icon: Users, href: "/admin/departments" },
-          { label: "Reports", icon: BarChart3, href: "/admin/reports" },
-          { label: "Analytics", icon: BarChart3, href: "/admin/analytics" },
-          { label: "Profile", icon: User, href: "/profile" },
+          { label: t("nav.adminDashboard"), icon: LayoutDashboard, href: "/admin" },
+          { label: t("nav.allComplaints"), icon: FileQuestion, href: "/admin/complaints" },
+          { label: t("nav.users"), icon: Users, href: "/admin/users" },
+          { label: t("nav.departments"), icon: Users, href: "/admin/departments" },
+          { label: t("nav.reports"), icon: BarChart3, href: "/admin/reports" },
+          { label: t("nav.analytics"), icon: BarChart3, href: "/admin/analytics" },
+          { label: t("nav.profile"), icon: User, href: "/profile" },
         ]
       : [
-          { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
-          { label: "My Complaints", icon: FileQuestion, href: "/my-complaints" },
-          { label: "Profile", icon: User, href: "/profile" },
+          { label: t("nav.dashboard"), icon: LayoutDashboard, href: "/dashboard" },
+          { label: "Voice Complaint", icon: Mic, href: "/voice-complaint" },
+          { label: t("nav.myComplaints"), icon: FileQuestion, href: "/my-complaints" },
+          { label: t("nav.profile"), icon: User, href: "/profile" },
         ];
 
-  const isActiveLink = (href: string) => {
-    return location.pathname === href;
-  };
+  const isActiveLink = (href: string) => location.pathname === href;
 
   const handleLogout = async () => {
     try {
@@ -97,18 +133,20 @@ const Navbar = () => {
     <nav className="sticky top-0 z-50 bg-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Left Side - Logo */}
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
-              <FileText className="w-5 h-5 text-white" />
-            </div>
+            {brandLogo ? (
+              <img src={brandLogo} alt="Site logo" className="w-10 h-10 rounded-xl border object-cover shadow-md" />
+            ) : (
+              <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+            )}
             <div className="hidden sm:block">
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">Grievance Portal</h1>
-              <p className="text-xs text-gray-500 -mt-0.5">E-Governance System</p>
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">{brandName}</h1>
+              <p className="text-xs text-gray-500 -mt-0.5">{t("nav.platformSubtitle")}</p>
             </div>
           </Link>
 
-          {/* Center - Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
@@ -125,55 +163,9 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Right Side */}
           <div className="hidden md:flex items-center gap-2">
-            {/* Language Switcher */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  setIsLanguageOpen(!isLanguageOpen);
-                  setIsProfileOpen(false);
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
-              >
-                <Globe className="w-4 h-4" />
-                <span className="text-sm">{currentLanguage}</span>
-                <ChevronDown className={`w-3 h-3 transition-transform ${isLanguageOpen ? "rotate-180" : ""}`} />
-              </button>
-              
-              <AnimatePresence>
-                {isLanguageOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
-                  >
-                    {languages.map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => {
-                          setCurrentLanguage(lang.label);
-                          setIsLanguageOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                          currentLanguage === lang.label
-                            ? "bg-blue-50 text-blue-700"
-                            : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        <span className="text-lg">{lang.flag}</span>
-                        <span>{lang.label}</span>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
             {isLoggedIn ? (
               <>
-                {/* Notification Bell */}
                 <button className="relative p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
                   <Bell className="w-5 h-5" />
                   {notificationCount > 0 && (
@@ -183,12 +175,10 @@ const Navbar = () => {
                   )}
                 </button>
 
-                {/* Profile Dropdown */}
                 <div className="relative">
                   <button
                     onClick={() => {
                       setIsProfileOpen(!isProfileOpen);
-                      setIsLanguageOpen(false);
                     }}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                   >
@@ -228,7 +218,7 @@ const Navbar = () => {
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                           >
                             <LogOut className="w-4 h-4" />
-                            Logout
+                            {t("nav.logout")}
                           </button>
                         </div>
                       </motion.div>
@@ -239,20 +229,19 @@ const Navbar = () => {
             ) : (
               <>
                 <Button variant="ghost" size="sm" className="text-gray-600" asChild>
-                  <Link to="/login">Sign In</Link>
+                  <Link to="/login">{t("nav.signIn")}</Link>
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md"
                   asChild
                 >
-                  <Link to="/register">Sign Up</Link>
+                  <Link to="/register">{t("nav.signUp")}</Link>
                 </Button>
               </>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
@@ -262,7 +251,6 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -272,7 +260,6 @@ const Navbar = () => {
             className="md:hidden bg-white border-t border-gray-100 shadow-lg"
           >
             <div className="px-4 py-4 space-y-2">
-              {/* Mobile Nav Links */}
               {navLinks.map((link) => (
                 <Link
                   key={link.label}
@@ -288,43 +275,20 @@ const Navbar = () => {
                 </Link>
               ))}
 
-              {/* Mobile Language Switcher */}
-              <div className="border-t border-gray-100 pt-4 mt-4">
-                <p className="px-4 text-xs font-medium text-gray-400 uppercase mb-2">Language</p>
-                <div className="flex gap-2 px-4">
-                  {languages.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => setCurrentLanguage(lang.label)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                        currentLanguage === lang.label
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      <span>{lang.flag}</span>
-                      <span>{lang.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Mobile Auth Buttons */}
               {!isLoggedIn && (
                 <div className="border-t border-gray-100 pt-4 mt-4 space-y-2">
                   <Button variant="outline" className="w-full py-3 h-auto" asChild>
-                    <Link to="/login" onClick={() => setIsOpen(false)}>Sign In</Link>
+                    <Link to="/login" onClick={() => setIsOpen(false)}>{t("nav.signIn")}</Link>
                   </Button>
-                  <Button 
+                  <Button
                     className="w-full py-3 h-auto bg-gradient-to-r from-blue-600 to-indigo-600"
                     asChild
                   >
-                    <Link to="/register" onClick={() => setIsOpen(false)}>Sign Up</Link>
+                    <Link to="/register" onClick={() => setIsOpen(false)}>{t("nav.signUp")}</Link>
                   </Button>
                 </div>
               )}
 
-              {/* Mobile Logged In State */}
               {isLoggedIn && (
                 <div className="border-t border-gray-100 pt-4 mt-4 space-y-2">
                   <div className="flex items-center gap-3 px-4 py-2">
@@ -352,7 +316,7 @@ const Navbar = () => {
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <LogOut className="w-4 h-4" />
-                    Logout
+                    {t("nav.logout")}
                   </button>
                 </div>
               )}

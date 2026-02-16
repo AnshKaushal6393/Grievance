@@ -20,6 +20,8 @@ import {
   importUsers,
   importUsersFromCsvFile,
   streamUserUpdates,
+  getAdminSettings,
+  updateAdminSettings,
 } from '../controllers/adminController.js';
 
 import { getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment, addOfficer, removeOfficer } from '../controllers/departmentController.js';
@@ -66,5 +68,9 @@ router.post('/users/:id/reset-password', resetUserPassword);
 router.post('/users/bulk-action', bulkUserAction);
 router.post('/users/import', importUsers);
 router.post('/users/import-file', csvUpload.single("file"), importUsersFromCsvFile);
+
+// --- Admin Settings ---
+router.get('/settings', getAdminSettings);
+router.put('/settings', updateAdminSettings);
 
 export default router;

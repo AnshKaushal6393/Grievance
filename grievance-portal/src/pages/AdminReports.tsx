@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -10,12 +10,14 @@ import {
   FileText,
   Gauge,
   Layers3,
+  Loader2,
   MapPinned,
   SlidersHorizontal,
   SmilePlus,
   WandSparkles,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import adminService from "@/services/adminService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +55,32 @@ interface SavedReport {
   type: string;
   generatedDate: string;
   format: OutputFormat;
+  snapshot?: ReportSnapshot;
+}
+
+interface ReportSnapshot {
+  dateRange: string;
+  groupBy: GroupByType;
+  departments: string[];
+  categories: string[];
+  statuses: string[];
+  priorities: string[];
+  include: typeof includeDefaults;
+  template: TemplateType;
+  sendEmail: boolean;
+  scheduleRecurring: boolean;
+  metrics: {
+    totalComplaints: number;
+    resolved: number;
+    pending: number;
+    slaCompliance: string;
+  };
+  rows: Array<{
+    label: string;
+    total: number;
+    resolved: number;
+    pending: number;
+  }>;
 }
 
 const STORAGE_KEY = "admin_recent_reports_v1";
@@ -67,7 +95,6 @@ const reportTypes: ReportCardOption[] = [
   { id: "custom-builder", title: "Custom Report Builder", description: "Build a report with custom filters and sections.", icon: WandSparkles },
 ];
 
-const allDepartments = ["Public Works", "Water Supply", "Electricity", "Sanitation", "Traffic"];
 const allCategories = ["Roads & Infrastructure", "Water Supply", "Electricity", "Sanitation & Garbage", "Other"];
 const allStatuses = ["filed", "assigned", "in-progress", "resolved", "rejected"];
 const allPriorities = ["low", "medium", "high", "critical"];
@@ -101,6 +128,11 @@ const readSavedReports = (): SavedReport[] => {
 
 const writeSavedReports = (reports: SavedReport[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+};
+
+const normalizeStatus = (status: string) => {
+  if (status === "in_progress") return "in-progress";
+  return status;
 };
 
 const escapePdfText = (input: string) =>
@@ -148,6 +180,7 @@ const AdminReports = () => {
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
   const [departments, setDepartments] = useState<string[]>([]);
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [priorities, setPriorities] = useState<string[]>([]);
@@ -160,6 +193,8 @@ const AdminReports = () => {
   const [scheduleRecurring, setScheduleRecurring] = useState(false);
 
   const [previewReady, setPreviewReady] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewSnapshot, setPreviewSnapshot] = useState<ReportSnapshot | null>(null);
   const [progress, setProgress] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [savedReports, setSavedReports] = useState<SavedReport[]>(readSavedReports());
@@ -172,6 +207,37 @@ const AdminReports = () => {
   const toggleMulti = (value: string, list: string[], setter: (next: string[]) => void) => {
     setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
   };
+
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const res = await adminService.getDepartments();
+        const deps = (res?.data?.departments || []).map((d: { name: string }) => d.name);
+        setDepartmentOptions(deps);
+      } catch {
+        setDepartmentOptions([]);
+      }
+    };
+    loadDepartments();
+  }, []);
+
+  useEffect(() => {
+    setPreviewReady(false);
+    setPreviewSnapshot(null);
+  }, [
+    selectedType,
+    startDate,
+    endDate,
+    departments,
+    categories,
+    statuses,
+    priorities,
+    groupBy,
+    include,
+    template,
+    sendEmail,
+    scheduleRecurring,
+  ]);
 
   const setQuickRange = (key: (typeof quickRanges)[number]["key"]) => {
     const today = new Date();
@@ -201,15 +267,153 @@ const AdminReports = () => {
 
   const buildReportName = () => `${formatTypeLabel(selectedType)} (${startDate} to ${endDate})`;
 
-  const handlePreview = () => {
-    setPreviewReady(true);
-    toast.success("Preview generated from selected configuration");
+  const fetchLiveSnapshot = async (): Promise<ReportSnapshot> => {
+    const fromDate = new Date(`${startDate}T00:00:00.000Z`).toISOString();
+    const toDate = new Date(`${endDate}T23:59:59.999Z`).toISOString();
+
+    const baseRes = await adminService.getAllComplaints({
+      fromDate,
+      toDate,
+      page: 1,
+      limit: 2000,
+    });
+    const raw = (baseRes?.data?.complaints || []) as Array<any>;
+
+    const filtered = raw.filter((item) => {
+      const deptName = item.department?.name || "Unassigned";
+      const st = normalizeStatus(item.status || "");
+      const byDepartment = departments.length === 0 || departments.includes(deptName);
+      const byCategory = categories.length === 0 || categories.includes(item.category);
+      const byStatus = statuses.length === 0 || statuses.includes(st);
+      const byPriority = priorities.length === 0 || priorities.includes(item.priority);
+      return byDepartment && byCategory && byStatus && byPriority;
+    });
+
+    const totalComplaints = filtered.length;
+    const resolved = filtered.filter((item) => normalizeStatus(item.status) === "resolved").length;
+    const pending = filtered.filter((item) => ["filed", "assigned", "in-progress", "pending"].includes(normalizeStatus(item.status))).length;
+
+    const resolvedWithSla = filtered.filter(
+      (item) =>
+        normalizeStatus(item.status) === "resolved" &&
+        item.resolvedDate &&
+        item.estimatedResolution &&
+        new Date(item.resolvedDate).getTime() <= new Date(item.estimatedResolution).getTime(),
+    ).length;
+    const slaCompliance = resolved > 0 ? `${Math.round((resolvedWithSla / resolved) * 100)}%` : "0%";
+
+    const groupKey = (item: any) => {
+      if (groupBy === "department") return item.department?.name || "Unassigned";
+      if (groupBy === "category") return item.category || "Unknown";
+      if (groupBy === "status") return normalizeStatus(item.status || "unknown");
+      return new Date(item.createdAt).toISOString().slice(0, 10);
+    };
+
+    const grouped = new Map<string, { total: number; resolved: number; pending: number }>();
+    filtered.forEach((item) => {
+      const key = groupKey(item);
+      const current = grouped.get(key) || { total: 0, resolved: 0, pending: 0 };
+      current.total += 1;
+      const st = normalizeStatus(item.status || "");
+      if (st === "resolved") current.resolved += 1;
+      if (["filed", "assigned", "in-progress", "pending"].includes(st)) current.pending += 1;
+      grouped.set(key, current);
+    });
+
+    const rows = Array.from(grouped.entries())
+      .map(([label, value]) => ({
+        label,
+        total: value.total,
+        resolved: value.resolved,
+        pending: value.pending,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 12);
+
+    return {
+      dateRange: `${startDate} to ${endDate}`,
+      groupBy,
+      departments,
+      categories,
+      statuses,
+      priorities,
+      include,
+      template,
+      sendEmail,
+      scheduleRecurring,
+      metrics: {
+        totalComplaints,
+        resolved,
+        pending,
+        slaCompliance,
+      },
+      rows,
+    };
+  };
+
+  const handlePreview = async () => {
+    setPreviewLoading(true);
+    try {
+      const snapshot = await fetchLiveSnapshot();
+      setPreviewSnapshot(snapshot);
+      setPreviewReady(true);
+      toast.success("Preview generated using live backend data");
+    } catch {
+      toast.error("Failed to fetch live report data");
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const triggerDownload = (report: SavedReport) => {
     const baseName = report.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-    const csvHeader = "name,type,generatedDate,format\n";
-    const csvRow = `"${report.name.replace(/"/g, '""')}","${report.type.replace(/"/g, '""')}","${report.generatedDate}","${report.format}"\n`;
+    const snapshot = report.snapshot;
+    const metrics = snapshot?.metrics || {
+      totalComplaints: 0,
+      resolved: 0,
+      pending: 0,
+      slaCompliance: "0%",
+    };
+    const includeTags = snapshot
+      ? [
+          snapshot.include.charts ? "Charts" : null,
+          snapshot.include.detailedList ? "Detailed List" : null,
+          snapshot.include.executiveSummary ? "Executive Summary" : null,
+          snapshot.include.recommendations ? "Recommendations" : null,
+          snapshot.include.rawData ? "Raw Data Export" : null,
+        ].filter(Boolean).join(", ")
+      : "N/A";
+    const filterDepartments = snapshot?.departments.length ? snapshot.departments.join(" | ") : "All";
+    const filterCategories = snapshot?.categories.length ? snapshot.categories.join(" | ") : "All";
+    const filterStatuses = snapshot?.statuses.length ? snapshot.statuses.join(" | ") : "All";
+    const filterPriorities = snapshot?.priorities.length ? snapshot.priorities.join(" | ") : "All";
+    const rowList = snapshot?.rows || [];
+
+    const csvSections = [
+      "Section,Key,Value",
+      `Meta,Name,"${report.name.replace(/"/g, '""')}"`,
+      `Meta,Type,"${report.type.replace(/"/g, '""')}"`,
+      `Meta,Generated Date,"${new Date(report.generatedDate).toLocaleString().replace(/"/g, '""')}"`,
+      `Meta,Format,${report.format.toUpperCase()}`,
+      `Meta,Date Range,"${snapshot?.dateRange || "N/A"}"`,
+      `Meta,Group By,${snapshot?.groupBy || "N/A"}`,
+      `Meta,Template,${snapshot?.template || "N/A"}`,
+      `Meta,Send Email,${snapshot?.sendEmail ? "Yes" : "No"}`,
+      `Meta,Schedule Recurring,${snapshot?.scheduleRecurring ? "Yes" : "No"}`,
+      `Filters,Departments,"${filterDepartments.replace(/"/g, '""')}"`,
+      `Filters,Categories,"${filterCategories.replace(/"/g, '""')}"`,
+      `Filters,Statuses,"${filterStatuses.replace(/"/g, '""')}"`,
+      `Filters,Priorities,"${filterPriorities.replace(/"/g, '""')}"`,
+      `Include,Sections,"${includeTags.replace(/"/g, '""')}"`,
+      `Metrics,Total Complaints,${metrics.totalComplaints}`,
+      `Metrics,Resolved,${metrics.resolved}`,
+      `Metrics,Pending,${metrics.pending}`,
+      `Metrics,SLA Compliance,${metrics.slaCompliance}`,
+      "",
+      "Analysis Label,Total,Resolved,Pending",
+      ...rowList.map((row) => `"${row.label.replace(/"/g, '""')}",${row.total},${row.resolved},${row.pending}`),
+    ].join("\n");
+
     let blob: Blob;
     let extension = "csv";
 
@@ -220,20 +424,59 @@ const AdminReports = () => {
         `Type: ${report.type}`,
         `Generated: ${new Date(report.generatedDate).toLocaleString()}`,
         `Format: ${report.format.toUpperCase()}`,
+        `Date Range: ${snapshot?.dateRange || "N/A"}`,
+        `Group By: ${snapshot?.groupBy || "N/A"}`,
+        `Template: ${snapshot?.template || "N/A"}`,
+        `Filters -> Departments: ${filterDepartments}`,
+        `Filters -> Categories: ${filterCategories}`,
+        `Filters -> Statuses: ${filterStatuses}`,
+        `Filters -> Priorities: ${filterPriorities}`,
+        `Included Sections: ${includeTags || "None"}`,
+        `Metrics -> Total: ${metrics.totalComplaints} | Resolved: ${metrics.resolved} | Pending: ${metrics.pending}`,
+        `SLA Compliance: ${metrics.slaCompliance}`,
+        "Analysis:",
+        ...rowList.map((row) => `${row.label}: total ${row.total}, resolved ${row.resolved}, pending ${row.pending}`),
       ]);
       blob = new Blob([bytes], { type: "application/pdf" });
       extension = "pdf";
     } else if (report.format === "excel") {
       const htmlTable = `
-        <table>
+        <h2>Grievance Portal Report</h2>
+        <table border="1" cellspacing="0" cellpadding="6">
           <thead><tr><th>Name</th><th>Type</th><th>Generated Date</th><th>Format</th></tr></thead>
-          <tbody><tr><td>${report.name}</td><td>${report.type}</td><td>${report.generatedDate}</td><td>${report.format.toUpperCase()}</td></tr></tbody>
+          <tbody><tr><td>${report.name}</td><td>${report.type}</td><td>${new Date(report.generatedDate).toLocaleString()}</td><td>${report.format.toUpperCase()}</td></tr></tbody>
+        </table>
+        <br />
+        <table border="1" cellspacing="0" cellpadding="6">
+          <thead><tr><th colspan="2">Configuration</th></tr></thead>
+          <tbody>
+            <tr><td>Date Range</td><td>${snapshot?.dateRange || "N/A"}</td></tr>
+            <tr><td>Group By</td><td>${snapshot?.groupBy || "N/A"}</td></tr>
+            <tr><td>Template</td><td>${snapshot?.template || "N/A"}</td></tr>
+            <tr><td>Departments</td><td>${filterDepartments}</td></tr>
+            <tr><td>Categories</td><td>${filterCategories}</td></tr>
+            <tr><td>Statuses</td><td>${filterStatuses}</td></tr>
+            <tr><td>Priorities</td><td>${filterPriorities}</td></tr>
+            <tr><td>Included Sections</td><td>${includeTags || "None"}</td></tr>
+          </tbody>
+        </table>
+        <br />
+        <table border="1" cellspacing="0" cellpadding="6">
+          <thead><tr><th>Total Complaints</th><th>Resolved</th><th>Pending</th><th>SLA Compliance</th></tr></thead>
+          <tbody><tr><td>${metrics.totalComplaints}</td><td>${metrics.resolved}</td><td>${metrics.pending}</td><td>${metrics.slaCompliance}</td></tr></tbody>
+        </table>
+        <br />
+        <table border="1" cellspacing="0" cellpadding="6">
+          <thead><tr><th>Analysis Label</th><th>Total</th><th>Resolved</th><th>Pending</th></tr></thead>
+          <tbody>
+            ${rowList.map((row) => `<tr><td>${row.label}</td><td>${row.total}</td><td>${row.resolved}</td><td>${row.pending}</td></tr>`).join("")}
+          </tbody>
         </table>
       `;
       blob = new Blob([htmlTable], { type: "application/vnd.ms-excel" });
       extension = "xls";
     } else {
-      blob = new Blob([csvHeader + csvRow], { type: "text/csv;charset=utf-8;" });
+      blob = new Blob([csvSections], { type: "text/csv;charset=utf-8;" });
       extension = "csv";
     }
 
@@ -245,13 +488,14 @@ const AdminReports = () => {
     URL.revokeObjectURL(url);
   };
 
-  const completeGeneration = () => {
+  const completeGeneration = (snapshot: ReportSnapshot) => {
     const report: SavedReport = {
       id: crypto.randomUUID(),
       name: buildReportName(),
       type: formatTypeLabel(selectedType),
       generatedDate: new Date().toISOString(),
       format,
+      snapshot,
     };
     const next = [report, ...savedReports];
     setSavedReports(next);
@@ -261,10 +505,21 @@ const AdminReports = () => {
     toast.success("Report generated successfully");
   };
 
-  const handleGenerate = () => {
-    if (!previewReady) {
-      toast.error("Preview report before generating");
-      return;
+  const handleGenerate = async () => {
+    let snapshot = previewSnapshot;
+    if (!snapshot) {
+      setPreviewLoading(true);
+      try {
+        snapshot = await fetchLiveSnapshot();
+        setPreviewSnapshot(snapshot);
+        setPreviewReady(true);
+      } catch {
+        toast.error("Could not fetch live report data");
+        setPreviewLoading(false);
+        return;
+      } finally {
+        setPreviewLoading(false);
+      }
     }
     setIsGenerating(true);
     setProgress(0);
@@ -273,7 +528,7 @@ const AdminReports = () => {
       current += 12;
       if (current >= 100) {
         clearInterval(timer);
-        completeGeneration();
+        completeGeneration(snapshot!);
       } else {
         setProgress(current);
       }
@@ -367,11 +622,15 @@ const AdminReports = () => {
                   <div>
                     <Label className="mb-2 block">Department</Label>
                     <div className="flex flex-wrap gap-2">
-                      {allDepartments.map((dept) => (
-                        <Badge key={dept} variant={departments.includes(dept) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleMulti(dept, departments, setDepartments)}>
-                          {dept}
-                        </Badge>
-                      ))}
+                      {departmentOptions.length === 0 ? (
+                        <span className="text-xs text-slate-500">No departments loaded</span>
+                      ) : (
+                        departmentOptions.map((dept) => (
+                          <Badge key={dept} variant={departments.includes(dept) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleMulti(dept, departments, setDepartments)}>
+                            {dept}
+                          </Badge>
+                        ))
+                      )}
                     </div>
                   </div>
                   <div>
@@ -489,11 +748,11 @@ const AdminReports = () => {
         <Card>
           <CardHeader><CardTitle>Preview</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <Button onClick={handlePreview} className="gap-2">
-              <FileText className="h-4 w-4" />
-              Preview Report
+            <Button onClick={handlePreview} className="gap-2" disabled={previewLoading}>
+              {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {previewLoading ? "Loading Preview..." : "Preview Report"}
             </Button>
-            {previewReady && (
+            {previewReady && previewSnapshot && (
               <div className="grid grid-cols-1 gap-4 rounded-xl border bg-slate-50 p-4 md:grid-cols-[1.2fr_1fr]">
                 <div>
                   <p className="font-semibold text-slate-900">{buildReportName()}</p>
@@ -505,18 +764,22 @@ const AdminReports = () => {
                     <Badge variant="secondary">{statuses.length || "All"} statuses</Badge>
                   </div>
                   <div className="mt-4 space-y-2">
-                    <div className="h-2 w-full rounded bg-blue-100"><div className="h-2 w-2/3 rounded bg-blue-500" /></div>
-                    <div className="h-2 w-full rounded bg-emerald-100"><div className="h-2 w-1/2 rounded bg-emerald-500" /></div>
-                    <div className="h-2 w-full rounded bg-amber-100"><div className="h-2 w-3/4 rounded bg-amber-500" /></div>
+                    <p className="text-xs text-slate-600">Total Complaints: {previewSnapshot.metrics.totalComplaints}</p>
+                    <div className="h-2 w-full rounded bg-blue-100"><div className="h-2 rounded bg-blue-500" style={{ width: `${previewSnapshot.metrics.totalComplaints === 0 ? 0 : Math.max((previewSnapshot.metrics.resolved / previewSnapshot.metrics.totalComplaints) * 100, 4)}%` }} /></div>
+                    <p className="text-xs text-slate-600">Resolved: {previewSnapshot.metrics.resolved} • Pending: {previewSnapshot.metrics.pending}</p>
+                    <div className="h-2 w-full rounded bg-emerald-100"><div className="h-2 rounded bg-emerald-500" style={{ width: `${previewSnapshot.metrics.slaCompliance}` }} /></div>
+                    <p className="text-xs text-slate-600">SLA Compliance: {previewSnapshot.metrics.slaCompliance}</p>
                   </div>
                 </div>
                 <div className="rounded-lg border bg-white p-4">
                   <p className="mb-3 text-sm font-semibold text-slate-700">Thumbnail Preview</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="h-16 rounded bg-slate-100" />
-                    <div className="h-16 rounded bg-slate-100" />
-                    <div className="h-20 rounded bg-slate-100" />
-                    <div className="h-20 rounded bg-slate-100" />
+                  <div className="space-y-2">
+                    {previewSnapshot.rows.slice(0, 4).map((row) => (
+                      <div key={row.label} className="rounded bg-slate-100 p-2 text-xs text-slate-700">
+                        <p className="font-medium">{row.label}</p>
+                        <p>Total: {row.total} • Resolved: {row.resolved}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

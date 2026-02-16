@@ -1,9 +1,12 @@
 import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
 import User from "../models/User.js";
+import AdminSetting from "../models/AdminSetting.js";
 import { createStatusNotification } from "../utils/notification.js";
 import { sendWelcomeEmail } from "../utils/sendOTP.js";
 import { publishUserManagementEvent, subscribeUserManagement } from "../utils/realtime.js";
+
+const ADMIN_SETTINGS_KEY = "global";
 
 
 // @desc    Get all complaints (Admin)
@@ -1463,6 +1466,61 @@ export async function importUsersFromCsvFile(req, res) {
       data: { created, failed },
     });
     publishUserManagementEvent("users.import-file", { count: created.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Get admin settings
+// @route   GET /api/admin/settings
+// @access  Private/Admin
+export async function getAdminSettings(req, res) {
+  try {
+    const doc = await AdminSetting.findOne({ key: ADMIN_SETTINGS_KEY }).lean();
+    res.status(200).json({
+      success: true,
+      data: {
+        settings: doc?.settings || null,
+        updatedAt: doc?.updatedAt || null,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Upsert admin settings
+// @route   PUT /api/admin/settings
+// @access  Private/Admin
+export async function updateAdminSettings(req, res) {
+  try {
+    const { settings } = req.body;
+    if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid settings object is required",
+      });
+    }
+
+    const doc = await AdminSetting.findOneAndUpdate(
+      { key: ADMIN_SETTINGS_KEY },
+      {
+        $set: {
+          settings,
+          updatedBy: req.user?._id || null,
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).lean();
+
+    res.status(200).json({
+      success: true,
+      message: "Admin settings updated successfully",
+      data: {
+        settings: doc.settings,
+        updatedAt: doc.updatedAt,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

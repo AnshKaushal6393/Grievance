@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import FileComplaint from "./pages/FileComplaint";
+import VoiceComplaint from "./pages/VoiceComplaint";
 import VerifyOTP from "./pages/VerifyOTP";
  import AadhaarVerification from "./pages/AadhaarVerification";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -21,6 +22,7 @@ import OfficerDashboard from "./pages/OfficerDashboard";
 import UpdateComplaintStatus from "./pages/UpdateComplaintStatus";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import AdminReports from "./pages/AdminReports";
+import AdminSettings from "./pages/AdminSettings";
 import Profile from "./pages/Profile";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
@@ -51,6 +53,7 @@ const App = () => (
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/aadhaar-verification" element={<AadhaarVerification />} />
           <Route path="/file-complaint" element={<ProtectedRoute><FileComplaint /></ProtectedRoute>} />
+          <Route path="/voice-complaint" element={<ProtectedRoute><VoiceComplaint /></ProtectedRoute>} />
           <Route path="/my-complaints" element={<ProtectedRoute><MyComplaints /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/track-complaint" element={<TrackComplaint />} />
@@ -116,6 +119,14 @@ const App = () => (
             element={
               <ProtectedRoute roles={["admin"]}>
                 <AdminReports />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <AdminSettings />
               </ProtectedRoute>
             }
           />

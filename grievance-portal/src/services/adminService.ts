@@ -221,6 +221,18 @@ export const adminService = {
     if (token) params.set("token", token);
     return `${API_BASE}/admin/stream/users?${params.toString()}`;
   },
+
+  // GET /api/admin/settings
+  getSettings: async () => {
+    const res = await api.get("/admin/settings");
+    return res.data;
+  },
+
+  // PUT /api/admin/settings
+  updateSettings: async (settings: Record<string, any>) => {
+    const res = await api.put("/admin/settings", { settings });
+    return res.data;
+  },
 };
 
 export default adminService;

@@ -7,6 +7,7 @@ import {
   CheckCircle,
   XCircle,
   Plus,
+  Mic,
   ArrowRight,
   Calendar,
   HelpCircle,
@@ -217,6 +218,7 @@ const Dashboard = () => {
 
   const quickLinks = [
     { label: "File New Complaint", icon: Plus, href: "/file-complaint" },
+    { label: "File by Voice", icon: Mic, href: "/voice-complaint" },
     { label: "Track Complaint", icon: FileText, href: "/track-complaint" },
     { label: "Help & Support", icon: HelpCircle, href: "/help" },
     { label: "Contact Us", icon: Phone, href: "/contact" },

@@ -127,11 +127,77 @@ export const adminService = {
   // ─── Users ───────────────────────────────────────────────
 
   // GET /api/admin/users
-  getAllUsers: async (role?: string, search?: string) => {
-    const params = new URLSearchParams();
-    if (role) params.append('role', role);
-    if (search) params.append('search', search);
+  getAllUsers: async (filters?: {
+    role?: string;
+    search?: string;
+    status?: string;
+    department?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams(
+      Object.entries(filters || {})
+        .filter(([, value]) => value !== undefined && value !== null && value !== "")
+        .map(([key, value]) => [key, String(value)]),
+    );
     const res = await api.get(`/admin/users?${params}`);
+    return res.data;
+  },
+
+  // GET /api/admin/users/:id
+  getUserDetails: async (id: string) => {
+    const res = await api.get(`/admin/users/${id}`);
+    return res.data;
+  },
+
+  // POST /api/admin/users
+  createUser: async (data: {
+    name: string;
+    email: string;
+    phone: string;
+    role: string;
+    departmentId?: string;
+    password?: string;
+    autoGeneratePassword?: boolean;
+    sendWelcome?: boolean;
+  }) => {
+    const res = await api.post('/admin/users', data);
+    return res.data;
+  },
+
+  // PUT /api/admin/users/:id
+  updateUser: async (id: string, data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
+    departmentId?: string;
+  }) => {
+    const res = await api.put(`/admin/users/${id}`, data);
+    return res.data;
+  },
+
+  // PUT /api/admin/users/:id/status
+  updateUserStatus: async (id: string, status: "active" | "inactive" | "banned", reason?: string) => {
+    const res = await api.put(`/admin/users/${id}/status`, { status, reason });
+    return res.data;
+  },
+
+  // POST /api/admin/users/:id/reset-password
+  resetUserPassword: async (id: string, password?: string) => {
+    const res = await api.post(`/admin/users/${id}/reset-password`, { password });
+    return res.data;
+  },
+
+  // POST /api/admin/users/bulk-action
+  bulkUserAction: async (userIds: string[], action: "activate" | "deactivate") => {
+    const res = await api.post("/admin/users/bulk-action", { userIds, action });
+    return res.data;
+  },
+
+  // POST /api/admin/users/import
+  importUsers: async (users: Array<Record<string, any>>, sendWelcome = false) => {
+    const res = await api.post("/admin/users/import", { users, sendWelcome });
     return res.data;
   },
 };

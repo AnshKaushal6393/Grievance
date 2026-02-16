@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Calendar, Download, FileText, Clock,
   CheckCircle, TrendingUp, TrendingDown, Lightbulb, ChevronRight,
-  ArrowUpRight, ArrowDownRight, MapPin, Loader2,
+  ArrowUpRight, ArrowDownRight, MapPin, Loader2, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,10 +31,23 @@ const EMPTY_METRICS = [
   { title: "Total Complaints Filed", value: "0", change: 0, trend: "up", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
   { title: "Resolution Rate", value: "0%", change: 0, trend: "up", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
   { title: "Avg Resolution Time", value: "0.0 days", change: 0, trend: "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
+  { title: "Citizen Satisfaction", value: "0.0/5", change: 0, trend: "up", icon: Star, color: "text-amber-600", bgColor: "bg-amber-100" },
   { title: "SLA Compliance", value: "0%", change: 0, trend: "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
 ];
 
 const CHART_COLORS = ["hsl(221 83% 53%)","hsl(142 76% 36%)","hsl(48 96% 53%)","hsl(0 84% 60%)","hsl(280 65% 60%)"];
+const STATUS_COLORS: Record<string, string> = {
+  Pending: "hsl(48 96% 53%)",
+  "In Progress": "hsl(221 83% 53%)",
+  Resolved: "hsl(142 76% 36%)",
+  Rejected: "hsl(0 84% 60%)",
+};
+
+const getDeptBarColor = (time: number) => {
+  if (time <= 3) return "hsl(142 76% 36%)";
+  if (time <= 5) return "hsl(48 96% 53%)";
+  return "hsl(0 84% 60%)";
+};
 
 const SparklineChart = ({ data, direction }: { data: number[]; direction: "up" | "down" }) => {
   const max = Math.max(...data), min = Math.min(...data), range = max - min || 1;
@@ -94,11 +107,13 @@ const AnalyticsDashboard = () => {
 
       // ✅ Map metrics
       if (d.keyMetrics) {
+        const cmp = d.keyMetrics.comparison || {};
         setKeyMetrics([
-          { title: "Total Complaints Filed", value: d.keyMetrics.totalFiled ?? "0", change: 0, trend: "up", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
-          { title: "Resolution Rate", value: d.keyMetrics.resolutionRate ?? "0%", change: 0, trend: "up", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
-          { title: "Avg Resolution Time", value: d.keyMetrics.avgResolutionTime ?? "0.0 days", change: 0, trend: "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
-          { title: "SLA Compliance", value: d.keyMetrics.slaCompliance ?? "0%", change: 0, trend: "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
+          { title: "Total Complaints Filed", value: d.keyMetrics.totalFiled ?? "0", change: Number(cmp.totalFiled ?? 0), trend: Number(cmp.totalFiled ?? 0) >= 0 ? "up" : "down", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
+          { title: "Resolution Rate", value: d.keyMetrics.resolutionRate ?? "0%", change: Number(cmp.resolutionRate ?? 0), trend: Number(cmp.resolutionRate ?? 0) >= 0 ? "up" : "down", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
+          { title: "Avg Resolution Time", value: d.keyMetrics.avgResolutionTime ?? "0.0 days", change: Number(cmp.avgResolutionTime ?? 0), trend: Number(cmp.avgResolutionTime ?? 0) >= 0 ? "up" : "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
+          { title: "Citizen Satisfaction", value: d.keyMetrics.citizenSatisfaction ?? "0.0/5", change: Number(cmp.citizenSatisfaction ?? 0), trend: Number(cmp.citizenSatisfaction ?? 0) >= 0 ? "up" : "down", icon: Star, color: "text-amber-600", bgColor: "bg-amber-100" },
+          { title: "SLA Compliance", value: d.keyMetrics.slaCompliance ?? "0%", change: Number(cmp.slaCompliance ?? 0), trend: Number(cmp.slaCompliance ?? 0) >= 0 ? "up" : "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
         ]);
       }
 
@@ -133,22 +148,31 @@ const AnalyticsDashboard = () => {
       if (d.departmentPerformance?.length) {
         setDeptData(d.departmentPerformance.map((dp: any) => ({
           name: dp.name ?? "Unknown",
-          time: Number(dp.avgTime ?? dp.time ?? 0).toFixed(1),
+          time: Number(dp.avgTime ?? dp.time ?? 0),
           color: CHART_COLORS[0],
         })));
       } else {
         setDeptData([]);
       }
 
-      if (d.statusDistribution?.length) {
-        setStatusData(d.statusDistribution.map((s: any, i: number) => ({
-          name: s.name ?? "Other",
-          value: s.value ?? 0,
-          color: CHART_COLORS[i % CHART_COLORS.length],
-        })));
-      } else {
-        setStatusData([]);
-      }
+      const statusMap: Record<string, number> = {
+        Pending: 0,
+        "In Progress": 0,
+        Resolved: 0,
+        Rejected: 0,
+      };
+      (d.statusDistribution || []).forEach((s: any) => {
+        const key = s.name ?? "Other";
+        if (Object.prototype.hasOwnProperty.call(statusMap, key)) {
+          statusMap[key] += Number(s.value ?? 0);
+        }
+      });
+      setStatusData([
+        { name: "Pending", value: statusMap.Pending, color: STATUS_COLORS.Pending },
+        { name: "In Progress", value: statusMap["In Progress"], color: STATUS_COLORS["In Progress"] },
+        { name: "Resolved", value: statusMap.Resolved, color: STATUS_COLORS.Resolved },
+        { name: "Rejected", value: statusMap.Rejected, color: STATUS_COLORS.Rejected },
+      ]);
 
       if (d.heatmapZones?.length) {
         setHeatmapZones(d.heatmapZones);
@@ -373,7 +397,7 @@ const AnalyticsDashboard = () => {
         )}
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {keyMetrics.map((metric, index) => (
             <Card key={index} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-4">
@@ -422,7 +446,7 @@ const AnalyticsDashboard = () => {
           </Card>
 
           <Card className="min-h-[380px]">
-            <CardHeader><CardTitle className="text-lg">Department Avg Resolution Time</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg">Department Performance Comparison</CardTitle></CardHeader>
             <CardContent>
               {deptData.length === 0 ? (
                 <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
@@ -437,7 +461,7 @@ const AnalyticsDashboard = () => {
                       <YAxis stroke="hsl(var(--muted-foreground))" />
                       <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v} days`, "Avg Resolution"]} />
                       <Bar dataKey="time" radius={[4, 4, 0, 0]}>
-                        {deptData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                        {deptData.map((d, i) => <Cell key={i} fill={getDeptBarColor(Number(d.time || 0))} />)}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -502,7 +526,16 @@ const AnalyticsDashboard = () => {
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ value }) => value}>
+                        <Pie
+                          data={statusData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
+                          labelLine={false}
+                        >
                           {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                         </Pie>
                         <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />

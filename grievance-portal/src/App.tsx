@@ -16,6 +16,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminComplaints from "./pages/AdminComplaints";
 import DepartmentManagement from "./pages/DepartmentManagement";
+import AdminUserManagement from "./pages/AdminUserManagement";
 import OfficerDashboard from "./pages/OfficerDashboard";
 import UpdateComplaintStatus from "./pages/UpdateComplaintStatus";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
@@ -74,6 +75,14 @@ const App = () => (
             element={
               <ProtectedRoute roles={["admin"]}>
                 <DepartmentManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <AdminUserManagement />
               </ProtectedRoute>
             }
           />

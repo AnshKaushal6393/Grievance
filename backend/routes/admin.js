@@ -2,9 +2,24 @@ import { Router } from 'express';
 const router = Router();
 import { protect, authorize } from '../middleware/auth.js';
 
-import { getAllComplaints, assignComplaint, updateComplaintStatus, bulkAssign, getDashboardStats, getAnalytics } from '../controllers/adminController.js';
+import {
+  getAllComplaints,
+  assignComplaint,
+  updateComplaintStatus,
+  bulkAssign,
+  getDashboardStats,
+  getAnalytics,
+  getAllUsers,
+  getUserDetails,
+  createUserByAdmin,
+  updateUserByAdmin,
+  updateUserStatus,
+  resetUserPassword,
+  bulkUserAction,
+  importUsers,
+} from '../controllers/adminController.js';
 
-import { getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment, addOfficer, removeOfficer, getAllUsers } from '../controllers/departmentController.js';
+import { getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment, addOfficer, removeOfficer } from '../controllers/departmentController.js';
 
 // All routes require admin role
 router.use(protect, authorize('admin'));
@@ -30,5 +45,12 @@ router.delete('/departments/:id/officers/:officerId', removeOfficer);
 
 // --- User Management ---
 router.get('/users', getAllUsers);
+router.get('/users/:id', getUserDetails);
+router.post('/users', createUserByAdmin);
+router.put('/users/:id', updateUserByAdmin);
+router.put('/users/:id/status', updateUserStatus);
+router.post('/users/:id/reset-password', resetUserPassword);
+router.post('/users/bulk-action', bulkUserAction);
+router.post('/users/import', importUsers);
 
 export default router;

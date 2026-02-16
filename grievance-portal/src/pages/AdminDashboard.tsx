@@ -264,6 +264,9 @@ const AdminDashboard = () => {
               <Link to="/admin/departments">
                 <Button variant="outline" size="sm" className="gap-2"><Users className="w-4 h-4" />Departments</Button>
               </Link>
+              <Link to="/admin/users">
+                <Button variant="outline" size="sm" className="gap-2"><Users className="w-4 h-4" />Users</Button>
+              </Link>
               <Button
                 variant="outline"
                 size="sm"
@@ -315,6 +318,9 @@ const AdminDashboard = () => {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/admin/departments")}>
                   <Users className="w-4 h-4 mr-2" /> Departments
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/admin/users")}>
+                  <Users className="w-4 h-4 mr-2" /> Users
                 </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => toast.info("Report generation coming soon")}>

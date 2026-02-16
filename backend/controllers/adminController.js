@@ -1,6 +1,8 @@
 import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
+import User from "../models/User.js";
 import { createStatusNotification } from "../utils/notification.js";
+import { sendWelcomeEmail } from "../utils/sendOTP.js";
 
 
 // @desc    Get all complaints (Admin)
@@ -385,28 +387,30 @@ export async function getAnalytics(req, res) {
         { $project: { name: '$_id', value: 1, _id: 0 } },
         { $sort: { value: -1 } }
       ]),
-      Complaint.aggregate([
-        { $match: matchQuery },
-        { $group: { _id: '$status', value: { $sum: 1 } } },
-        {
-          $project: {
-            name: {
-              $switch: {
-                branches: [
-                  { case: { $eq: ['$_id', 'filed'] }, then: 'Pending' },
-                  { case: { $eq: ['$_id', 'assigned'] }, then: 'Assigned' },
-                  { case: { $in: ['$_id', ['in-progress', 'in_progress']] }, then: 'In Progress' },
-                  { case: { $eq: ['$_id', 'resolved'] }, then: 'Resolved' },
-                  { case: { $eq: ['$_id', 'rejected'] }, then: 'Rejected' }
-                ],
-                default: 'Other'
-              }
-            },
-            value: 1,
-            _id: 0
-          }
-        }
-      ]),
+        Complaint.aggregate([
+          { $match: matchQuery },
+          { $group: { _id: '$status', value: { $sum: 1 } } },
+          {
+            $project: {
+              name: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ['$_id', 'filed'] }, then: 'Pending' },
+                    { case: { $eq: ['$_id', 'assigned'] }, then: 'Pending' },
+                    { case: { $in: ['$_id', ['in-progress', 'in_progress']] }, then: 'In Progress' },
+                    { case: { $eq: ['$_id', 'resolved'] }, then: 'Resolved' },
+                    { case: { $eq: ['$_id', 'rejected'] }, then: 'Rejected' }
+                  ],
+                  default: 'Other'
+                }
+              },
+              value: 1,
+              _id: 0
+            }
+          },
+          { $group: { _id: '$name', value: { $sum: '$value' } } },
+          { $project: { _id: 0, name: '$_id', value: 1 } }
+        ]),
       Complaint.aggregate([
         { $match: matchQuery },
         {
@@ -521,12 +525,95 @@ export async function getAnalytics(req, res) {
       ]),
     ]);
 
+    const [previousResolved, previousAvgResolutionAgg, previousSlaAgg, satisfactionAgg, previousSatisfactionAgg] =
+      await Promise.all([
+        Complaint.countDocuments({ createdAt: { $gte: prevStart, $lte: prevEnd }, isDraft: false, status: 'resolved' }),
+        Complaint.aggregate([
+          {
+            $match: {
+              createdAt: { $gte: prevStart, $lte: prevEnd },
+              isDraft: false,
+              status: 'resolved',
+              resolvedDate: { $ne: null }
+            }
+          },
+          {
+            $project: {
+              resolutionDays: {
+                $divide: [{ $subtract: ['$resolvedDate', '$createdAt'] }, 1000 * 60 * 60 * 24]
+              }
+            }
+          },
+          { $group: { _id: null, avgDays: { $avg: '$resolutionDays' } } }
+        ]),
+        Complaint.aggregate([
+          {
+            $match: {
+              createdAt: { $gte: prevStart, $lte: prevEnd },
+              isDraft: false,
+              status: 'resolved',
+              resolvedDate: { $ne: null },
+              estimatedResolution: { $ne: null }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              withinSla: {
+                $sum: { $cond: [{ $lte: ['$resolvedDate', '$estimatedResolution'] }, 1, 0] }
+              }
+            }
+          }
+        ]),
+        Complaint.aggregate([
+          {
+            $match: {
+              ...matchQuery,
+              'feedback.rating': { $gte: 1 }
+            }
+          },
+          { $group: { _id: null, avgRating: { $avg: '$feedback.rating' } } }
+        ]),
+        Complaint.aggregate([
+          {
+            $match: {
+              createdAt: { $gte: prevStart, $lte: prevEnd },
+              isDraft: false,
+              'feedback.rating': { $gte: 1 }
+            }
+          },
+          { $group: { _id: null, avgRating: { $avg: '$feedback.rating' } } }
+        ]),
+      ]);
+
     const resolutionRate = totalFiled > 0 ? ((totalResolved / totalFiled) * 100).toFixed(1) : 0;
     const avgResolutionDays = Number(avgResolutionAgg?.[0]?.avgDays ?? 0).toFixed(1);
     const slaTotal = slaAgg?.[0]?.total ?? 0;
     const slaWithin = slaAgg?.[0]?.withinSla ?? 0;
     const slaCompliance = slaTotal > 0 ? ((slaWithin / slaTotal) * 100).toFixed(1) : "0.0";
+    const citizenSatisfaction = Number(satisfactionAgg?.[0]?.avgRating ?? 0).toFixed(1);
     const growthPct = previousFiled > 0 ? (((totalFiled - previousFiled) / previousFiled) * 100).toFixed(1) : "0.0";
+
+    const previousResolutionRateNum = previousFiled > 0 ? (previousResolved / previousFiled) * 100 : 0;
+    const previousAvgResolutionDaysNum = Number(previousAvgResolutionAgg?.[0]?.avgDays ?? 0);
+    const previousSlaTotal = previousSlaAgg?.[0]?.total ?? 0;
+    const previousSlaWithin = previousSlaAgg?.[0]?.withinSla ?? 0;
+    const previousSlaComplianceNum = previousSlaTotal > 0 ? (previousSlaWithin / previousSlaTotal) * 100 : 0;
+    const previousCitizenSatisfactionNum = Number(previousSatisfactionAgg?.[0]?.avgRating ?? 0);
+
+    const pctChange = (current, previous) => {
+      if (!previous || previous === 0) return 0;
+      return Number((((current - previous) / previous) * 100).toFixed(1));
+    };
+
+    const comparison = {
+      totalFiled: pctChange(totalFiled, previousFiled),
+      resolutionRate: pctChange(Number(resolutionRate), previousResolutionRateNum),
+      avgResolutionTime: pctChange(Number(avgResolutionDays), previousAvgResolutionDaysNum),
+      citizenSatisfaction: pctChange(Number(citizenSatisfaction), previousCitizenSatisfactionNum),
+      slaCompliance: pctChange(Number(slaCompliance), previousSlaComplianceNum),
+    };
 
     const toDensity = (count) => {
       if (count >= 50) return "high";
@@ -625,7 +712,9 @@ export async function getAnalytics(req, res) {
           totalFiled,
           resolutionRate: `${resolutionRate}%`,
           avgResolutionTime: `${avgResolutionDays} days`,
-          slaCompliance: `${slaCompliance}%`
+          citizenSatisfaction: `${citizenSatisfaction}/5`,
+          slaCompliance: `${slaCompliance}%`,
+          comparison,
         },
         categoryBreakdown,
         statusDistribution: statusDist,
@@ -634,6 +723,602 @@ export async function getAnalytics(req, res) {
         heatmapZones,
         insights,
       }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+const ROLE_MAP = {
+  citizen: "user",
+  user: "user",
+  officer: "officer",
+  admin: "admin",
+};
+
+const DISPLAY_ROLE_MAP = {
+  user: "Citizen",
+  officer: "Officer",
+  admin: "Admin",
+};
+
+function normalizeRole(role) {
+  if (!role) return undefined;
+  return ROLE_MAP[String(role).toLowerCase()] || undefined;
+}
+
+function getUserStatus(user) {
+  if (user.isBanned) return "banned";
+  if (user.isActive) return "active";
+  return "inactive";
+}
+
+function buildTempPassword(length = 10) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  let out = "";
+  for (let i = 0; i < length; i += 1) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return out;
+}
+
+async function getOfficerDepartmentMap(userIds) {
+  if (!userIds.length) return {};
+  const departments = await Department.find({ officers: { $in: userIds } }).select("name code officers");
+  const map = {};
+  departments.forEach((dept) => {
+    (dept.officers || []).forEach((id) => {
+      const key = id.toString();
+      if (!map[key]) {
+        map[key] = {
+          id: dept._id,
+          name: dept.name,
+          code: dept.code,
+        };
+      }
+    });
+  });
+  return map;
+}
+
+function toUserRow(user, department, stats) {
+  return {
+    _id: user._id,
+    avatarUrl: user.avatarUrl || "",
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    roleLabel: DISPLAY_ROLE_MAP[user.role] || user.role,
+    status: getUserStatus(user),
+    department: department || null,
+    complaintsFiled: stats?.total || 0,
+    joinedDate: user.createdAt,
+    lastActive: user.lastLogin || user.updatedAt || user.createdAt,
+    verification: {
+      email: !!user.isEmailVerified,
+      phone: !!user.isPhoneVerified,
+      aadhaar: !!user.isAadhaarVerified,
+    },
+    banMeta: {
+      reason: user.bannedReason || "",
+      bannedAt: user.bannedAt || null,
+      isBanned: !!user.isBanned,
+    },
+  };
+}
+
+// @desc    Get all users for user management
+// @route   GET /api/admin/users
+// @access  Private/Admin
+export async function getAllUsers(req, res) {
+  try {
+    const {
+      search,
+      role = "all",
+      status = "all",
+      department = "all",
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    const query = {};
+    const normalizedRole = normalizeRole(role);
+    if (normalizedRole) {
+      query.role = normalizedRole;
+    }
+
+    const normalizedStatus = String(status || "all").toLowerCase();
+    if (normalizedStatus === "active") {
+      query.isActive = true;
+      query.isBanned = false;
+    } else if (normalizedStatus === "inactive") {
+      query.isActive = false;
+      query.isBanned = false;
+    } else if (normalizedStatus === "banned") {
+      query.isBanned = true;
+    }
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    if (department && department !== "all") {
+      const dept = await Department.findById(department).select("officers");
+      const scopedUserIds = (dept?.officers || []).map((id) => id.toString());
+      query.role = "officer";
+      query._id = { $in: scopedUserIds };
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parsedLimit)
+        .select(
+          "name email phone role isActive isBanned bannedReason bannedAt isEmailVerified isPhoneVerified isAadhaarVerified avatarUrl createdAt updatedAt lastLogin",
+        ),
+      User.countDocuments(query),
+    ]);
+
+    const userIds = users.map((u) => u._id);
+    const [officerMap, citizenCounts] = await Promise.all([
+      getOfficerDepartmentMap(userIds),
+      Complaint.aggregate([
+        { $match: { user: { $in: userIds }, isDraft: false } },
+        { $group: { _id: "$user", total: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const statsMap = {};
+    citizenCounts.forEach((row) => {
+      statsMap[row._id.toString()] = { total: row.total };
+    });
+
+    const rows = users.map((u) =>
+      toUserRow(
+        u,
+        u.role === "officer" ? officerMap[u._id.toString()] : null,
+        u.role === "user" ? statsMap[u._id.toString()] : null,
+      ),
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        users: rows,
+        pagination: {
+          total,
+          page: parsedPage,
+          pages: Math.ceil(total / parsedLimit),
+          limit: parsedLimit,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Get single user details
+// @route   GET /api/admin/users/:id
+// @access  Private/Admin
+export async function getUserDetails(req, res) {
+  try {
+    const user = await User.findById(req.params.id).select(
+      "name email phone role isActive isBanned bannedReason bannedAt isEmailVerified isPhoneVerified isAadhaarVerified avatarUrl createdAt updatedAt lastLogin",
+    );
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const [departmentMap, complaintStats, recentComplaints] = await Promise.all([
+      getOfficerDepartmentMap([user._id]),
+      Complaint.aggregate([
+        { $match: { user: user._id, isDraft: false } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            resolved: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "resolved"] }, 1, 0],
+              },
+            },
+            avgRating: {
+              $avg: {
+                $cond: [
+                  { $gt: ["$feedback.rating", 0] },
+                  "$feedback.rating",
+                  null,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+      Complaint.find({ user: user._id, isDraft: false })
+        .sort({ updatedAt: -1 })
+        .limit(8)
+        .select("complaintId title status updatedAt createdAt"),
+    ]);
+
+    const summary = complaintStats[0] || { total: 0, resolved: 0, avgRating: 0 };
+    const timeline = recentComplaints.map((c) => ({
+      id: c._id,
+      label: `${c.complaintId} - ${c.status}`,
+      description: c.title,
+      at: c.updatedAt || c.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          ...toUserRow(
+            user,
+            user.role === "officer" ? departmentMap[user._id.toString()] : null,
+            user.role === "user" ? { total: summary.total || 0 } : null,
+          ),
+          activity: {
+            totalComplaints: summary.total || 0,
+            resolvedComplaints: summary.resolved || 0,
+            avgRating: Number(summary.avgRating || 0).toFixed(1),
+            recentTimeline: timeline,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Create user by admin
+// @route   POST /api/admin/users
+// @access  Private/Admin
+export async function createUserByAdmin(req, res) {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      role = "user",
+      departmentId,
+      password,
+      autoGeneratePassword = true,
+      sendWelcome = false,
+    } = req.body;
+
+    if (!name || !email || !phone) {
+      return res.status(400).json({ success: false, message: "Name, email and phone are required" });
+    }
+
+    const normalizedRole = normalizeRole(role);
+    if (!normalizedRole) {
+      return res.status(400).json({ success: false, message: "Invalid role" });
+    }
+
+    if (normalizedRole === "officer" && !departmentId) {
+      return res.status(400).json({ success: false, message: "Department is required for officers" });
+    }
+
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const existing = await User.findOne({
+      $or: [{ email: normalizedEmail }, { phone }],
+    });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "User already exists with this email or phone" });
+    }
+
+    const rawPassword = autoGeneratePassword ? buildTempPassword(10) : password;
+    if (!rawPassword || rawPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+    }
+
+    const user = await User.create({
+      name,
+      email: normalizedEmail,
+      phone,
+      password: rawPassword,
+      role: normalizedRole,
+      isEmailVerified: true,
+      isPhoneVerified: true,
+      address: {
+        street: "N/A",
+        city: "N/A",
+        state: "N/A",
+        pincode: "000000",
+      },
+    });
+
+    if (normalizedRole === "officer" && departmentId) {
+      const department = await Department.findById(departmentId);
+      if (!department) {
+        await user.deleteOne();
+        return res.status(404).json({ success: false, message: "Department not found" });
+      }
+      if (!department.officers.some((id) => id.toString() === user._id.toString())) {
+        department.officers.push(user._id);
+        await department.save();
+      }
+    }
+
+    if (sendWelcome) {
+      await sendWelcomeEmail(user.email, user.name);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      data: {
+        userId: user._id,
+        tempPassword: autoGeneratePassword ? rawPassword : undefined,
+      },
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(400).json({ success: false, message: "Duplicate email or phone" });
+    }
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function syncOfficerDepartment(userId, nextRole, departmentId) {
+  if (nextRole !== "officer") {
+    await Department.updateMany(
+      { officers: userId },
+      { $pull: { officers: userId } },
+    );
+    return;
+  }
+
+  if (!departmentId) return;
+  await Department.updateMany(
+    { officers: userId, _id: { $ne: departmentId } },
+    { $pull: { officers: userId } },
+  );
+  await Department.findByIdAndUpdate(departmentId, {
+    $addToSet: { officers: userId },
+  });
+}
+
+// @desc    Update user profile, role and department
+// @route   PUT /api/admin/users/:id
+// @access  Private/Admin
+export async function updateUserByAdmin(req, res) {
+  try {
+    const { name, email, phone, role, departmentId } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (name) user.name = name;
+    if (email) user.email = String(email).toLowerCase().trim();
+    if (phone) user.phone = phone;
+
+    const nextRole = role ? normalizeRole(role) : user.role;
+    if (role && !nextRole) {
+      return res.status(400).json({ success: false, message: "Invalid role" });
+    }
+    user.role = nextRole;
+
+    if (nextRole === "officer" && !departmentId) {
+      return res.status(400).json({ success: false, message: "Department is required for officer role" });
+    }
+
+    await user.save();
+    await syncOfficerDepartment(user._id, nextRole, departmentId);
+
+    res.status(200).json({
+      success: true,
+      message: "User updated successfully",
+      data: { userId: user._id },
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(400).json({ success: false, message: "Duplicate email or phone" });
+    }
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Update user status
+// @route   PUT /api/admin/users/:id/status
+// @access  Private/Admin
+export async function updateUserStatus(req, res) {
+  try {
+    const { status, reason = "" } = req.body;
+    const normalized = String(status || "").toLowerCase();
+    if (!["active", "inactive", "banned"].includes(normalized)) {
+      return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (normalized === "active") {
+      user.isActive = true;
+      user.isBanned = false;
+      user.bannedReason = "";
+      user.bannedAt = null;
+      user.bannedBy = null;
+    } else if (normalized === "inactive") {
+      user.isActive = false;
+      user.isBanned = false;
+      user.bannedReason = "";
+      user.bannedAt = null;
+      user.bannedBy = null;
+    } else {
+      user.isActive = false;
+      user.isBanned = true;
+      user.bannedReason = reason || "Banned by admin";
+      user.bannedAt = new Date();
+      user.bannedBy = req.user.id;
+    }
+
+    await user.save();
+    res.status(200).json({ success: true, message: "User status updated" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Reset password for user
+// @route   POST /api/admin/users/:id/reset-password
+// @access  Private/Admin
+export async function resetUserPassword(req, res) {
+  try {
+    const { password } = req.body;
+    let nextPassword = password;
+    if (!nextPassword) {
+      nextPassword = buildTempPassword(10);
+    }
+    if (nextPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    user.password = nextPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully",
+      data: {
+        tempPassword: password ? undefined : nextPassword,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Bulk action on users
+// @route   POST /api/admin/users/bulk-action
+// @access  Private/Admin
+export async function bulkUserAction(req, res) {
+  try {
+    const { userIds = [], action } = req.body;
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ success: false, message: "userIds is required" });
+    }
+
+    if (!["activate", "deactivate"].includes(action)) {
+      return res.status(400).json({ success: false, message: "Invalid bulk action" });
+    }
+
+    if (action === "activate") {
+      await User.updateMany(
+        { _id: { $in: userIds } },
+        {
+          $set: { isActive: true, isBanned: false, bannedReason: "", bannedAt: null, bannedBy: null },
+        },
+      );
+    } else {
+      await User.updateMany(
+        { _id: { $in: userIds } },
+        { $set: { isActive: false, isBanned: false, bannedReason: "", bannedAt: null, bannedBy: null } },
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk action '${action}' applied to ${userIds.length} users`,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Import users from parsed CSV rows
+// @route   POST /api/admin/users/import
+// @access  Private/Admin
+export async function importUsers(req, res) {
+  try {
+    const { users = [], sendWelcome = false } = req.body;
+    if (!Array.isArray(users) || users.length === 0) {
+      return res.status(400).json({ success: false, message: "No users provided for import" });
+    }
+
+    const created = [];
+    const failed = [];
+
+    for (const row of users) {
+      try {
+        const normalizedRole = normalizeRole(row.role || "user");
+        if (!normalizedRole) {
+          failed.push({ row, reason: "Invalid role" });
+          continue;
+        }
+        if (normalizedRole === "officer" && !row.departmentId) {
+          failed.push({ row, reason: "Officer requires departmentId" });
+          continue;
+        }
+
+        const exists = await User.findOne({
+          $or: [
+            { email: String(row.email || "").toLowerCase().trim() },
+            { phone: row.phone },
+          ],
+        });
+        if (exists) {
+          failed.push({ row, reason: "Duplicate email or phone" });
+          continue;
+        }
+
+        const generated = buildTempPassword(10);
+        const user = await User.create({
+          name: row.name,
+          email: String(row.email).toLowerCase().trim(),
+          phone: row.phone,
+          password: row.password || generated,
+          role: normalizedRole,
+          isEmailVerified: true,
+          isPhoneVerified: true,
+          address: {
+            street: "N/A",
+            city: "N/A",
+            state: "N/A",
+            pincode: "000000",
+          },
+        });
+
+        if (normalizedRole === "officer" && row.departmentId) {
+          await Department.findByIdAndUpdate(row.departmentId, {
+            $addToSet: { officers: user._id },
+          });
+        }
+
+        if (sendWelcome) {
+          await sendWelcomeEmail(user.email, user.name);
+        }
+
+        created.push({ id: user._id, email: user.email });
+      } catch (err) {
+        failed.push({ row, reason: err.message });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Imported ${created.length} users`,
+      data: { created, failed },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

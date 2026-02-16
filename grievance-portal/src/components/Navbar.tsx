@@ -47,6 +47,7 @@ const Navbar = () => {
           { label: "Complaints", href: "/admin/complaints" },
           { label: "Users", href: "/admin/users" },
           { label: "Departments", href: "/admin/departments" },
+          { label: "Reports", href: "/admin/reports" },
           { label: "Analytics", href: "/admin/analytics" },
         ]
       : [
@@ -68,6 +69,7 @@ const Navbar = () => {
           { label: "All Complaints", icon: FileQuestion, href: "/admin/complaints" },
           { label: "Users", icon: Users, href: "/admin/users" },
           { label: "Departments", icon: Users, href: "/admin/departments" },
+          { label: "Reports", icon: BarChart3, href: "/admin/reports" },
           { label: "Analytics", icon: BarChart3, href: "/admin/analytics" },
           { label: "Profile", icon: User, href: "/profile" },
         ]

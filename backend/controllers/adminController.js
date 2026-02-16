@@ -3,6 +3,7 @@ import Department from "../models/Department.js";
 import User from "../models/User.js";
 import { createStatusNotification } from "../utils/notification.js";
 import { sendWelcomeEmail } from "../utils/sendOTP.js";
+import { publishUserManagementEvent, subscribeUserManagement } from "../utils/realtime.js";
 
 
 // @desc    Get all complaints (Admin)
@@ -762,6 +763,73 @@ function buildTempPassword(length = 10) {
   return out;
 }
 
+function parseCsvLine(line) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === '"') {
+      const next = line[i + 1];
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      values.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+
+  values.push(current.trim());
+  return values.map((v) => v.replace(/^"|"$/g, "").trim());
+}
+
+function parseUsersCsvBuffer(buffer) {
+  const text = buffer.toString("utf8");
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) {
+    return { rows: [], error: "CSV must include header and at least one row" };
+  }
+
+  const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
+  const headerMap = {
+    name: header.indexOf("name"),
+    email: header.indexOf("email"),
+    phone: header.indexOf("phone"),
+    role: header.indexOf("role"),
+    departmentId: header.indexOf("departmentid"),
+    password: header.indexOf("password"),
+  };
+
+  if (headerMap.name < 0 || headerMap.email < 0 || headerMap.phone < 0) {
+    return { rows: [], error: "CSV must include name,email,phone headers" };
+  }
+
+  const rows = lines.slice(1).map((line) => {
+    const cols = parseCsvLine(line);
+    return {
+      name: cols[headerMap.name] || "",
+      email: cols[headerMap.email] || "",
+      phone: cols[headerMap.phone] || "",
+      role: headerMap.role >= 0 ? cols[headerMap.role] : "user",
+      departmentId: headerMap.departmentId >= 0 ? cols[headerMap.departmentId] : undefined,
+      password: headerMap.password >= 0 ? cols[headerMap.password] : undefined,
+    };
+  });
+
+  return { rows, error: null };
+}
+
 async function getOfficerDepartmentMap(userIds) {
   if (!userIds.length) return {};
   const departments = await Department.find({ officers: { $in: userIds } }).select("name code officers");
@@ -806,6 +874,37 @@ function toUserRow(user, department, stats) {
       isBanned: !!user.isBanned,
     },
   };
+}
+
+// @desc    Stream user-management realtime updates (SSE)
+// @route   GET /api/admin/stream/users
+// @access  Private/Admin
+export async function streamUserUpdates(req, res) {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  const send = (event, payload) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  send("connected", { ok: true, at: new Date().toISOString() });
+
+  const unsubscribe = subscribeUserManagement((message) => {
+    send("user-update", message);
+  });
+
+  const keepAlive = setInterval(() => {
+    send("ping", { at: new Date().toISOString() });
+  }, 25000);
+
+  req.on("close", () => {
+    clearInterval(keepAlive);
+    unsubscribe();
+    res.end();
+  });
 }
 
 // @desc    Get all users for user management
@@ -1055,6 +1154,7 @@ export async function createUserByAdmin(req, res) {
     if (sendWelcome) {
       await sendWelcomeEmail(user.email, user.name);
     }
+    publishUserManagementEvent("user.created", { userId: user._id, role: normalizedRole, by: req.user.id });
 
     res.status(201).json({
       success: true,
@@ -1118,6 +1218,7 @@ export async function updateUserByAdmin(req, res) {
 
     await user.save();
     await syncOfficerDepartment(user._id, nextRole, departmentId);
+    publishUserManagementEvent("user.updated", { userId: user._id, by: req.user.id });
 
     res.status(200).json({
       success: true,
@@ -1169,6 +1270,7 @@ export async function updateUserStatus(req, res) {
     }
 
     await user.save();
+    publishUserManagementEvent("user.status", { userId: user._id, status: normalized, by: req.user.id });
     res.status(200).json({ success: true, message: "User status updated" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -1196,6 +1298,7 @@ export async function resetUserPassword(req, res) {
 
     user.password = nextPassword;
     await user.save();
+    publishUserManagementEvent("user.password-reset", { userId: user._id, by: req.user.id });
 
     res.status(200).json({
       success: true,
@@ -1241,9 +1344,77 @@ export async function bulkUserAction(req, res) {
       success: true,
       message: `Bulk action '${action}' applied to ${userIds.length} users`,
     });
+    publishUserManagementEvent("users.bulk", { action, count: userIds.length, by: req.user.id });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
+}
+
+async function createUsersFromRows(rows, sendWelcome = false) {
+  const created = [];
+  const failed = [];
+
+  for (const row of rows) {
+    try {
+      const normalizedRole = normalizeRole(row.role || "user");
+      if (!normalizedRole) {
+        failed.push({ row, reason: "Invalid role" });
+        continue;
+      }
+      if (!row.name || !row.email || !row.phone) {
+        failed.push({ row, reason: "name, email and phone are required" });
+        continue;
+      }
+      if (normalizedRole === "officer" && !row.departmentId) {
+        failed.push({ row, reason: "Officer requires departmentId" });
+        continue;
+      }
+
+      const exists = await User.findOne({
+        $or: [
+          { email: String(row.email || "").toLowerCase().trim() },
+          { phone: row.phone },
+        ],
+      });
+      if (exists) {
+        failed.push({ row, reason: "Duplicate email or phone" });
+        continue;
+      }
+
+      const generated = buildTempPassword(10);
+      const user = await User.create({
+        name: row.name,
+        email: String(row.email).toLowerCase().trim(),
+        phone: row.phone,
+        password: row.password || generated,
+        role: normalizedRole,
+        isEmailVerified: true,
+        isPhoneVerified: true,
+        address: {
+          street: "N/A",
+          city: "N/A",
+          state: "N/A",
+          pincode: "000000",
+        },
+      });
+
+      if (normalizedRole === "officer" && row.departmentId) {
+        await Department.findByIdAndUpdate(row.departmentId, {
+          $addToSet: { officers: user._id },
+        });
+      }
+
+      if (sendWelcome) {
+        await sendWelcomeEmail(user.email, user.name);
+      }
+
+      created.push({ id: user._id, email: user.email });
+    } catch (err) {
+      failed.push({ row, reason: err.message });
+    }
+  }
+
+  return { created, failed };
 }
 
 // @desc    Import users from parsed CSV rows
@@ -1256,70 +1427,42 @@ export async function importUsers(req, res) {
       return res.status(400).json({ success: false, message: "No users provided for import" });
     }
 
-    const created = [];
-    const failed = [];
-
-    for (const row of users) {
-      try {
-        const normalizedRole = normalizeRole(row.role || "user");
-        if (!normalizedRole) {
-          failed.push({ row, reason: "Invalid role" });
-          continue;
-        }
-        if (normalizedRole === "officer" && !row.departmentId) {
-          failed.push({ row, reason: "Officer requires departmentId" });
-          continue;
-        }
-
-        const exists = await User.findOne({
-          $or: [
-            { email: String(row.email || "").toLowerCase().trim() },
-            { phone: row.phone },
-          ],
-        });
-        if (exists) {
-          failed.push({ row, reason: "Duplicate email or phone" });
-          continue;
-        }
-
-        const generated = buildTempPassword(10);
-        const user = await User.create({
-          name: row.name,
-          email: String(row.email).toLowerCase().trim(),
-          phone: row.phone,
-          password: row.password || generated,
-          role: normalizedRole,
-          isEmailVerified: true,
-          isPhoneVerified: true,
-          address: {
-            street: "N/A",
-            city: "N/A",
-            state: "N/A",
-            pincode: "000000",
-          },
-        });
-
-        if (normalizedRole === "officer" && row.departmentId) {
-          await Department.findByIdAndUpdate(row.departmentId, {
-            $addToSet: { officers: user._id },
-          });
-        }
-
-        if (sendWelcome) {
-          await sendWelcomeEmail(user.email, user.name);
-        }
-
-        created.push({ id: user._id, email: user.email });
-      } catch (err) {
-        failed.push({ row, reason: err.message });
-      }
-    }
+    const { created, failed } = await createUsersFromRows(users, !!sendWelcome);
 
     res.status(200).json({
       success: true,
       message: `Imported ${created.length} users`,
       data: { created, failed },
     });
+    publishUserManagementEvent("users.import", { count: created.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Import users via CSV file upload (server-side parse)
+// @route   POST /api/admin/users/import-file
+// @access  Private/Admin
+export async function importUsersFromCsvFile(req, res) {
+  try {
+    if (!req.file?.buffer) {
+      return res.status(400).json({ success: false, message: "CSV file is required (field name: file)" });
+    }
+
+    const parsed = parseUsersCsvBuffer(req.file.buffer);
+    if (parsed.error) {
+      return res.status(400).json({ success: false, message: parsed.error });
+    }
+
+    const sendWelcome = String(req.body?.sendWelcome ?? "false").toLowerCase() === "true";
+    const { created, failed } = await createUsersFromRows(parsed.rows, sendWelcome);
+
+    res.status(200).json({
+      success: true,
+      message: `Imported ${created.length} users from file`,
+      data: { created, failed },
+    });
+    publishUserManagementEvent("users.import-file", { count: created.length });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

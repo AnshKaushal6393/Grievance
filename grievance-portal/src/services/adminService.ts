@@ -1,6 +1,8 @@
 // src/services/adminService.ts
 import api from '@/lib/api';
 
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+
 // ─── Dashboard ────────────────────────────────────────────
 export const adminService = {
 
@@ -199,6 +201,25 @@ export const adminService = {
   importUsers: async (users: Array<Record<string, any>>, sendWelcome = false) => {
     const res = await api.post("/admin/users/import", { users, sendWelcome });
     return res.data;
+  },
+
+  // POST /api/admin/users/import-file
+  importUsersFile: async (file: File, sendWelcome = false) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("sendWelcome", String(sendWelcome));
+    const res = await api.post("/admin/users/import-file", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
+
+  // GET /api/admin/stream/users (SSE URL)
+  getUsersStreamUrl: () => {
+    const token = localStorage.getItem("token") || "";
+    const params = new URLSearchParams();
+    if (token) params.set("token", token);
+    return `${API_BASE}/admin/stream/users?${params.toString()}`;
   },
 };
 

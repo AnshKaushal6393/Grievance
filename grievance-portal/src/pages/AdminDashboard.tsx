@@ -271,7 +271,7 @@ const AdminDashboard = () => {
                 variant="outline"
                 size="sm"
                 className="gap-2"
-                onClick={() => toast.info("Report generation coming soon")}
+                onClick={() => navigate("/admin/reports")}
               >
                 <Download className="w-4 h-4" />
                 Generate Report
@@ -323,7 +323,7 @@ const AdminDashboard = () => {
                   <Users className="w-4 h-4 mr-2" /> Users
                 </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => toast.info("Report generation coming soon")}>
+                  <DropdownMenuItem onClick={() => navigate("/admin/reports")}>
                     <Download className="w-4 h-4 mr-2" /> Generate Report
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => toast.info("Settings page is under construction")}>

@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Ban, Eye, FileSpreadsheet, Plus, RefreshCcw, Search, ShieldAlert, UserPlus } from "lucide-react";
+import { Ban, Download, Eye, FileSpreadsheet, Plus, RefreshCcw, Search, ShieldAlert, UserPlus } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import adminService from "@/services/adminService";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,18 @@ const AdminUserManagement = () => {
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
   const [reason, setReason] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
+  const streamRef = useRef<EventSource | null>(null);
+  const detailRef = useRef<UserDetails | null>(null);
+  const detailsOpenRef = useRef(false);
+  const sseConnectedRef = useRef(false);
+  const sseErrorToastRef = useRef(false);
+  const sseDisconnectedAtRef = useRef<number | null>(null);
   const selectedRows = useMemo(() => users.filter((u) => selectedIds.includes(u._id)), [users, selectedIds]);
+
+  useEffect(() => {
+    detailRef.current = detail;
+    detailsOpenRef.current = detailsOpen;
+  }, [detail, detailsOpen]);
 
   const loadDepartments = async () => {
     try {
@@ -119,9 +130,64 @@ const AdminUserManagement = () => {
   useEffect(() => { loadDepartments(); }, []);
   useEffect(() => { loadUsers(); }, [page, filters]);
   useEffect(() => {
-    const t = setInterval(() => { loadUsers(true); }, 20000);
-    return () => clearInterval(t);
+    if (streamRef.current) {
+      streamRef.current.close();
+    }
+    const source = new EventSource(adminService.getUsersStreamUrl());
+    streamRef.current = source;
+
+    source.onopen = () => {
+      const wasDisconnected = sseDisconnectedAtRef.current !== null;
+      sseConnectedRef.current = true;
+      sseErrorToastRef.current = false;
+      sseDisconnectedAtRef.current = null;
+      if (wasDisconnected) {
+        toast.success("Realtime connection restored");
+      } else {
+        toast.success("Realtime updates connected");
+      }
+    };
+
+    source.addEventListener("user-update", () => {
+      loadUsers(true);
+      if (detailsOpenRef.current && detailRef.current) {
+        openDetails(detailRef.current._id);
+      }
+    });
+
+    source.onerror = () => {
+      if (!sseErrorToastRef.current) {
+        toast.error("Realtime connection lost. Reconnecting...");
+        sseErrorToastRef.current = true;
+      }
+      if (!sseDisconnectedAtRef.current) {
+        sseDisconnectedAtRef.current = Date.now();
+      }
+    };
+
+    return () => {
+      source.close();
+      streamRef.current = null;
+      if (sseConnectedRef.current) {
+        toast.info("Realtime updates disconnected");
+      }
+      sseConnectedRef.current = false;
+    };
   }, [page, filters]);
+
+  const downloadTemplate = () => {
+    const template = [
+      "name,email,phone,role,departmentId,password",
+      "Rahul Sharma,rahul.sharma@example.com,9876543210,user,,",
+    ].join("\n");
+    const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "users-import-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const doBulk = async () => {
     if (!selectedIds.length) return toast.error("Select users first");
@@ -142,19 +208,9 @@ const AdminUserManagement = () => {
   const importCsv = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    const [header, ...rows] = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (!header) return toast.error("Empty CSV");
-    const keys = header.split(",").map((h) => h.trim().toLowerCase());
-    const id = { name: keys.indexOf("name"), email: keys.indexOf("email"), phone: keys.indexOf("phone"), role: keys.indexOf("role"), departmentId: keys.indexOf("departmentid"), password: keys.indexOf("password") };
-    if (id.name < 0 || id.email < 0 || id.phone < 0) return toast.error("Need name,email,phone columns");
-    const payload = rows.map((line) => {
-      const cells = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-      return { name: cells[id.name], email: cells[id.email], phone: cells[id.phone], role: id.role >= 0 ? cells[id.role] : "user", departmentId: id.departmentId >= 0 ? cells[id.departmentId] : undefined, password: id.password >= 0 ? cells[id.password] : undefined };
-    });
     setSaving(true);
     try {
-      const res = await adminService.importUsers(payload, true);
+      const res = await adminService.importUsersFile(file, true);
       const ok = res?.data?.created?.length || 0;
       const bad = res?.data?.failed?.length || 0;
       toast.success(`Imported ${ok}, failed ${bad}`);
@@ -204,6 +260,7 @@ const AdminUserManagement = () => {
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div><h1 className="text-3xl font-bold">User Management</h1></div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={downloadTemplate} className="gap-2"><Download className="h-4 w-4" />Download Template</Button>
             <Button variant="outline" onClick={() => importRef.current?.click()} className="gap-2"><FileSpreadsheet className="h-4 w-4" />Import Users</Button>
             <Button onClick={() => setAddOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add New User</Button>
             <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={importCsv} />

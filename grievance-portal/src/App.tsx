@@ -20,6 +20,7 @@ import AdminUserManagement from "./pages/AdminUserManagement";
 import OfficerDashboard from "./pages/OfficerDashboard";
 import UpdateComplaintStatus from "./pages/UpdateComplaintStatus";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+import AdminReports from "./pages/AdminReports";
 import Profile from "./pages/Profile";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
@@ -107,6 +108,14 @@ const App = () => (
             element={
               <ProtectedRoute roles={["admin"]}>
                 <AnalyticsDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute roles={["admin"]}>
+                <AdminReports />
               </ProtectedRoute>
             }
           />

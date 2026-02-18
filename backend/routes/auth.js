@@ -1,6 +1,6 @@
 import { Router } from 'express';
 const router = Router();
-import { register, verifyOTP, resendOTP, login, sendAadhaarOTP, verifyAadhaarOTP, forgotPassword, verifyResetOTP, resetPassword, getMe, logout } from '../controllers/authController.js';
+import { register, verifyOTP, resendOTP, login, googleLogin, sendAadhaarOTP, verifyAadhaarOTP, forgotPassword, verifyResetOTP, resetPassword, getMe, logout } from '../controllers/authController.js';
 import { protect } from '../middleware/auth.js';
 
 // Public routes
@@ -8,6 +8,7 @@ router.post('/register', register);
 router.post('/verify-otp', verifyOTP);
 router.post('/resend-otp', resendOTP);
 router.post('/login', login);
+router.post('/google', googleLogin);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-reset-otp', verifyResetOTP);
 router.post('/reset-password', resetPassword);

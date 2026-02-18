@@ -56,6 +56,7 @@ const AdminDashboard = () => {
   const [categoryChartData, setCategoryChartData] = useState<any[]>([]);
   const [deptData, setDeptData] = useState<any[]>([]);
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -100,9 +101,17 @@ const AdminDashboard = () => {
   };
 
   const fetchStats = async () => {
+    setIsLoading(true);
     try {
       const res = await adminService.getDashboardStats();
-      const { stats, trendData, categoryBreakdown, deptPerformance, recentActivity } = res.data;
+      const payload = res?.data || {};
+      const {
+        stats = {},
+        trendData = [],
+        categoryBreakdown = [],
+        deptPerformance = [],
+        recentActivity = [],
+      } = payload;
 
       const getTrend = (current: number, previous: number | null) => {
         if (previous === null || previous === undefined || previous <= 0) return { trend: null, trendUp: true };
@@ -192,8 +201,8 @@ const AdminDashboard = () => {
       setActivityFeed(
         (recentActivity ?? []).map((a: any, i: number) => ({
           id: a._id ?? i,
-          message: `${a.complaintId ?? "Complaint"} — ${a.title ?? ""} [${a.status ?? "updated"}]`,
-          time: a.updatedAt ? new Date(a.updatedAt).toDateString?.() ?? new Date(a.updatedAt).toLocaleTimeString() : "",
+          message: `${a.complaintId ?? "Complaint"} - ${a.title ?? ""} [${a.status ?? "updated"}]`,
+          time: a.updatedAt ? new Date(a.updatedAt).toLocaleString() : "",
           color: ACTIVITY_COLOR_MAP[a.status ?? "default"] ?? ACTIVITY_COLOR_MAP.default,
         }))
       );
@@ -230,6 +239,8 @@ const AdminDashboard = () => {
         { id: "2", name: "Water", total: 90, pending: 15, resolved: 70, avgTime: "1.8d", score: 82 },
       ]);
       setActivityFeed([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -394,6 +405,11 @@ const AdminDashboard = () => {
             </motion.div>
           ))}
         </div>
+        {isLoading && (
+          <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            Loading latest dashboard data...
+          </div>
+        )}
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -11,6 +11,17 @@ export interface ComplaintFilters{
   limit?:number;
 }
 
+export interface NotificationFilters {
+  page?: number;
+  limit?: number;
+  isRead?: boolean;
+  type?: string;
+  priority?: "low" | "medium" | "high" | "critical";
+  source?: "system" | "admin" | "officer";
+  search?: string;
+  includeArchived?: boolean;
+}
+
 export const complaintService = {
   fileComplaint: async (formData: FormData) => {
     const response = await api.post("/complaints/create", formData, {
@@ -54,16 +65,51 @@ export const complaintService = {
     const response = await api.get('/complaints/dashboard/analytics');
     return response.data;
   },
-  getNotifications: async (limit: number = 20) => {
-    const response = await api.get(`/complaints/notifications?limit=${limit}`);
+  getNotifications: async (filters?: number | NotificationFilters) => {
+    const params = new URLSearchParams();
+    if (typeof filters === "number") {
+      params.append("limit", String(filters));
+    } else {
+      const payload = filters || {};
+      Object.entries(payload).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === "") return;
+        params.append(key, String(value));
+      });
+    }
+    const query = params.toString();
+    const response = await api.get(
+      `/complaints/notifications${query ? `?${query}` : ""}`,
+    );
     return response.data;
   },
-  markNotificationRead: async (notificationId: string) => {
-    const response = await api.post(`/complaints/notifications/${notificationId}/read`);
+  markNotificationRead: async (notificationId: string, isRead: boolean = true) => {
+    const response = await api.post(`/complaints/notifications/${notificationId}/read`, { isRead });
     return response.data;
   },
-  markAllNotificationsRead: async () => {
-    const response = await api.post("/complaints/notifications/mark-all-read");
+  markAllNotificationsRead: async (payload?: { type?: string; includeArchived?: boolean; onlyUnread?: boolean }) => {
+    const response = await api.post("/complaints/notifications/mark-all-read", payload || {});
+    return response.data;
+  },
+  archiveNotification: async (notificationId: string) => {
+    const response = await api.post(`/complaints/notifications/${notificationId}/archive`);
+    return response.data;
+  },
+  archiveAllNotifications: async () => {
+    const response = await api.post("/complaints/notifications/archive-all");
+    return response.data;
+  },
+  seedDemoNotifications: async (count: number = 10) => {
+    const response = await api.post("/complaints/notifications/seed-demo", {
+      count,
+    });
+    return response.data;
+  },
+  getNotificationPreferences: async () => {
+    const response = await api.get("/complaints/notifications/preferences");
+    return response.data;
+  },
+  updateNotificationPreferences: async (preferences: Record<string, any>) => {
+    const response = await api.put("/complaints/notifications/preferences", { preferences });
     return response.data;
   },
   getComplaintHistory: async (id: string) => {
@@ -72,6 +118,19 @@ export const complaintService = {
   },
   submitFeedback: async (id: string, rating: number, comment: string) => {
     const response = await api.post(`/complaints/${id}/feedback`, { rating, comment });
+    return response.data;
+  },
+  updateVoiceMetadata: async (
+    id: string,
+    payload: {
+      source?: "voice" | "mixed" | "text";
+      language?: "hi" | "en" | "ur" | "other";
+      locale?: string;
+      confidence?: number | null;
+      transcript?: string;
+    },
+  ) => {
+    const response = await api.post(`/complaints/${id}/voice-metadata`, payload);
     return response.data;
   },
   getDrafts: async () => {

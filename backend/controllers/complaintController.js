@@ -1,6 +1,7 @@
 import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
 import Notification from "../models/Notification.js";
+import NotificationPreference from "../models/NotificationPreference.js";
 import { getFileType } from "../config/cloudinary.js";
 import { createStatusNotification } from "../utils/notification.js";
 
@@ -57,6 +58,11 @@ export const fileComplaint = async (req, res) => {
       latitude,
       longitude,
       isDraft,
+      source,
+      voiceLanguage,
+      voiceLocale,
+      voiceConfidence,
+      voiceTranscript,
     } = req.body;
     if (!isDraft) {
       if (!title || !category || !description || !address) {
@@ -77,6 +83,18 @@ export const fileComplaint = async (req, res) => {
         });
       });
     }
+    const parsedVoiceConfidence =
+      voiceConfidence !== undefined && voiceConfidence !== null
+        ? Number(voiceConfidence)
+        : null;
+    const safeVoiceConfidence =
+      parsedVoiceConfidence !== null &&
+      !Number.isNaN(parsedVoiceConfidence) &&
+      parsedVoiceConfidence >= 0 &&
+      parsedVoiceConfidence <= 1
+        ? parsedVoiceConfidence
+        : null;
+
     const complaint = await Complaint.create({
       user: req.user.id,
       title,
@@ -91,6 +109,19 @@ export const fileComplaint = async (req, res) => {
       },
       attachments,
       isDraft: isDraft || false,
+      voiceMetadata:
+        source === "voice"
+          ? {
+              source: "voice",
+              language: ["hi", "en", "ur"].includes(voiceLanguage)
+                ? voiceLanguage
+                : "other",
+              locale: voiceLocale || "",
+              confidence: safeVoiceConfidence,
+              transcript: voiceTranscript || "",
+              capturedAt: new Date(),
+            }
+          : undefined,
     });
 
     if (!isDraft) {
@@ -563,36 +594,185 @@ export const getCitizenAnalytics = async (req, res) => {
   }
 };
 
+export const updateComplaintVoiceMetadata = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      source = "voice",
+      language = "other",
+      locale = "",
+      confidence = null,
+      transcript = "",
+    } = req.body;
+
+    const complaint = await Complaint.findById(id);
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: "Complaint not found",
+      });
+    }
+
+    if (complaint.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update voice metadata for this complaint",
+      });
+    }
+
+    const parsedConfidence =
+      confidence === null || confidence === undefined
+        ? null
+        : Number(confidence);
+    const safeConfidence =
+      parsedConfidence !== null &&
+      !Number.isNaN(parsedConfidence) &&
+      parsedConfidence >= 0 &&
+      parsedConfidence <= 1
+        ? parsedConfidence
+        : null;
+
+    complaint.voiceMetadata = {
+      source: source === "voice" || source === "mixed" ? source : "text",
+      language: ["hi", "en", "ur"].includes(language) ? language : "other",
+      locale: String(locale || ""),
+      confidence: safeConfidence,
+      transcript: String(transcript || "").slice(0, 4000),
+      capturedAt: new Date(),
+    };
+
+    await complaint.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Voice metadata updated successfully",
+      data: {
+        complaintId: complaint.complaintId,
+        voiceMetadata: complaint.voiceMetadata,
+      },
+    });
+  } catch (error) {
+    console.error("Update complaint voice metadata error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update voice metadata",
+      error: error.message,
+    });
+  }
+};
+
+const mapNotificationPayload = (n) => ({
+  id: n._id,
+  complaintId: n.complaintId,
+  title: n.title,
+  status: n.status,
+  message: n.message,
+  source: n.source,
+  type: n.type,
+  priority: n.priority || "medium",
+  channels: n.channels || {},
+  actionUrl: n.actionUrl || "",
+  isRead: n.isRead,
+  readAt: n.readAt,
+  isArchived: Boolean(n.archivedAt),
+  archivedAt: n.archivedAt || null,
+  updatedAt: n.createdAt,
+});
+
 export const getCitizenNotifications = async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit || "20", 10), 100);
+    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit || "20", 10), 1),
+      100,
+    );
+    const skip = (page - 1) * limit;
 
-    const notifications = await Notification.find({ user: req.user.id })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    const query = { user: req.user.id };
+    const isReadParam = req.query.isRead;
+    const type = String(req.query.type || "").trim();
+    const priority = String(req.query.priority || "").trim();
+    const source = String(req.query.source || "").trim();
+    const search = String(req.query.search || "").trim();
+    const includeArchived =
+      String(req.query.includeArchived || "false").toLowerCase() === "true";
 
-    const unreadCount = await Notification.countDocuments({
-      user: req.user.id,
-      isRead: false,
-    });
+    if (isReadParam === "true") query.isRead = true;
+    if (isReadParam === "false") query.isRead = false;
+    if (type && type !== "all") query.type = type;
+    if (priority && priority !== "all") {
+      if (priority.includes(",")) {
+        query.priority = {
+          $in: priority
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
+        };
+      } else {
+        query.priority = priority;
+      }
+    }
+    if (source && source !== "all") query.source = source;
+    if (!includeArchived) query.archivedAt = null;
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { message: { $regex: search, $options: "i" } },
+        { complaintId: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const [notifications, total, unreadCount, summary] = await Promise.all([
+      Notification.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Notification.countDocuments(query),
+      Notification.countDocuments({
+        user: req.user.id,
+        isRead: false,
+        archivedAt: null,
+      }),
+      Notification.aggregate([
+        { $match: { user: req.user._id, archivedAt: null } },
+        {
+          $group: {
+            _id: null,
+            highPriorityCount: {
+              $sum: {
+                $cond: [{ $in: ["$priority", ["high", "critical"]] }, 1, 0],
+              },
+            },
+            byType: {
+              $push: "$type",
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const typeCounts = (summary?.[0]?.byType || []).reduce((acc, typeValue) => {
+      const key = String(typeValue || "unknown");
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
 
     res.status(200).json({
       success: true,
       data: {
-        notifications: notifications.map((n) => ({
-          id: n._id,
-          complaintId: n.complaintId,
-          title: n.title,
-          status: n.status,
-          message: n.message,
-          source: n.source,
-          type: n.type,
-          isRead: n.isRead,
-          readAt: n.readAt,
-          updatedAt: n.createdAt,
-        })),
+        notifications: notifications.map(mapNotificationPayload),
         unreadCount,
+        pagination: {
+          total,
+          page,
+          pages: Math.ceil(total / limit),
+          limit,
+        },
+        summary: {
+          highPriorityCount: summary?.[0]?.highPriorityCount || 0,
+          typeCounts,
+        },
       },
     });
   } catch (error) {
@@ -608,6 +788,8 @@ export const getCitizenNotifications = async (req, res) => {
 export const markNotificationRead = async (req, res) => {
   try {
     const { notificationId } = req.params;
+    const markAsRead =
+      req.body?.isRead === undefined ? true : Boolean(req.body?.isRead);
     const notification = await Notification.findOne({
       _id: notificationId,
       user: req.user.id,
@@ -620,15 +802,18 @@ export const markNotificationRead = async (req, res) => {
       });
     }
 
-    if (!notification.isRead) {
-      notification.isRead = true;
-      notification.readAt = new Date();
-      await notification.save();
-    }
+    notification.isRead = markAsRead;
+    notification.readAt = markAsRead ? new Date() : null;
+    await notification.save();
 
     res.status(200).json({
       success: true,
-      message: "Notification marked as read",
+      message: markAsRead
+        ? "Notification marked as read"
+        : "Notification marked as unread",
+      data: {
+        notification: mapNotificationPayload(notification),
+      },
     });
   } catch (error) {
     console.error("Mark notification read error:", error);
@@ -642,14 +827,24 @@ export const markNotificationRead = async (req, res) => {
 
 export const markAllNotificationsRead = async (req, res) => {
   try {
-    const result = await Notification.updateMany(
-      { user: req.user.id, isRead: false },
-      { $set: { isRead: true, readAt: new Date() } },
-    );
+    const query = { user: req.user.id };
+    if (String(req.body?.type || "").trim()) {
+      query.type = String(req.body.type).trim();
+    }
+    if (req.body?.onlyUnread !== false) {
+      query.isRead = false;
+    }
+    if (req.body?.includeArchived !== true) {
+      query.archivedAt = null;
+    }
+
+    const result = await Notification.updateMany(query, {
+      $set: { isRead: true, readAt: new Date() },
+    });
 
     res.status(200).json({
       success: true,
-      message: "All notifications marked as read",
+      message: "Notifications marked as read",
       data: { updated: result.modifiedCount || 0 },
     });
   } catch (error) {
@@ -657,6 +852,245 @@ export const markAllNotificationsRead = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to update notifications",
+      error: error.message,
+    });
+  }
+};
+
+export const archiveNotification = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const notification = await Notification.findOne({
+      _id: notificationId,
+      user: req.user.id,
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    notification.archivedAt = new Date();
+    await notification.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Notification archived",
+      data: {
+        notification: mapNotificationPayload(notification),
+      },
+    });
+  } catch (error) {
+    console.error("Archive notification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to archive notification",
+      error: error.message,
+    });
+  }
+};
+
+export const archiveAllNotifications = async (req, res) => {
+  try {
+    const result = await Notification.updateMany(
+      { user: req.user.id, archivedAt: null },
+      { $set: { archivedAt: new Date() } },
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "All notifications archived",
+      data: { updated: result.modifiedCount || 0 },
+    });
+  } catch (error) {
+    console.error("Archive all notifications error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to archive notifications",
+      error: error.message,
+    });
+  }
+};
+
+export const getNotificationPreferences = async (req, res) => {
+  try {
+    let preference = await NotificationPreference.findOne({
+      user: req.user.id,
+    }).lean();
+
+    if (!preference) {
+      preference = await NotificationPreference.create({ user: req.user.id });
+      preference = preference.toObject();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        preferences: preference,
+      },
+    });
+  } catch (error) {
+    console.error("Get notification preferences error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load notification preferences",
+      error: error.message,
+    });
+  }
+};
+
+export const updateNotificationPreferences = async (req, res) => {
+  try {
+    const payload = req.body?.preferences;
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({
+        success: false,
+        message: "A valid preferences object is required",
+      });
+    }
+
+    const updated = await NotificationPreference.findOneAndUpdate(
+      { user: req.user.id },
+      { $set: payload },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).lean();
+
+    res.status(200).json({
+      success: true,
+      message: "Notification preferences updated",
+      data: {
+        preferences: updated,
+      },
+    });
+  } catch (error) {
+    console.error("Update notification preferences error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update notification preferences",
+      error: error.message,
+    });
+  }
+};
+
+export const seedDemoNotifications = async (req, res) => {
+  try {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({
+        success: false,
+        message: "Demo seed is disabled in production",
+      });
+    }
+
+    const count = Math.min(
+      Math.max(parseInt(req.body?.count || "10", 10), 1),
+      30,
+    );
+    const userId = req.user.id;
+    const now = Date.now();
+
+    const complaints = await Complaint.find({
+      user: userId,
+      isDraft: false,
+    })
+      .sort({ updatedAt: -1 })
+      .limit(6)
+      .select("_id complaintId title status")
+      .lean();
+
+    const templates = [
+      {
+        type: "status_update",
+        priority: "medium",
+        source: "system",
+        message: "Status updated to in-progress by field team.",
+      },
+      {
+        type: "assignment",
+        priority: "medium",
+        source: "admin",
+        message: "Complaint assigned to relevant department.",
+      },
+      {
+        type: "escalation",
+        priority: "high",
+        source: "system",
+        message: "SLA warning: complaint is close to breach.",
+      },
+      {
+        type: "announcement",
+        priority: "low",
+        source: "admin",
+        message: "Service notice: scheduled maintenance tonight.",
+      },
+      {
+        type: "reminder",
+        priority: "medium",
+        source: "system",
+        message: "Reminder: please review and rate resolved complaint.",
+      },
+      {
+        type: "feedback",
+        priority: "low",
+        source: "officer",
+        message: "Your feedback helps improve response quality.",
+      },
+      {
+        type: "escalation",
+        priority: "critical",
+        source: "system",
+        message: "Critical SLA breach detected. Immediate action required.",
+      },
+    ];
+
+    const docs = Array.from({ length: count }).map((_, idx) => {
+      const complaint = complaints[idx % Math.max(complaints.length, 1)] || null;
+      const template = templates[idx % templates.length];
+      const createdAt = new Date(now - idx * 60 * 60 * 1000);
+      const isRead = idx % 3 === 0;
+
+      return {
+        user: userId,
+        complaint: complaint?._id || null,
+        complaintId: complaint?.complaintId || `DEMO-${String(1000 + idx)}`,
+        title: complaint?.title || "Demo notification",
+        status: complaint?.status || "info",
+        message: template.message,
+        source: template.source,
+        type: template.type,
+        priority: template.priority,
+        channels: {
+          inApp: true,
+          email: idx % 2 === 0,
+          sms: idx % 5 === 0,
+          push: idx % 4 === 0,
+        },
+        actionUrl: complaint?.complaintId
+          ? `/track-complaint?complaintId=${complaint.complaintId}`
+          : "/dashboard",
+        isRead,
+        readAt: isRead ? createdAt : null,
+        metadata: { demo: true },
+        createdAt,
+        updatedAt: createdAt,
+      };
+    });
+
+    await Notification.insertMany(docs);
+
+    res.status(201).json({
+      success: true,
+      message: `Seeded ${docs.length} demo notifications`,
+      data: {
+        created: docs.length,
+      },
+    });
+  } catch (error) {
+    console.error("Seed demo notifications error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to seed demo notifications",
       error: error.message,
     });
   }

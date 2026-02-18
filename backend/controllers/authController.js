@@ -266,6 +266,13 @@ export const login = async (req, res) => {
       });
     }
 
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: "This account uses Google Sign-In. Please continue with Google.",
+      });
+    }
+
     // Check if account is active
     if (!user.isActive) {
       return res.status(403).json({
@@ -318,6 +325,133 @@ export const login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Login failed. Please try again.",
+      error: error.message,
+    });
+  }
+};
+
+export const googleLogin = async (req, res) => {
+  try {
+    const { credential, rememberMe } = req.body;
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(500).json({
+        success: false,
+        message: "Google Sign-In is not configured on server",
+      });
+    }
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: "Google credential token is required",
+      });
+    }
+
+    const tokenInfoResponse = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+    );
+
+    if (!tokenInfoResponse.ok) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid Google credential",
+      });
+    }
+
+    const payload = await tokenInfoResponse.json();
+
+    if (!payload?.email || !payload?.sub) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Google profile",
+      });
+    }
+
+    if (payload.aud !== process.env.GOOGLE_CLIENT_ID) {
+      return res.status(401).json({
+        success: false,
+        message: "Google token audience mismatch",
+      });
+    }
+
+    if (payload.email_verified !== "true" && payload.email_verified !== true) {
+      return res.status(403).json({
+        success: false,
+        message: "Google email is not verified",
+      });
+    }
+
+    const normalizedEmail = payload.email.toLowerCase().trim();
+    let user = await User.findOne({
+      $or: [{ googleId: payload.sub }, { email: normalizedEmail }],
+    });
+
+    if (!user) {
+      let generatedPhone = payload.sub.replace(/\D/g, "").slice(-10);
+      if (generatedPhone.length !== 10) {
+        generatedPhone = `${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+      }
+      while (await User.exists({ phone: generatedPhone })) {
+        generatedPhone = `${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+      }
+
+      user = await User.create({
+        name: payload.name || normalizedEmail.split("@")[0],
+        email: normalizedEmail,
+        phone: generatedPhone,
+        googleId: payload.sub,
+        avatarUrl: payload.picture || "",
+        isEmailVerified: true,
+        role: "user",
+      });
+    } else {
+      if (!user.googleId) {
+        user.googleId = payload.sub;
+      }
+      if (!user.avatarUrl && payload.picture) {
+        user.avatarUrl = payload.picture;
+      }
+      user.isEmailVerified = true;
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Please contact support.",
+      });
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    const tokenExpiry = rememberMe ? "30d" : "7d";
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+      expiresIn: tokenExpiry,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          isEmailVerified: user.isEmailVerified,
+          isPhoneVerified: user.isPhoneVerified,
+          isAadhaarVerified: user.isAadhaarVerified,
+        },
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Google login error:", error);
+    res.status(401).json({
+      success: false,
+      message: "Google login failed",
       error: error.message,
     });
   }

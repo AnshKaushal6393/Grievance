@@ -233,6 +233,26 @@ export const adminService = {
     const res = await api.put("/admin/settings", { settings });
     return res.data;
   },
+  broadcastAnnouncement: async (data: {
+    title: string;
+    message: string;
+    priority?: "low" | "medium" | "high" | "critical";
+    actionUrl?: string;
+    channels?: { inApp?: boolean; email?: boolean; sms?: boolean; push?: boolean };
+    recipientUserIds?: string[];
+    recipientDepartmentIds?: string[];
+    sendToAllUsers?: boolean;
+    roles?: Array<"user" | "officer" | "admin">;
+  }) => {
+    const res = await api.post("/admin/notifications/broadcast", data);
+    return res.data;
+  },
+  getBroadcastAnnouncementHistory: async (page = 1, limit = 20) => {
+    const res = await api.get(
+      `/admin/notifications/broadcast-history?page=${page}&limit=${limit}`,
+    );
+    return res.data;
+  },
 };
 
 export default adminService;

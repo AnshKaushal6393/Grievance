@@ -22,6 +22,8 @@ import {
   streamUserUpdates,
   getAdminSettings,
   updateAdminSettings,
+  broadcastAnnouncement,
+  getBroadcastAnnouncementHistory,
 } from '../controllers/adminController.js';
 
 import { getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment, addOfficer, removeOfficer } from '../controllers/departmentController.js';
@@ -68,6 +70,8 @@ router.post('/users/:id/reset-password', resetUserPassword);
 router.post('/users/bulk-action', bulkUserAction);
 router.post('/users/import', importUsers);
 router.post('/users/import-file', csvUpload.single("file"), importUsersFromCsvFile);
+router.post('/notifications/broadcast', broadcastAnnouncement);
+router.get('/notifications/broadcast-history', getBroadcastAnnouncementHistory);
 
 // --- Admin Settings ---
 router.get('/settings', getAdminSettings);

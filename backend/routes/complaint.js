@@ -1,6 +1,27 @@
 import { Router } from 'express';
 const router = Router();
-import { fileComplaint, getMyComplaints, getComplaintById, trackComplaint, updateComplaint, deleteComplaint, getDashboardStats, getMyDrafts, getCitizenAnalytics, getCitizenNotifications, getComplaintHistory, submitComplaintFeedback, markNotificationRead, markAllNotificationsRead } from '../controllers/complaintController.js';
+import {
+  fileComplaint,
+  getMyComplaints,
+  getComplaintById,
+  trackComplaint,
+  updateComplaint,
+  deleteComplaint,
+  getDashboardStats,
+  getMyDrafts,
+  getCitizenAnalytics,
+  getCitizenNotifications,
+  getComplaintHistory,
+  submitComplaintFeedback,
+  markNotificationRead,
+  markAllNotificationsRead,
+  archiveNotification,
+  archiveAllNotifications,
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  seedDemoNotifications,
+  updateComplaintVoiceMetadata,
+} from '../controllers/complaintController.js';
 import { protect } from '../middleware/auth.js';
 import { upload } from '../config/cloudinary.js';
 
@@ -15,9 +36,15 @@ router.get('/dashboard/analytics', protect, getCitizenAnalytics);
 router.get('/notifications', protect, getCitizenNotifications);
 router.post('/notifications/mark-all-read', protect, markAllNotificationsRead);
 router.post('/notifications/:notificationId/read', protect, markNotificationRead);
+router.post('/notifications/:notificationId/archive', protect, archiveNotification);
+router.post('/notifications/archive-all', protect, archiveAllNotifications);
+router.post('/notifications/seed-demo', protect, seedDemoNotifications);
+router.get('/notifications/preferences', protect, getNotificationPreferences);
+router.put('/notifications/preferences', protect, updateNotificationPreferences);
 router.get('/drafts', protect, getMyDrafts);
 router.get('/:id/history', protect, getComplaintHistory);
 router.post('/:id/feedback', protect, submitComplaintFeedback);
+router.post('/:id/voice-metadata', protect, updateComplaintVoiceMetadata);
 router.get('/:id', protect, getComplaintById);
 router.put('/:id', protect, updateComplaint);
 router.delete('/:id', protect, deleteComplaint);

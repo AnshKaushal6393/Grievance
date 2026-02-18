@@ -8,6 +8,7 @@ import {
   GripVertical,
   KeyRound,
   Mail,
+  Megaphone,
   Pencil,
   Plus,
   Save,
@@ -17,6 +18,7 @@ import {
   Tag,
   Trash2,
   Webhook,
+  Send,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -131,6 +133,32 @@ type SettingsState = {
     force2FA: boolean;
     sessionTimeoutMin: number;
   };
+};
+
+type AdminAudienceUser = {
+  id: string;
+  name: string;
+  email?: string;
+  role?: string;
+};
+
+type AdminAudienceDepartment = {
+  id: string;
+  name: string;
+};
+
+type BroadcastHistoryItem = {
+  batchId: string;
+  createdAt: string;
+  title: string;
+  message: string;
+  priority: "low" | "medium" | "high" | "critical";
+  actionUrl?: string;
+  channels?: { inApp?: boolean; email?: boolean; sms?: boolean; push?: boolean };
+  sentByName?: string;
+  recipientCount: number;
+  sendToAllUsers?: boolean;
+  roleFilters?: string[];
 };
 
 const defaultSettings: SettingsState = {
@@ -273,6 +301,35 @@ const AdminSettings = () => {
   const [draggingCategoryId, setDraggingCategoryId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [newHoliday, setNewHoliday] = useState("");
+  const [audienceUsers, setAudienceUsers] = useState<AdminAudienceUser[]>([]);
+  const [audienceDepartments, setAudienceDepartments] = useState<AdminAudienceDepartment[]>([]);
+  const [isLoadingAudience, setIsLoadingAudience] = useState(false);
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [audienceSearch, setAudienceSearch] = useState("");
+  const [broadcastHistory, setBroadcastHistory] = useState<BroadcastHistoryItem[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPages, setHistoryPages] = useState(1);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: "",
+    message: "",
+    priority: "medium" as "low" | "medium" | "high" | "critical",
+    actionUrl: "",
+    sendToAllUsers: false,
+    selectedUserIds: [] as string[],
+    selectedDepartmentIds: [] as string[],
+    channels: {
+      inApp: true,
+      email: true,
+      sms: false,
+      push: false,
+    },
+    roles: {
+      user: true,
+      officer: true,
+      admin: false,
+    },
+  });
 
   const sectionTitle = useMemo(() => navItems.find((item) => item.id === section)?.label || t("settings.title"), [section, t]);
 
@@ -297,6 +354,65 @@ const AdminSettings = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (section !== "notifications") return;
+    let mounted = true;
+    const loadAudience = async () => {
+      try {
+        setIsLoadingAudience(true);
+        const [usersRes, departmentsRes] = await Promise.all([
+          adminService.getAllUsers({ limit: 300, status: "active" }),
+          adminService.getDepartments(),
+        ]);
+        if (!mounted) return;
+        const users = (usersRes?.data?.users || []).map((u: any) => ({
+          id: String(u.id || u._id),
+          name: u.name || "User",
+          email: u.email || "",
+          role: u.role || "",
+        }));
+        const departments = (departmentsRes?.data?.departments || []).map(
+          (d: any) => ({
+            id: String(d._id || d.id),
+            name: d.name || "Department",
+          }),
+        );
+        setAudienceUsers(users);
+        setAudienceDepartments(departments);
+      } catch (error: any) {
+        if (!mounted) return;
+        toast.error(error?.response?.data?.message || "Failed to load audience data");
+      } finally {
+        if (mounted) setIsLoadingAudience(false);
+      }
+    };
+    void loadAudience();
+    return () => {
+      mounted = false;
+    };
+  }, [section]);
+
+  const loadBroadcastHistory = async (page = 1) => {
+    try {
+      setIsLoadingHistory(true);
+      const response = await adminService.getBroadcastAnnouncementHistory(page, 10);
+      const history = response?.data?.history || [];
+      const pagination = response?.data?.pagination || {};
+      setBroadcastHistory(history);
+      setHistoryPage(pagination.page || 1);
+      setHistoryPages(pagination.pages || 1);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to load broadcast history");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (section !== "notifications") return;
+    void loadBroadcastHistory(1);
+  }, [section]);
 
   const saveAll = async () => {
     try {
@@ -388,6 +504,58 @@ const AdminSettings = () => {
       ...prev,
       general: { ...prev.general, holidays: prev.general.holidays.filter((item) => item !== holiday) },
     }));
+  };
+
+  const toggleSelection = (list: string[], id: string) =>
+    list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
+
+  const handleSendBroadcast = async () => {
+    const title = broadcastForm.title.trim();
+    const message = broadcastForm.message.trim();
+    if (!title || !message) {
+      toast.error("Announcement title and message are required");
+      return;
+    }
+    if (
+      !broadcastForm.sendToAllUsers &&
+      broadcastForm.selectedUserIds.length === 0 &&
+      broadcastForm.selectedDepartmentIds.length === 0
+    ) {
+      toast.error("Select users or departments, or enable send to all users");
+      return;
+    }
+
+    const roles = Object.entries(broadcastForm.roles)
+      .filter(([, enabled]) => enabled)
+      .map(([role]) => role) as Array<"user" | "officer" | "admin">;
+
+    try {
+      setIsSendingBroadcast(true);
+      const response = await adminService.broadcastAnnouncement({
+        title,
+        message,
+        priority: broadcastForm.priority,
+        actionUrl: broadcastForm.actionUrl.trim(),
+        channels: broadcastForm.channels,
+        recipientUserIds: broadcastForm.sendToAllUsers ? [] : broadcastForm.selectedUserIds,
+        recipientDepartmentIds: broadcastForm.sendToAllUsers ? [] : broadcastForm.selectedDepartmentIds,
+        sendToAllUsers: broadcastForm.sendToAllUsers,
+        roles: roles.length ? roles : ["user", "officer"],
+      });
+      const recipients = response?.data?.recipients ?? 0;
+      toast.success(`Announcement sent to ${recipients} recipients`);
+      await loadBroadcastHistory(1);
+      setBroadcastForm((prev) => ({
+        ...prev,
+        title: "",
+        message: "",
+        actionUrl: "",
+      }));
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to send announcement");
+    } finally {
+      setIsSendingBroadcast(false);
+    }
   };
 
   return (
@@ -586,6 +754,309 @@ const AdminSettings = () => {
                       ))}
                     </div>
                   </div>
+
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Megaphone className="h-5 w-5 text-blue-600" />
+                      <h3 className="font-semibold text-slate-900">Broadcast Announcement</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="md:col-span-2">
+                        <Label className="mb-1 block">Announcement Title</Label>
+                        <Input
+                          value={broadcastForm.title}
+                          onChange={(e) =>
+                            setBroadcastForm((prev) => ({ ...prev, title: e.target.value }))
+                          }
+                          placeholder="Service disruption update"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="mb-1 block">Message</Label>
+                        <Textarea
+                          rows={4}
+                          value={broadcastForm.message}
+                          onChange={(e) =>
+                            setBroadcastForm((prev) => ({ ...prev, message: e.target.value }))
+                          }
+                          placeholder="Share your announcement details..."
+                        />
+                      </div>
+                      <div>
+                        <Label className="mb-1 block">Priority</Label>
+                        <Select
+                          value={broadcastForm.priority}
+                          onValueChange={(value) =>
+                            setBroadcastForm((prev) => ({
+                              ...prev,
+                              priority: value as "low" | "medium" | "high" | "critical",
+                            }))
+                          }
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="critical">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="mb-1 block">Action URL (optional)</Label>
+                        <Input
+                          value={broadcastForm.actionUrl}
+                          onChange={(e) =>
+                            setBroadcastForm((prev) => ({ ...prev, actionUrl: e.target.value }))
+                          }
+                          placeholder="/admin/reports"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border p-3 space-y-3">
+                      <Label className="text-sm font-semibold">Delivery Channels</Label>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {[
+                          { key: "inApp", label: "In-App" },
+                          { key: "email", label: "Email" },
+                          { key: "sms", label: "SMS" },
+                          { key: "push", label: "Push" },
+                        ].map((item) => (
+                          <label key={item.key} className="flex items-center gap-2 rounded border px-2 py-1.5 text-sm">
+                            <Checkbox
+                              checked={broadcastForm.channels[item.key as keyof typeof broadcastForm.channels]}
+                              onCheckedChange={(checked) =>
+                                setBroadcastForm((prev) => ({
+                                  ...prev,
+                                  channels: {
+                                    ...prev.channels,
+                                    [item.key]: Boolean(checked),
+                                  },
+                                }))
+                              }
+                            />
+                            {item.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border p-3 space-y-3">
+                      <label className="flex items-center gap-2 text-sm font-medium">
+                        <Checkbox
+                          checked={broadcastForm.sendToAllUsers}
+                          onCheckedChange={(checked) =>
+                            setBroadcastForm((prev) => ({
+                              ...prev,
+                              sendToAllUsers: Boolean(checked),
+                            }))
+                          }
+                        />
+                        Send to all users (by selected roles)
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(["user", "officer", "admin"] as const).map((role) => (
+                          <label key={role} className="flex items-center gap-2 rounded border px-2 py-1.5 text-sm capitalize">
+                            <Checkbox
+                              checked={broadcastForm.roles[role]}
+                              onCheckedChange={(checked) =>
+                                setBroadcastForm((prev) => ({
+                                  ...prev,
+                                  roles: { ...prev.roles, [role]: Boolean(checked) },
+                                }))
+                              }
+                            />
+                            {role}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {!broadcastForm.sendToAllUsers && (
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                        <div className="rounded-md border p-3">
+                          <Label className="mb-2 block text-sm font-semibold">Target Departments</Label>
+                          {isLoadingAudience ? (
+                            <p className="text-xs text-slate-500">Loading departments...</p>
+                          ) : (
+                            <div className="max-h-48 overflow-y-auto space-y-2">
+                              {audienceDepartments.map((dept) => (
+                                <label key={dept.id} className="flex items-center gap-2 rounded border px-2 py-1.5 text-sm">
+                                  <Checkbox
+                                    checked={broadcastForm.selectedDepartmentIds.includes(dept.id)}
+                                    onCheckedChange={() =>
+                                      setBroadcastForm((prev) => ({
+                                        ...prev,
+                                        selectedDepartmentIds: toggleSelection(
+                                          prev.selectedDepartmentIds,
+                                          dept.id,
+                                        ),
+                                      }))
+                                    }
+                                  />
+                                  {dept.name}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <Label className="mb-2 block text-sm font-semibold">Target Users</Label>
+                          <Input
+                            className="mb-2"
+                            placeholder="Search users..."
+                            value={audienceSearch}
+                            onChange={(e) => setAudienceSearch(e.target.value)}
+                          />
+                          {isLoadingAudience ? (
+                            <p className="text-xs text-slate-500">Loading users...</p>
+                          ) : (
+                            <div className="max-h-48 overflow-y-auto space-y-2">
+                              {audienceUsers
+                                .filter((u) =>
+                                  `${u.name} ${u.email || ""}`
+                                    .toLowerCase()
+                                    .includes(audienceSearch.toLowerCase()),
+                                )
+                                .map((user) => (
+                                  <label key={user.id} className="flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-sm">
+                                    <span className="min-w-0">
+                                      <span className="block truncate">{user.name}</span>
+                                      <span className="block text-xs text-slate-500 truncate">
+                                        {user.email || "No email"} • {user.role || "user"}
+                                      </span>
+                                    </span>
+                                    <Checkbox
+                                      checked={broadcastForm.selectedUserIds.includes(user.id)}
+                                      onCheckedChange={() =>
+                                        setBroadcastForm((prev) => ({
+                                          ...prev,
+                                          selectedUserIds: toggleSelection(
+                                            prev.selectedUserIds,
+                                            user.id,
+                                          ),
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button
+                      className="gap-2"
+                      onClick={handleSendBroadcast}
+                      disabled={isSendingBroadcast}
+                    >
+                      <Send className="h-4 w-4" />
+                      {isSendingBroadcast ? "Sending..." : "Send Announcement"}
+                    </Button>
+
+                    <div className="rounded-lg border p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-slate-900">Broadcast History</h4>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => loadBroadcastHistory(historyPage)}
+                          disabled={isLoadingHistory}
+                        >
+                          {isLoadingHistory ? "Refreshing..." : "Refresh"}
+                        </Button>
+                      </div>
+                      <div className="overflow-x-auto rounded border">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">When</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">Title</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">Priority</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">Recipients</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">Channels</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">Sent By</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {broadcastHistory.map((row) => (
+                              <tr key={row.batchId} className="border-t align-top">
+                                <td className="px-3 py-2 text-xs text-slate-600 whitespace-nowrap">
+                                  {new Date(row.createdAt).toLocaleString()}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <p className="font-medium text-slate-900">{row.title}</p>
+                                  <p className="text-xs text-slate-600 line-clamp-2">{row.message}</p>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <Badge variant="outline" className="capitalize">{row.priority}</Badge>
+                                </td>
+                                <td className="px-3 py-2 text-slate-700">
+                                  {row.recipientCount}
+                                  <p className="text-xs text-slate-500">
+                                    {row.sendToAllUsers ? "All users" : "Targeted"}
+                                  </p>
+                                </td>
+                                <td className="px-3 py-2 text-xs text-slate-700">
+                                  {[
+                                    row.channels?.inApp ? "In-App" : null,
+                                    row.channels?.email ? "Email" : null,
+                                    row.channels?.sms ? "SMS" : null,
+                                    row.channels?.push ? "Push" : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(", ") || "None"}
+                                </td>
+                                <td className="px-3 py-2 text-xs text-slate-700">
+                                  {row.sentByName || "Admin"}
+                                </td>
+                              </tr>
+                            ))}
+                            {!isLoadingHistory && broadcastHistory.length === 0 && (
+                              <tr>
+                                <td colSpan={6} className="px-3 py-6 text-center text-sm text-slate-500">
+                                  No broadcast announcements sent yet.
+                                </td>
+                              </tr>
+                            )}
+                            {isLoadingHistory && (
+                              <tr>
+                                <td colSpan={6} className="px-3 py-6 text-center text-sm text-slate-500">
+                                  Loading history...
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={historyPage <= 1 || isLoadingHistory}
+                          onClick={() => loadBroadcastHistory(historyPage - 1)}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-xs text-slate-600">
+                          Page {historyPage} of {historyPages}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={historyPage >= historyPages || isLoadingHistory}
+                          onClick={() => loadBroadcastHistory(historyPage + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -658,9 +1129,9 @@ const AdminSettings = () => {
                       </tbody>
                     </table>
                   </div>
-                  <Button className="gap-2" onClick={() => toast.success("SLA targets updated")}>
+                  <Button className="gap-2" onClick={saveAll} disabled={isSaving}>
                     <Save className="h-4 w-4" />
-                    Update SLA Targets
+                    {isSaving ? t("settings.saving") : "Update SLA Targets"}
                   </Button>
                 </div>
               )}

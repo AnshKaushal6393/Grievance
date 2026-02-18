@@ -18,6 +18,11 @@ export interface LoginData {
   rememberMe?: boolean;
 }
 
+export interface GoogleLoginData {
+  credential: string;
+  rememberMe?: boolean;
+}
+
 export interface OTPData {
   userId: string;
   otp: string;
@@ -88,6 +93,21 @@ export const authService = {
       return response.data;
     } catch (error: any) {
       throw error.response?.data || { message: "Login failed" };
+    }
+  },
+
+  googleLogin: async (data: GoogleLoginData) => {
+    try {
+      const response = await api.post("/auth/google", data);
+
+      if (response.data.success && response.data.data.token) {
+        localStorage.setItem("token", response.data.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.data.user));
+      }
+
+      return response.data;
+    } catch (error: any) {
+      throw error.response?.data || { message: "Google login failed" };
     }
   },
 

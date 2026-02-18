@@ -17,11 +17,15 @@ import {
   ChevronRight,
   Bell,
   TrendingUp,
+  RefreshCw,
+  Archive,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import complaintService from "@/services/complaintService";
 import authService from "@/services/authService";
+import { toast } from "sonner";
 
 interface DashboardStats {
   total: number;
@@ -60,6 +64,11 @@ interface NotificationItem {
   message: string;
   updatedAt: string;
   isRead?: boolean;
+  source?: string;
+  type?: string;
+  priority?: "low" | "medium" | "high" | "critical";
+  actionUrl?: string;
+  isArchived?: boolean;
 }
 
 const Dashboard = () => {
@@ -70,6 +79,21 @@ const Dashboard = () => {
   const [categories, setCategories] = useState<CategoryBreakdownItem[]>([]);
   const [analytics, setAnalytics] = useState<CitizenAnalyticsSummary | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notificationFilter, setNotificationFilter] = useState<
+    "all" | "unread" | "high"
+  >("all");
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [hasMoreNotifications, setHasMoreNotifications] = useState(false);
+  const [notificationSummary, setNotificationSummary] = useState({
+    unreadCount: 0,
+    highPriorityCount: 0,
+  });
+  const [showNotificationPrefs, setShowNotificationPrefs] = useState(false);
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+  const [notificationPreferences, setNotificationPreferences] = useState<any>(null);
+  const [isSeedingDemoNotifications, setIsSeedingDemoNotifications] =
+    useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
@@ -90,16 +114,19 @@ const Dashboard = () => {
   };
 
   const fetchDashboardData = async () => {
+    setIsLoading(true);
     try {
-      const [dashboardResponse, analyticsResponse, notificationsResponse] = await Promise.all([
+      const [dashboardResponse, analyticsResponse] = await Promise.all([
         complaintService.getDashboardStats(),
         complaintService.getCitizenAnalytics(),
-        complaintService.getNotifications(8),
       ]);
 
-      setStats(dashboardResponse.data.stats);
+      const dashboardData = dashboardResponse?.data || {};
+      const analyticsData = analyticsResponse?.data || {};
+
+      setStats(dashboardData.stats || null);
       setRecentComplaints(
-        (dashboardResponse.data.recentComplaints || []).map((c: any) => ({
+        (dashboardData.recentComplaints || []).map((c: any) => ({
           id: c.complaintId,
           title: c.title,
           category: c.category,
@@ -112,37 +139,161 @@ const Dashboard = () => {
         })),
       );
       setCategories(
-        (dashboardResponse.data.categoryBreakdown || []).map((c: any) => ({
-          name: c._id,
+        (dashboardData.categoryBreakdown || []).map((c: any) => ({
+          name: c._id || "Others",
           count: c.count,
         })),
       );
-      setAnalytics(analyticsResponse.data.summary || null);
-      setNotifications(notificationsResponse.data.notifications || []);
+      setAnalytics(analyticsData.summary || null);
     } catch (error) {
-      console.error("Failed to fetch dashboard data");
+      toast.error("Failed to load dashboard data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchNotifications = async (reset = false) => {
+    const pageToLoad = reset ? 1 : notificationPage;
+    const filters: any = { page: pageToLoad, limit: 8 };
+    if (notificationFilter === "unread") filters.isRead = false;
+    if (notificationFilter === "high") filters.priority = "high,critical";
+
+    const response = await complaintService.getNotifications(filters);
+    const data = response?.data || {};
+    const incoming = data.notifications || [];
+
+    setNotifications((prev) => {
+      if (reset) return incoming;
+      const merged = [...prev];
+      incoming.forEach((item: NotificationItem) => {
+        if (!merged.find((existing) => existing.id === item.id)) {
+          merged.push(item);
+        }
+      });
+      return merged;
+    });
+
+    const pages = data.pagination?.pages || 1;
+    setHasMoreNotifications(pageToLoad < pages);
+    setNotificationPage(pageToLoad + 1);
+    setNotificationSummary({
+      unreadCount: data.unreadCount || 0,
+      highPriorityCount: data.summary?.highPriorityCount || 0,
+    });
+  };
+
+  useEffect(() => {
+    setNotificationPage(1);
+    fetchNotifications(true).catch(() => {
+      toast.error("Failed to load notifications");
+    });
+  }, [notificationFilter]);
+
+  const loadNotificationPreferences = async () => {
+    try {
+      const response = await complaintService.getNotificationPreferences();
+      setNotificationPreferences(response?.data?.preferences || null);
+    } catch {
+      toast.error("Failed to load notification preferences");
+    }
+  };
+
+  const updatePreference = (path: string, value: any) => {
+    setNotificationPreferences((prev: any) => {
+      const next = { ...(prev || {}) };
+      const parts = path.split(".");
+      let ref = next;
+      for (let i = 0; i < parts.length - 1; i += 1) {
+        const key = parts[i];
+        ref[key] = { ...(ref[key] || {}) };
+        ref = ref[key];
+      }
+      ref[parts[parts.length - 1]] = value;
+      return next;
+    });
+  };
+
+  const saveNotificationPreferences = async () => {
+    try {
+      setIsSavingPrefs(true);
+      await complaintService.updateNotificationPreferences(notificationPreferences || {});
+      toast.success("Notification preferences updated");
+    } catch {
+      toast.error("Failed to update notification preferences");
+    } finally {
+      setIsSavingPrefs(false);
+    }
+  };
+
+  const handleSeedDemoNotifications = async () => {
+    try {
+      setIsSeedingDemoNotifications(true);
+      await complaintService.seedDemoNotifications(12);
+      setNotificationPage(1);
+      await fetchNotifications(true);
+      toast.success("Demo notifications generated");
+    } catch {
+      toast.error("Failed to generate demo notifications");
+    } finally {
+      setIsSeedingDemoNotifications(false);
     }
   };
 
   const handleMarkAllNotificationsRead = async () => {
     try {
-      await complaintService.markAllNotificationsRead();
+      await complaintService.markAllNotificationsRead({
+        onlyUnread: true,
+        includeArchived: false,
+      });
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      setNotificationSummary((prev) => ({ ...prev, unreadCount: 0 }));
     } catch {
-      console.error("Failed to mark all notifications as read");
+      toast.error("Failed to mark notifications as read");
     }
   };
 
-  const handleMarkNotificationRead = async (notificationId: string) => {
+  const handleMarkNotificationRead = async (
+    notificationId: string,
+    isRead: boolean = true,
+  ) => {
     try {
-      await complaintService.markNotificationRead(notificationId);
+      await complaintService.markNotificationRead(notificationId, isRead);
       setNotifications((prev) =>
         prev.map((item) =>
-          item.id === notificationId ? { ...item, isRead: true } : item,
+          item.id === notificationId ? { ...item, isRead } : item,
         ),
       );
+      setNotificationSummary((prev) => ({
+        ...prev,
+        unreadCount: Math.max(
+          0,
+          prev.unreadCount + (isRead ? -1 : 1),
+        ),
+      }));
     } catch {
-      console.error("Failed to mark notification as read");
+      toast.error("Failed to update notification");
+    }
+  };
+
+  const handleArchiveNotification = async (notificationId: string) => {
+    try {
+      await complaintService.archiveNotification(notificationId);
+      setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
+    } catch {
+      toast.error("Failed to archive notification");
+    }
+  };
+
+  const getPriorityBadgeClass = (priority?: string) => {
+    switch (priority) {
+      case "critical":
+        return "bg-red-100 text-red-700";
+      case "high":
+        return "bg-orange-100 text-orange-700";
+      case "medium":
+        return "bg-blue-100 text-blue-700";
+      default:
+        return "bg-gray-100 text-gray-700";
     }
   };
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -239,6 +390,36 @@ const Dashboard = () => {
       minute: "2-digit",
     });
   };
+  const statCards = [
+    {
+      label: "Total Complaints",
+      value: stats?.total ?? 0,
+      icon: FileText,
+      bgColor: "bg-blue-50",
+      textColor: "text-blue-600",
+    },
+    {
+      label: "Pending",
+      value: stats?.pending ?? 0,
+      icon: Clock,
+      bgColor: "bg-yellow-50",
+      textColor: "text-yellow-600",
+    },
+    {
+      label: "Resolved",
+      value: stats?.resolved ?? 0,
+      icon: CheckCircle,
+      bgColor: "bg-green-50",
+      textColor: "text-green-600",
+    },
+    {
+      label: "Rejected",
+      value: stats?.rejected ?? 0,
+      icon: XCircle,
+      bgColor: "bg-red-50",
+      textColor: "text-red-600",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -266,47 +447,30 @@ const Dashboard = () => {
                   <span>{formatTime(currentTime)}</span>
                 </div>
               </div>
+              <Button
+                variant="outline"
+                onClick={fetchDashboardData}
+                disabled={isLoading}
+                className="w-fit"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </Button>
             </motion.div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {stats &&
-                [
-                  {
-                    label: "Total Complaints",
-                    value: stats.total,
-                    icon: FileText,
-                    bgColor: "bg-blue-50",
-                    textColor: "text-blue-600",
-                  },
-                  {
-                    label: "Pending",
-                    value: stats.pending,
-                    icon: Clock,
-                    bgColor: "bg-yellow-50",
-                    textColor: "text-yellow-600",
-                  },
-                  {
-                    label: "Resolved",
-                    value: stats.resolved,
-                    icon: CheckCircle,
-                    bgColor: "bg-green-50",
-                    textColor: "text-green-600",
-                  },
-                  {
-                    label: "Rejected",
-                    value: stats.rejected,
-                    icon: XCircle,
-                    bgColor: "bg-red-50",
-                    textColor: "text-red-600",
-                  },
-                ].map((stat, index) => (
+              {statCards.map((stat, index) => (
                   <motion.div
                     key={stat.label}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group"
+                    className={`bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group ${
+                      isLoading && !stats ? "animate-pulse" : ""
+                    }`}
                   >
                     <div
                       className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
@@ -370,6 +534,16 @@ const Dashboard = () => {
               </div>
 
               <div className="space-y-4">
+                {!isLoading && recentComplaints.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center">
+                    <p className="text-sm text-gray-600 mb-3">
+                      No complaints yet. File your first complaint to track updates here.
+                    </p>
+                    <Link to="/file-complaint">
+                      <Button size="sm">File a Complaint</Button>
+                    </Link>
+                  </div>
+                )}
                 {recentComplaints.map((complaint, index) => (
                   <motion.div
                     key={complaint.id}
@@ -487,6 +661,11 @@ const Dashboard = () => {
                 Categories
               </h3>
               <div className="space-y-3">
+                {!isLoading && categories.length === 0 && (
+                  <p className="text-sm text-gray-500">
+                    Category insights will appear once complaints are filed.
+                  </p>
+                )}
                 {categories.map((category) => (
                   <div
                     key={category.name}
@@ -529,8 +708,35 @@ const Dashboard = () => {
                   Status Notifications
                 </h3>
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      const next = !showNotificationPrefs;
+                      setShowNotificationPrefs(next);
+                      if (next && !notificationPreferences) {
+                        void loadNotificationPreferences();
+                      }
+                    }}
+                  >
+                    Preferences
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={handleSeedDemoNotifications}
+                    disabled={isSeedingDemoNotifications}
+                  >
+                    {isSeedingDemoNotifications ? "Generating..." : "Generate Demo"}
+                  </Button>
                   <span className="text-xs text-gray-500">
-                    {notifications.filter((n) => !n.isRead).length} unread
+                    {notificationSummary.unreadCount} unread
+                  </span>
+                  <span className="text-xs text-orange-600 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    {notificationSummary.highPriorityCount} high priority
                   </span>
                   {notifications.some((n) => !n.isRead) && (
                     <Button
@@ -544,32 +750,153 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
+              {showNotificationPrefs && (
+                <div className="mb-3 rounded-lg border border-gray-200 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-gray-700 uppercase">
+                    Delivery Channels
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                    {[
+                      { key: "inApp", label: "In-App" },
+                      { key: "email", label: "Email" },
+                      { key: "sms", label: "SMS" },
+                      { key: "push", label: "Push" },
+                    ].map((channel) => (
+                      <label
+                        key={channel.key}
+                        className="flex items-center gap-2 rounded-md border px-2 py-1.5"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(
+                            notificationPreferences?.channels?.[channel.key],
+                          )}
+                          onChange={(e) =>
+                            updatePreference(
+                              `channels.${channel.key}`,
+                              e.target.checked,
+                            )
+                          }
+                        />
+                        {channel.label}
+                      </label>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 uppercase">
+                      Digest
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
+                      value={notificationPreferences?.digest?.frequency || "daily"}
+                      onChange={(e) =>
+                        updatePreference("digest.frequency", e.target.value)
+                      }
+                    >
+                      <option value="none">None</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                    </select>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-8"
+                    onClick={saveNotificationPreferences}
+                    disabled={isSavingPrefs}
+                  >
+                    {isSavingPrefs ? "Saving..." : "Save Preferences"}
+                  </Button>
+                </div>
+              )}
+              <div className="mb-3 flex items-center gap-2">
+                {(["all", "unread", "high"] as const).map((filter) => (
+                  <Button
+                    key={filter}
+                    type="button"
+                    size="sm"
+                    variant={notificationFilter === filter ? "default" : "outline"}
+                    className="h-7 px-2 text-xs capitalize"
+                    onClick={() => setNotificationFilter(filter)}
+                  >
+                    {filter}
+                  </Button>
+                ))}
+              </div>
               <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                 {notifications.length === 0 && (
                   <p className="text-sm text-gray-500">No recent status updates.</p>
                 )}
-                {notifications.map((notification, idx) => (
-                  <Link
-                    key={`${notification.complaintId}-${idx}`}
-                    to={`/track-complaint?complaintId=${notification.complaintId}`}
-                    onClick={() => handleMarkNotificationRead(notification.id)}
+                {notifications.map((notification) => (
+                  <div
+                    key={notification.id}
                     className={`block rounded-xl border p-3 transition-colors ${
                       notification.isRead
                         ? "border-gray-100 bg-gray-50"
                         : "border-blue-200 bg-blue-50 hover:border-blue-300"
                     }`}
                   >
-                    <p className="text-xs text-blue-600 font-semibold">
-                      {notification.complaintId}
-                    </p>
-                    <p className="text-sm font-medium text-gray-900 line-clamp-1">
-                      {notification.message}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(notification.updatedAt).toLocaleString()}
-                    </p>
-                  </Link>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <Link
+                          to={`/track-complaint?complaintId=${notification.complaintId}`}
+                          onClick={() => handleMarkNotificationRead(notification.id, true)}
+                        >
+                          <p className="text-xs text-blue-600 font-semibold">
+                            {notification.complaintId}
+                          </p>
+                          <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                            {notification.message}
+                          </p>
+                        </Link>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${getPriorityBadgeClass(notification.priority)}`}
+                          >
+                            {notification.priority || "low"}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-gray-100 text-gray-600">
+                            {notification.type || "status_update"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(notification.updatedAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {!notification.isRead && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() =>
+                              handleMarkNotificationRead(notification.id, true)
+                            }
+                          >
+                            Mark read
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleArchiveNotification(notification.id)}
+                        >
+                          <Archive className="w-3 h-3 text-gray-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
+                {hasMoreNotifications && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => fetchNotifications(false)}
+                  >
+                    Load more
+                  </Button>
+                )}
               </div>
             </div>
           </motion.div>

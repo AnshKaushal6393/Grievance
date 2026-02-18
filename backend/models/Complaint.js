@@ -56,6 +56,38 @@ const complaintSchema = new mongoose.Schema(
         },
       },
     },
+    voiceMetadata: {
+      source: {
+        type: String,
+        enum: ["voice", "text", "mixed"],
+        default: "text",
+      },
+      language: {
+        type: String,
+        enum: ["hi", "en", "ur", "other"],
+        default: "other",
+      },
+      locale: {
+        type: String,
+        default: "",
+      },
+      confidence: {
+        type: Number,
+        min: 0,
+        max: 1,
+        default: null,
+      },
+      transcript: {
+        type: String,
+        trim: true,
+        maxlength: [4000, "Transcript cannot be more than 4000 characters"],
+        default: "",
+      },
+      capturedAt: {
+        type: Date,
+        default: null,
+      },
+    },
 
     attachments: [
       {

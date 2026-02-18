@@ -11,12 +11,14 @@ const notificationSchema = new mongoose.Schema(
     complaint: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Complaint",
-      required: true,
+      required: false,
       index: true,
+      default: null,
     },
     complaintId: {
       type: String,
-      required: true,
+      required: false,
+      default: "",
       index: true,
     },
     title: {
@@ -40,8 +42,33 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["status_update"],
+      enum: [
+        "status_update",
+        "assignment",
+        "reminder",
+        "escalation",
+        "announcement",
+        "feedback",
+        "system",
+      ],
       default: "status_update",
+    },
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high", "critical"],
+      default: "medium",
+      index: true,
+    },
+    channels: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: false },
+      sms: { type: Boolean, default: false },
+      push: { type: Boolean, default: false },
+    },
+    actionUrl: {
+      type: String,
+      default: "",
+      trim: true,
     },
     isRead: {
       type: Boolean,
@@ -56,11 +83,24 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    archivedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    expiresAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true },
 );
 
 notificationSchema.index({ user: 1, isRead: 1, createdAt: -1 });
+notificationSchema.index({ user: 1, archivedAt: 1, createdAt: -1 });
+notificationSchema.index({ user: 1, type: 1, createdAt: -1 });
+notificationSchema.index({ user: 1, priority: 1, createdAt: -1 });
 
 const Notification = mongoose.model("Notification", notificationSchema);
 

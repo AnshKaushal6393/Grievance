@@ -18,35 +18,54 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: [true, "Phone number is required"],
+      required: function () {
+        return !this.googleId;
+      },
       unique: true,
       match: [/^[0-9]{10}$/, "Please provide a valid 10-digit phone number"],
     },
 
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: function () {
+        return !this.googleId;
+      },
       minLength: [8, "Password must be at least 8 characters long"],
       select: false,
+    },
+
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
     },
 
     address: {
       street: {
         type: String,
-        required: [true, "Street is required"],
+        required: function () {
+          return !this.googleId;
+        },
         trim: true,
       },
       city: {
         type: String,
-        required: [true, "City is required"],
+        required: function () {
+          return !this.googleId;
+        },
       },
       state: {
         type: String,
-        required: [true, "State is required"],
+        required: function () {
+          return !this.googleId;
+        },
       },
       pincode: {
         type: String,
-        required: [true, "Pincode is required"],
+        required: function () {
+          return !this.googleId;
+        },
         match: [/^[0-9]{6}$/, "Please provide a valid 6-digit pincode"],
       },
     },
@@ -154,6 +173,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ email: 1 });
 userSchema.index({ phone: 1 });
+userSchema.index({ googleId: 1 }, { sparse: true });
 userSchema.index({ "aadhaar.number": 1 }, { sparse: true });
 
 userSchema.pre("save", async function () {
@@ -167,6 +187,7 @@ userSchema.pre("save", async function () {
 
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
+    if (!this.password) return false;
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
     throw new Error('Password comparison failed');

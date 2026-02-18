@@ -2,6 +2,7 @@ import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
 import User from "../models/User.js";
 import AdminSetting from "../models/AdminSetting.js";
+import Notification from "../models/Notification.js";
 import { createStatusNotification } from "../utils/notification.js";
 import { sendWelcomeEmail } from "../utils/sendOTP.js";
 import { publishUserManagementEvent, subscribeUserManagement } from "../utils/realtime.js";
@@ -1466,6 +1467,219 @@ export async function importUsersFromCsvFile(req, res) {
       data: { created, failed },
     });
     publishUserManagementEvent("users.import-file", { count: created.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Broadcast admin announcement notifications
+// @route   POST /api/admin/notifications/broadcast
+// @access  Private/Admin
+export async function broadcastAnnouncement(req, res) {
+  try {
+    const {
+      title,
+      message,
+      priority = "medium",
+      actionUrl = "",
+      channels = {},
+      recipientUserIds = [],
+      recipientDepartmentIds = [],
+      sendToAllUsers = false,
+      roles = ["user", "officer", "admin"],
+    } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and message are required",
+      });
+    }
+
+    const allowedPriorities = ["low", "medium", "high", "critical"];
+    const safePriority = allowedPriorities.includes(String(priority))
+      ? String(priority)
+      : "medium";
+    const batchId = `bcast_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+
+    const userIdSet = new Set();
+
+    if (Array.isArray(recipientUserIds)) {
+      recipientUserIds
+        .filter(Boolean)
+        .forEach((id) => userIdSet.add(String(id)));
+    }
+
+    if (Array.isArray(recipientDepartmentIds) && recipientDepartmentIds.length) {
+      const departments = await Department.find({
+        _id: { $in: recipientDepartmentIds },
+      }).select("officers headOfDepartment");
+
+      departments.forEach((department) => {
+        (department.officers || []).forEach((officerId) =>
+          userIdSet.add(String(officerId)),
+        );
+        if (department.headOfDepartment) {
+          userIdSet.add(String(department.headOfDepartment));
+        }
+      });
+    }
+
+    if (sendToAllUsers) {
+      const roleList = Array.isArray(roles) && roles.length
+        ? roles
+        : ["user", "officer", "admin"];
+      const users = await User.find({
+        role: { $in: roleList },
+        isActive: true,
+        isBanned: false,
+      }).select("_id");
+      users.forEach((u) => userIdSet.add(String(u._id)));
+    }
+
+    const targetUserIds = [...userIdSet];
+    if (!targetUserIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Select at least one user or department",
+      });
+    }
+
+    const now = new Date();
+    const docs = targetUserIds.map((userId) => ({
+      user: userId,
+      complaint: null,
+      complaintId: "",
+      title: String(title).trim(),
+      status: "announcement",
+      message: String(message).trim(),
+      source: "admin",
+      type: "announcement",
+      priority: safePriority,
+      channels: {
+        inApp: channels.inApp !== false,
+        email: Boolean(channels.email),
+        sms: Boolean(channels.sms),
+        push: Boolean(channels.push),
+      },
+      actionUrl: String(actionUrl || "").trim(),
+      metadata: {
+        broadcast: true,
+        batchId,
+        sentBy: req.user.id,
+        sentByName: req.user.name || "Admin",
+        roleFilters: Array.isArray(roles) ? roles : [],
+        sendToAllUsers: Boolean(sendToAllUsers),
+      },
+      createdAt: now,
+      updatedAt: now,
+    }));
+
+    await Notification.insertMany(docs, { ordered: false });
+
+    res.status(201).json({
+      success: true,
+      message: "Broadcast announcement sent",
+      data: {
+        recipients: targetUserIds.length,
+        created: docs.length,
+        batchId,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Get broadcast announcement history
+// @route   GET /api/admin/notifications/broadcast-history
+// @access  Private/Admin
+export async function getBroadcastAnnouncementHistory(req, res) {
+  try {
+    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10), 1), 100);
+    const skip = (page - 1) * limit;
+
+    const match = {
+      source: "admin",
+      type: "announcement",
+      "metadata.broadcast": true,
+    };
+
+    const [rows, total] = await Promise.all([
+      Notification.aggregate([
+        { $match: match },
+        {
+          $addFields: {
+            broadcastBatchId: {
+              $ifNull: ["$metadata.batchId", { $toString: "$_id" }],
+            },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: "$broadcastBatchId",
+            createdAt: { $max: "$createdAt" },
+            title: { $first: "$title" },
+            message: { $first: "$message" },
+            priority: { $first: "$priority" },
+            actionUrl: { $first: "$actionUrl" },
+            channels: { $first: "$channels" },
+            sentBy: { $first: "$metadata.sentBy" },
+            sentByName: { $first: "$metadata.sentByName" },
+            sendToAllUsers: { $first: "$metadata.sendToAllUsers" },
+            roleFilters: { $first: "$metadata.roleFilters" },
+            recipientCount: { $sum: 1 },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+      ]),
+      Notification.aggregate([
+        { $match: match },
+        {
+          $addFields: {
+            broadcastBatchId: {
+              $ifNull: ["$metadata.batchId", { $toString: "$_id" }],
+            },
+          },
+        },
+        { $group: { _id: "$broadcastBatchId" } },
+        { $count: "total" },
+      ]),
+    ]);
+
+    const totalBatches = total?.[0]?.total || 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        history: rows.map((row) => ({
+          batchId: row._id,
+          createdAt: row.createdAt,
+          title: row.title,
+          message: row.message,
+          priority: row.priority || "medium",
+          actionUrl: row.actionUrl || "",
+          channels: row.channels || {},
+          sentBy: row.sentBy || null,
+          sentByName: row.sentByName || "Admin",
+          sendToAllUsers: Boolean(row.sendToAllUsers),
+          roleFilters: Array.isArray(row.roleFilters) ? row.roleFilters : [],
+          recipientCount: row.recipientCount || 0,
+        })),
+        pagination: {
+          total: totalBatches,
+          page,
+          pages: Math.ceil(totalBatches / limit),
+          limit,
+        },
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

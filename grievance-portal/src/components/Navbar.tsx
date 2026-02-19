@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -27,10 +27,25 @@ type NavbarProps = {
   };
 };
 
+type NavNotification = {
+  id?: string;
+  _id?: string;
+  title?: string;
+  message?: string;
+  isRead?: boolean;
+  updatedAt?: string;
+  createdAt?: string;
+  actionUrl?: string;
+  priority?: "low" | "medium" | "high" | "critical";
+};
+
 const Navbar = ({ branding }: NavbarProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState<NavNotification[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [fontScale, setFontScale] = useState<"sm" | "md" | "lg">("md");
   const isLoggedIn = authService.isAuthenticated();
   const currentUser = authService.getCurrentUser();
@@ -41,23 +56,48 @@ const Navbar = ({ branding }: NavbarProps) => {
   const { t, language, setLanguage, getLanguageLabel } = useLanguage();
   const [brandName, setBrandName] = useState("Grievance Portal");
   const [brandLogo, setBrandLogo] = useState("");
+  const notificationPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!isLoggedIn) {
         setNotificationCount(0);
+        setNotifications([]);
         return;
       }
       try {
-        const response = await complaintService.getNotifications(10);
-        setNotificationCount(response?.data?.unreadCount || 0);
+        setIsLoadingNotifications(true);
+        const response = await complaintService.getNotifications({ limit: 6, includeArchived: false });
+        const payload = response?.data || {};
+        setNotificationCount(payload.unreadCount || 0);
+        setNotifications(payload.notifications || []);
       } catch {
         setNotificationCount(0);
+        setNotifications([]);
+      } finally {
+        setIsLoadingNotifications(false);
       }
     };
 
     fetchNotifications();
   }, [isLoggedIn, location.pathname]);
+
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (!notificationPanelRef.current) return;
+      const target = event.target as Node;
+      if (!notificationPanelRef.current.contains(target)) {
+        setIsNotificationsOpen(false);
+      }
+    };
+
+    if (isNotificationsOpen) {
+      document.addEventListener("mousedown", handleDocumentClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+    };
+  }, [isNotificationsOpen]);
 
   useEffect(() => {
     let mounted = true;
@@ -158,6 +198,46 @@ const Navbar = ({ branding }: NavbarProps) => {
     }
   };
 
+  const getNotificationsRoute = () => {
+    if (currentUser?.role === "admin") return "/admin";
+    if (currentUser?.role === "officer") return "/officer";
+    return "/dashboard";
+  };
+
+  const handleNotificationsClick = () => {
+    setIsProfileOpen(false);
+    setIsNotificationsOpen((prev) => !prev);
+  };
+
+  const handleNotificationItemClick = async (item: NavNotification) => {
+    const notificationId = item.id || item._id;
+    if (notificationId && !item.isRead) {
+      try {
+        await complaintService.markNotificationRead(notificationId, true);
+        setNotifications((prev) =>
+          prev.map((n) =>
+            (n.id || n._id) === notificationId ? { ...n, isRead: true } : n,
+          ),
+        );
+        setNotificationCount((prev) => Math.max(0, prev - 1));
+      } catch {
+        // keep navigation behavior even if mark-read fails
+      }
+    }
+    setIsNotificationsOpen(false);
+    navigate(item.actionUrl || getNotificationsRoute());
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await complaintService.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      setNotificationCount(0);
+    } catch {
+      // non-blocking UI action
+    }
+  };
+
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-border bg-background">
@@ -233,18 +313,67 @@ const Navbar = ({ branding }: NavbarProps) => {
             <div className="hidden items-center gap-2 md:flex">
               {isLoggedIn ? (
                 <>
-                  <button type="button" className="relative rounded p-2 text-slate-700 hover:bg-slate-200" aria-label={t("nav.notifications", "Notifications")}>
-                    <Bell className="h-5 w-5" />
-                    {notificationCount > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
-                        {notificationCount > 99 ? "99+" : notificationCount}
-                      </span>
+                  <div className="relative" ref={notificationPanelRef}>
+                    <button type="button" className="relative rounded p-2 text-slate-700 hover:bg-slate-200" aria-label={t("nav.notifications", "Notifications")} onClick={handleNotificationsClick} aria-expanded={isNotificationsOpen} aria-haspopup="menu">
+                      <Bell className="h-5 w-5" />
+                      {notificationCount > 0 && (
+                        <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
+                          {notificationCount > 99 ? "99+" : notificationCount}
+                        </span>
+                      )}
+                    </button>
+
+                    {isNotificationsOpen && (
+                      <div className="absolute right-0 mt-2 w-80 rounded border border-border bg-white p-2 shadow" role="menu" aria-label={t("nav.notifications", "Notifications")}>
+                        <div className="mb-2 flex items-center justify-between border-b border-border px-2 pb-2">
+                          <p className="text-sm font-semibold">{t("nav.notifications", "Notifications")}</p>
+                          {notificationCount > 0 && (
+                            <button type="button" className="text-xs text-primary hover:underline" onClick={handleMarkAllNotificationsRead}>
+                              {t("nav.markAllRead", "Mark all read")}
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="max-h-72 space-y-1 overflow-y-auto">
+                          {isLoadingNotifications ? (
+                            <p className="px-2 py-3 text-sm text-muted-foreground">{t("common.loading", "Loading...")}</p>
+                          ) : notifications.length === 0 ? (
+                            <p className="px-2 py-3 text-sm text-muted-foreground">{t("nav.noNotifications", "No notifications")}</p>
+                          ) : (
+                            notifications.map((item) => {
+                              const id = item.id || item._id || `${item.title}-${item.updatedAt}`;
+                              const when = new Date(item.updatedAt || item.createdAt || Date.now()).toLocaleString();
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() => handleNotificationItemClick(item)}
+                                  className={`w-full rounded px-2 py-2 text-left hover:bg-slate-50 ${item.isRead ? "opacity-80" : ""}`}
+                                >
+                                  <p className="line-clamp-1 text-sm font-medium text-slate-900">{item.title || t("nav.notification", "Notification")}</p>
+                                  <p className="line-clamp-2 text-xs text-muted-foreground">{item.message || ""}</p>
+                                  <p className="mt-1 text-[10px] text-muted-foreground">{when}</p>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        <div className="mt-2 border-t border-border px-2 pt-2">
+                          <button type="button" className="text-xs text-primary hover:underline" onClick={() => { setIsNotificationsOpen(false); navigate(getNotificationsRoute()); }}>
+                            {t("nav.viewAllNotifications", "View all notifications")}
+                          </button>
+                        </div>
+                      </div>
                     )}
-                  </button>
+                  </div>
                   <div className="relative">
                     <button
                       type="button"
-                      onClick={() => setIsProfileOpen((prev) => !prev)}
+                      onClick={() => {
+                        setIsNotificationsOpen(false);
+                        setIsProfileOpen((prev) => !prev);
+                      }}
                       className="flex items-center gap-2 rounded border border-border bg-white px-2 py-1.5"
                       aria-label={t("nav.profileMenu", "Profile menu")}
                       aria-expanded={isProfileOpen}

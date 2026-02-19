@@ -49,6 +49,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Mock complaint data
 const complaintData = {
@@ -69,12 +70,12 @@ const complaintData = {
 };
 
 const statusOptions = [
-  { value: "Assigned", label: "Assigned", color: "bg-blue-500" },
+  { value: "Assigned", label: "Assigned", color: "bg-primary/100" },
   { value: "In Progress", label: "In Progress", color: "bg-purple-500" },
   {
     value: "Inspection Scheduled",
     label: "Inspection Scheduled",
-    color: "bg-indigo-500",
+    color: "bg-primary/100",
   },
   { value: "Work in Progress", label: "Work in Progress", color: "bg-orange-500" },
   { value: "Resolved", label: "Resolved", color: "bg-green-500" },
@@ -92,6 +93,7 @@ const rejectionReasons = [
 const UpdateComplaintStatus = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resolutionFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -170,8 +172,8 @@ const UpdateComplaintStatus = () => {
   const validateForm = () => {
     if (!newStatus) {
       toast({
-        title: "Status Required",
-        description: "Please select a new status.",
+        title: t("updateStatus.error.statusRequired", "Status Required"),
+        description: t("updateStatus.error.selectStatus", "Please select a new status."),
         variant: "destructive",
       });
       return false;
@@ -179,8 +181,8 @@ const UpdateComplaintStatus = () => {
 
     if (!actionNotes.trim()) {
       toast({
-        title: "Action Notes Required",
-        description: "Please describe the action taken.",
+        title: t("updateStatus.error.actionNotesRequired", "Action Notes Required"),
+        description: t("updateStatus.error.actionNotes", "Please describe the action taken."),
         variant: "destructive",
       });
       return false;
@@ -293,10 +295,10 @@ const UpdateComplaintStatus = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              Update Complaint Status
+              {t("updateStatus.title", "Update Complaint Status")}
             </h1>
             <p className="text-muted-foreground">
-              Update status and add notes for complaint {complaintData.id}
+              {t("updateStatus.subtitle", "Update status and add notes for complaint")} {complaintData.id}
             </p>
           </div>
         </div>
@@ -309,7 +311,7 @@ const UpdateComplaintStatus = () => {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileText className="w-5 h-5" />
-                  Complaint Summary
+                  {t("updateStatus.complaintSummary", "Complaint Summary")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -329,7 +331,7 @@ const UpdateComplaintStatus = () => {
                     variant="outline"
                     className="border-orange-500 text-orange-600"
                   >
-                    {complaintData.priority} Priority
+                    {complaintData.priority} {t("updateStatus.priority", "Priority")}
                   </Badge>
                 </div>
 
@@ -362,7 +364,7 @@ const UpdateComplaintStatus = () => {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                      <span>Filed: {complaintData.filedDate}</span>
+                      <span>{t("updateStatus.filed", "Filed")}: {complaintData.filedDate}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Badge variant="secondary">{complaintData.category}</Badge>
@@ -375,7 +377,7 @@ const UpdateComplaintStatus = () => {
             {/* Status Update Form */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Update Status</CardTitle>
+                <CardTitle className="text-lg">{t("updateStatus.updateStatus", "Update Status")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Current Status */}
@@ -478,8 +480,8 @@ const UpdateComplaintStatus = () => {
 
                 {/* Conditional: Inspection Details */}
                 {newStatus === "Inspection Scheduled" && (
-                  <div className="p-4 bg-indigo-50 rounded-lg space-y-4 border border-indigo-200">
-                    <h4 className="font-medium text-indigo-900 flex items-center gap-2">
+                  <div className="p-4 bg-primary/10 rounded-lg space-y-4 border border-indigo-200">
+                    <h4 className="font-medium text-primary-foreground flex items-center gap-2">
                       <CalendarIcon className="w-4 h-4" />
                       Inspection Details
                     </h4>
@@ -708,14 +710,14 @@ const UpdateComplaintStatus = () => {
                 className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 gap-2"
               >
                 <CheckCircle className="w-4 h-4" />
-                Update Status
+                {t("updateStatus.updateStatus", "Update Status")}
               </Button>
               <Button variant="outline" className="gap-2">
                 <Save className="w-4 h-4" />
-                Save as Draft
+                {t("updateStatus.saveDraft", "Save as Draft")}
               </Button>
               <Button variant="ghost" onClick={() => navigate(-1)}>
-                Cancel
+                {t("common.cancel", "Cancel")}
               </Button>
             </div>
           </div>
@@ -726,7 +728,7 @@ const UpdateComplaintStatus = () => {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Eye className="w-5 h-5" />
-                  Timeline Preview
+                  {t("updateStatus.timelinePreview", "Timeline Preview")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -766,7 +768,7 @@ const UpdateComplaintStatus = () => {
 
                   {/* Previous entries */}
                   <div className="relative pl-6 pb-4 border-l-2 border-muted">
-                    <div className="absolute left-0 top-0 w-4 h-4 rounded-full bg-blue-500 -translate-x-1/2" />
+                    <div className="absolute left-0 top-0 w-4 h-4 rounded-full bg-primary/100 -translate-x-1/2" />
                     <div>
                       <p className="text-sm font-medium text-foreground">
                         Assigned to PWD
@@ -813,17 +815,17 @@ const UpdateComplaintStatus = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-orange-500" />
-              Confirm Status Update
+              {t("updateStatus.confirmTitle", "Confirm Status Update")}
             </DialogTitle>
             <DialogDescription>
-              You are about to update the status of complaint{" "}
+              {t("updateStatus.confirmDesc", "You are about to update the status of complaint")}{" "}
               <span className="font-mono font-medium">{complaintData.id}</span>
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-4 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="text-sm text-muted-foreground">From:</div>
+              <div className="text-sm text-muted-foreground">{t("updateStatus.from", "From")}:</div>
               <Badge
                 className={cn(
                   "text-white",
@@ -834,7 +836,7 @@ const UpdateComplaintStatus = () => {
               </Badge>
             </div>
             <div className="flex items-center gap-3">
-              <div className="text-sm text-muted-foreground">To:</div>
+              <div className="text-sm text-muted-foreground">{t("updateStatus.to", "To")}:</div>
               <Badge className={cn("text-white", getStatusColor(newStatus))}>
                 {newStatus}
               </Badge>
@@ -843,15 +845,14 @@ const UpdateComplaintStatus = () => {
             {actionNotes && (
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground mb-1">
-                  Action Notes:
+                  {t("updateStatus.actionNotes", "Action Notes")}:
                 </p>
                 <p className="text-sm">{actionNotes}</p>
               </div>
             )}
 
             <p className="text-sm text-muted-foreground">
-              This action will notify the citizen about the status change. Are
-              you sure you want to proceed?
+              {t("updateStatus.confirmWarning", "This action will notify the citizen about the status change. Are you sure you want to proceed?")}
             </p>
           </div>
 
@@ -861,7 +862,7 @@ const UpdateComplaintStatus = () => {
               onClick={() => setShowConfirmModal(false)}
               disabled={isSubmitting}
             >
-              Cancel
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               onClick={confirmSubmit}
@@ -871,12 +872,12 @@ const UpdateComplaintStatus = () => {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Updating...
+                  {t("updateStatus.updating", "Updating...")}
                 </>
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  Confirm Update
+                  {t("updateStatus.confirmUpdate", "Confirm Update")}
                 </>
               )}
             </Button>

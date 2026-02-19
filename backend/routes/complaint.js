@@ -21,6 +21,7 @@ import {
   updateNotificationPreferences,
   seedDemoNotifications,
   updateComplaintVoiceMetadata,
+  submitDraft,
 } from '../controllers/complaintController.js';
 import { protect } from '../middleware/auth.js';
 import { upload } from '../config/cloudinary.js';
@@ -42,11 +43,14 @@ router.post('/notifications/seed-demo', protect, seedDemoNotifications);
 router.get('/notifications/preferences', protect, getNotificationPreferences);
 router.put('/notifications/preferences', protect, updateNotificationPreferences);
 router.get('/drafts', protect, getMyDrafts);
+router.put('/drafts/:id', protect, upload.array('attachments', 5), updateComplaint);
+router.delete('/drafts/:id', protect, deleteComplaint);
+router.post('/drafts/:id/submit', protect, submitDraft);
 router.get('/:id/history', protect, getComplaintHistory);
 router.post('/:id/feedback', protect, submitComplaintFeedback);
 router.post('/:id/voice-metadata', protect, updateComplaintVoiceMetadata);
 router.get('/:id', protect, getComplaintById);
-router.put('/:id', protect, updateComplaint);
+router.put('/:id', protect, upload.array('attachments', 5), updateComplaint);
 router.delete('/:id', protect, deleteComplaint);
 
 export default router;

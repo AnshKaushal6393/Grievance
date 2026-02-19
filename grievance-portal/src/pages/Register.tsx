@@ -168,7 +168,7 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/40 to-background flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -203,7 +203,7 @@ const Register = () => {
                   <span
                     className={`mt-2 text-xs font-medium ${
                       currentStep >= step.number
-                        ? "text-blue-600"
+                        ? "text-primary"
                         : "text-gray-400"
                     }`}
                   >
@@ -217,7 +217,7 @@ const Register = () => {
                       animate={{
                         width: currentStep > step.number ? "100%" : "0%",
                       }}
-                      className="h-full bg-blue-500"
+                      className="h-full bg-primary/100"
                     />
                   </div>
                 )}
@@ -248,42 +248,42 @@ const Register = () => {
                   </div>
 
                   <div className="relative group">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type="text"
                       placeholder={t("register.fullName")}
                       value={formData.name}
                       onChange={(e) => updateFormData("name", e.target.value)}
-                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
                   <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type="email"
                       placeholder={t("register.emailAddress")}
                       value={formData.email}
                       onChange={(e) => updateFormData("email", e.target.value)}
-                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
                   <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type="tel"
                       placeholder={t("register.phoneNumber")}
                       value={formData.phone}
                       onChange={(e) => updateFormData("phone", e.target.value)}
-                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
                   <Button
                     type="button"
                     onClick={nextStep}
-                    className="w-full py-4 h-auto text-lg font-semibold bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    className="w-full py-4 h-auto text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg hover:shadow-xl transition-all"
                   >
                     {t("register.nextStep")}
                     <ArrowRight className="w-5 h-5 ml-2" />
@@ -311,7 +311,7 @@ const Register = () => {
                   </div>
 
                   <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type={showPassword ? "text" : "password"}
                       placeholder={t("login.password")}
@@ -319,7 +319,7 @@ const Register = () => {
                       onChange={(e) =>
                         updateFormData("password", e.target.value)
                       }
-                      className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                      className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                     <button
                       type="button"
@@ -359,7 +359,7 @@ const Register = () => {
                   )}
 
                   <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder={t("register.confirmPassword")}
@@ -367,7 +367,7 @@ const Register = () => {
                       onChange={(e) =>
                         updateFormData("confirmPassword", e.target.value)
                       }
-                      className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                      className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                     <button
                       type="button"
@@ -397,7 +397,7 @@ const Register = () => {
                     <Button
                       type="button"
                       onClick={nextStep}
-                      className="flex-1 py-4 h-auto text-lg font-semibold bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                      className="flex-1 py-4 h-auto text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg hover:shadow-xl transition-all"
                     >
                       {t("register.next")}
                       <ArrowRight className="w-5 h-5 ml-2" />
@@ -428,29 +428,29 @@ const Register = () => {
                   </div>
 
                   <div className="relative group">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type="text"
                       placeholder={t("register.streetAddress")}
                       value={formData.street}
                       onChange={(e) => updateFormData("street", e.target.value)}
-                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="relative group">
-                      <Building className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <Building className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                       <input
                         type="text"
                         placeholder={t("register.city")}
                         value={formData.city}
                         onChange={(e) => updateFormData("city", e.target.value)}
-                        className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                        className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                       />
                     </div>
                     <div className="relative group">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                       <input
                         type="text"
                         placeholder={t("register.state")}
@@ -458,13 +458,13 @@ const Register = () => {
                         onChange={(e) =>
                           updateFormData("state", e.target.value)
                         }
-                        className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                        className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                       />
                     </div>
                   </div>
 
                   <div className="relative group">
-                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type="text"
                       placeholder={t("register.pincode")}
@@ -472,7 +472,7 @@ const Register = () => {
                       onChange={(e) =>
                         updateFormData("pincode", e.target.value)
                       }
-                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
@@ -512,7 +512,7 @@ const Register = () => {
             {t("register.alreadyAccount")}{" "}
             <Link
               to="/login"
-              className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+              className="text-primary hover:text-primary/80 font-semibold transition-colors"
             >
               {t("register.signIn")}
             </Link>

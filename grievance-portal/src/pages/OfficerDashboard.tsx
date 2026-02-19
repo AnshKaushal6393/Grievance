@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import officerService from "@/services/officerService";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const OfficerDashboard = () => {
+  const { t, language, setLanguage, getLanguageLabel } = useLanguage();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [notificationCount] = useState(3);
@@ -27,8 +29,8 @@ const OfficerDashboard = () => {
   // User data (from localStorage or context)
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const officerData = {
-    name: user.name || "Officer",
-    department: officerInfo?.department?.name || user.department?.name || "Department",
+    name: user.name || t("officer.officer", "Officer"),
+    department: officerInfo?.department?.name || user.department?.name || t("officer.department", "Department"),
     departmentCode: officerInfo?.department?.code || user.department?.code || "DEPT",
   };
 
@@ -53,42 +55,42 @@ const OfficerDashboard = () => {
       // Map stats to cards
       setStatsData([
         {
-          title: "Assigned to Me",
+          title: t("officer.stats.assigned", "Assigned to Me"),
           value: stats.totalAssigned.toString(),
           icon: ClipboardList,
           trend: stats.totalTrend || "+0",
           trendUp: stats.totalTrendUp ?? true,
-          subtitle: "Total active",
-          color: "text-blue-600",
-          bgColor: "bg-blue-50",
+          subtitle: t("officer.stats.assignedSub", "Total active"),
+          color: "text-primary",
+          bgColor: "bg-primary/10",
         },
         {
-          title: "Pending Action",
+          title: t("officer.stats.pending", "Pending Action"),
           value: stats.pendingAction.toString(),
           icon: Clock,
           trend: stats.pendingTrend || "+0",
           trendUp: stats.pendingTrendUp ?? true,
-          subtitle: "Needs attention",
+          subtitle: t("officer.stats.pendingSub", "Needs attention"),
           color: "text-orange-600",
           bgColor: "bg-orange-50",
         },
         {
-          title: "Resolved Today",
+          title: t("officer.stats.resolvedToday", "Resolved Today"),
           value: stats.resolvedToday.toString(),
           icon: CheckCircle,
           trend: stats.resolvedTrend || "+0",
           trendUp: stats.resolvedTrendUp ?? true,
-          subtitle: "Great progress!",
+          subtitle: t("officer.stats.resolvedSub", "Great progress!"),
           color: "text-green-600",
           bgColor: "bg-green-50",
         },
         {
-          title: "Avg Response Time (7d)",
+          title: t("officer.stats.avgResponse", "Avg Response Time (7d)"),
           value: stats.avgResponseTime || "0.0h",
           icon: Timer,
           trend: stats.responseTrend || "+0.0h",
           trendUp: stats.responseTrendUp ?? true,
-          subtitle: "Vs previous 7 days",
+          subtitle: t("officer.stats.avgResponseSub", "Vs previous 7 days"),
           color: "text-purple-600",
           bgColor: "bg-purple-50",
         },
@@ -100,10 +102,12 @@ const OfficerDashboard = () => {
           id: c.complaintId,
           _id: c._id,
           title: c.title,
-          priority: c.priority === 'critical' ? 'Critical' : 'High',
+          priority: c.priority === 'critical'
+            ? t("officer.priority.critical", "Critical")
+            : t("officer.priority.high", "High"),
           filedDate: new Date(c.createdAt).toLocaleDateString(),
           slaHoursRemaining: Math.max(1, Math.floor(Math.random() * 12)), // Calculate from SLA
-          category: c.category || "General",
+          category: c.category || t("officer.general", "General"),
         }))
       );
 
@@ -132,7 +136,7 @@ const OfficerDashboard = () => {
       );
 
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to load dashboard");
+      toast.error(error.response?.data?.message || t("officer.errorLoad", "Failed to load dashboard"));
     } finally {
       // no-op
     }
@@ -140,12 +144,12 @@ const OfficerDashboard = () => {
 
   const capitalizeStatus = (status: string) => {
     const map: Record<string, string> = {
-      'filed': 'Pending',
-      'pending': 'Pending',
-      'assigned': 'Assigned',
-      'in-progress': 'In Progress',
-      'resolved': 'Resolved',
-      'rejected': 'Rejected',
+      filed: t("officer.status.pending", "Pending"),
+      pending: t("officer.status.pending", "Pending"),
+      assigned: t("officer.status.assigned", "Assigned"),
+      "in-progress": t("officer.status.inProgress", "In Progress"),
+      resolved: t("officer.status.resolved", "Resolved"),
+      rejected: t("officer.status.rejected", "Rejected"),
     };
     return map[status] || status;
   };
@@ -165,7 +169,7 @@ const OfficerDashboard = () => {
   const getActivityColor = (action: string) => {
     const map: Record<string, string> = {
       'resolved': 'bg-green-500',
-      'in-progress': 'bg-blue-500',
+      'in-progress': 'bg-primary/100',
       'assigned': 'bg-purple-500',
       'rejected': 'bg-red-500',
     };
@@ -177,10 +181,12 @@ const OfficerDashboard = () => {
     const then = new Date(date);
     const diffMs = now.getTime() - then.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} mins ago`;
+    if (diffMins < 1) return t("officer.time.justNow", "Just now");
+    if (diffMins < 60) return `${diffMins} ${t("officer.time.minsAgo", "mins ago")}`;
     const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) {
+      return `${diffHours} ${t("officer.time.hoursAgo", "hours ago")}`;
+    }
     return then.toLocaleDateString();
   };
 
@@ -203,15 +209,15 @@ const OfficerDashboard = () => {
   };
 
   const getSLAUrgency = (hours: number) => {
-    if (hours <= 4) return "URGENT";
-    if (hours <= 12) return "Warning";
-    return "On Track";
+    if (hours <= 4) return t("officer.sla.urgent", "URGENT");
+    if (hours <= 12) return t("officer.sla.warning", "Warning");
+    return t("officer.sla.onTrack", "On Track");
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Pending": return "bg-yellow-100 text-yellow-800";
-      case "In Progress": return "bg-blue-100 text-blue-800";
+      case "In Progress": return "bg-primary/15 text-primary";
       case "Need Review": return "bg-purple-100 text-purple-800";
       default: return "bg-gray-100 text-gray-800";
     }
@@ -241,7 +247,9 @@ const OfficerDashboard = () => {
                 <User className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Welcome, {officerData.name}</h1>
+                <h1 className="text-2xl font-bold">
+                  {t("officer.welcome", "Welcome")}, {officerData.name}
+                </h1>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-0">
                     <Building2 className="w-3 h-3 mr-1" />{officerData.department}
@@ -253,6 +261,16 @@ const OfficerDashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
+                className="h-9 rounded-lg border border-primary-foreground/30 bg-primary-foreground/10 px-2 text-sm text-primary-foreground"
+                aria-label={t("nav.language")}
+              >
+                <option value="en" className="text-foreground">{getLanguageLabel("en")}</option>
+                <option value="hi" className="text-foreground">{getLanguageLabel("hi")}</option>
+                <option value="ur" className="text-foreground">{getLanguageLabel("ur")}</option>
+              </select>
               <div className="text-right">
                 <p className="text-primary-foreground/80 text-sm">{formatDate(currentTime)}</p>
                 <p className="text-2xl font-mono font-bold">{formatTime(currentTime)}</p>
@@ -274,10 +292,10 @@ const OfficerDashboard = () => {
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" className="gap-2" onClick={() => navigate('/officer/complaints')}>
-            <Eye className="w-4 h-4" />View All Assigned
+            <Eye className="w-4 h-4" />{t("officer.quick.viewAssigned", "View All Assigned")}
           </Button>
-          <Button variant="outline" className="gap-2"><FileText className="w-4 h-4" />Generate My Report</Button>
-          <Button variant="outline" className="gap-2"><Users className="w-4 h-4" />Team Performance</Button>
+          <Button variant="outline" className="gap-2"><FileText className="w-4 h-4" />{t("officer.quick.report", "Generate My Report")}</Button>
+          <Button variant="outline" className="gap-2"><Users className="w-4 h-4" />{t("officer.quick.team", "Team Performance")}</Button>
         </div>
 
         {/* Stats Cards */}
@@ -311,11 +329,11 @@ const OfficerDashboard = () => {
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-red-500" />
-                  <CardTitle className="text-lg">High Priority Complaints</CardTitle>
+                  <CardTitle className="text-lg">{t("officer.highPriority", "High Priority Complaints")}</CardTitle>
                   <Badge variant="destructive">{highPriorityComplaints.length}</Badge>
                 </div>
                 <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate('/officer/complaints?priority=high,critical')}>
-                  View All <ArrowRight className="w-4 h-4" />
+                  {t("common.viewAll", "View All")} <ArrowRight className="w-4 h-4" />
                 </Button>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -331,22 +349,28 @@ const OfficerDashboard = () => {
                           <Badge variant="outline">{complaint.category}</Badge>
                         </div>
                         <p className="font-medium text-foreground truncate">{complaint.title}</p>
-                        <p className="text-sm text-muted-foreground mt-1">Filed: {complaint.filedDate}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {t("officer.filed", "Filed")}: {complaint.filedDate}
+                        </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <div className={`px-3 py-1 rounded-full text-sm font-medium ${getSLAColor(complaint.slaHoursRemaining)}`}>
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
-                            <span>{complaint.slaHoursRemaining}h left</span>
+                            <span>{complaint.slaHoursRemaining}h {t("officer.left", "left")}</span>
                           </div>
                           <p className="text-xs text-center">{getSLAUrgency(complaint.slaHoursRemaining)}</p>
                         </div>
-                        <Button size="sm" className="gap-1">Take Action <ArrowRight className="w-3 h-3" /></Button>
+                        <Button size="sm" className="gap-1">{t("officer.takeAction", "Take Action")} <ArrowRight className="w-3 h-3" /></Button>
                       </div>
                     </div>
                   </div>
                 ))}
-                {highPriorityComplaints.length === 0 && <p className="text-center py-8 text-muted-foreground">No high priority complaints</p>}
+                {highPriorityComplaints.length === 0 && (
+                  <p className="text-center py-8 text-muted-foreground">
+                    {t("officer.noHighPriority", "No high priority complaints")}
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -354,16 +378,16 @@ const OfficerDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5" />My Assigned Complaints
+                  <ClipboardList className="w-5 h-5" />{t("officer.myAssigned", "My Assigned Complaints")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="all" className="w-full">
                   <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="all" className="gap-1">All<Badge variant="secondary" className="ml-1">{allComplaints.length}</Badge></TabsTrigger>
-                    <TabsTrigger value="pending" className="gap-1">Pending<Badge variant="secondary" className="ml-1">{pendingComplaints.length}</Badge></TabsTrigger>
-                    <TabsTrigger value="progress" className="gap-1">In Progress<Badge variant="secondary" className="ml-1">{inProgressComplaints.length}</Badge></TabsTrigger>
-                    <TabsTrigger value="review" className="gap-1">Review<Badge variant="secondary" className="ml-1">{needReviewComplaints.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="all" className="gap-1">{t("common.all", "All")}<Badge variant="secondary" className="ml-1">{allComplaints.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="pending" className="gap-1">{t("officer.status.pending", "Pending")}<Badge variant="secondary" className="ml-1">{pendingComplaints.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="progress" className="gap-1">{t("officer.status.inProgress", "In Progress")}<Badge variant="secondary" className="ml-1">{inProgressComplaints.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="review" className="gap-1">{t("officer.review", "Review")}<Badge variant="secondary" className="ml-1">{needReviewComplaints.length}</Badge></TabsTrigger>
                   </TabsList>
                   <TabsContent value="all" className="mt-4 space-y-3">{allComplaints.map(c => <ComplaintCard key={c._id} complaint={c} navigate={navigate} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />)}</TabsContent>
                   <TabsContent value="pending" className="mt-4 space-y-3">{pendingComplaints.map(c => <ComplaintCard key={c._id} complaint={c} navigate={navigate} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />)}</TabsContent>
@@ -378,7 +402,7 @@ const OfficerDashboard = () => {
           <div className="space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-lg flex items-center gap-2"><Activity className="w-5 h-5" />Department Activity</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2"><Activity className="w-5 h-5" />{t("officer.departmentActivity", "Department Activity")}</CardTitle>
                 <Button variant="ghost" size="icon" onClick={fetchDashboardData}><RefreshCw className="w-4 h-4" /></Button>
               </CardHeader>
               <CardContent>
@@ -395,33 +419,33 @@ const OfficerDashboard = () => {
                       </div>
                     </div>
                   ))}
-                  {teamActivity.length === 0 && <p className="text-center py-4 text-muted-foreground">No recent activity</p>}
+                  {teamActivity.length === 0 && <p className="text-center py-4 text-muted-foreground">{t("officer.noRecentActivity", "No recent activity")}</p>}
                 </div>
-                <Button variant="outline" className="w-full mt-4" size="sm">View All Activity</Button>
+                <Button variant="outline" className="w-full mt-4" size="sm">{t("officer.viewAllActivity", "View All Activity")}</Button>
               </CardContent>
             </Card>
 
             {/* SLA Alerts */}
             <Card className="border-red-200 bg-red-50/50">
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2 text-red-700"><AlertCircle className="w-5 h-5" />SLA Alerts</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2 text-red-700"><AlertCircle className="w-5 h-5" />{t("officer.slaAlerts", "SLA Alerts")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="p-3 bg-red-100 rounded-lg border border-red-200">
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-700">2 complaints breaching SLA</span>
+                    <span className="text-sm font-medium text-red-700">{t("officer.slaBreached", "2 complaints breaching SLA")}</span>
                   </div>
-                  <p className="text-xs text-red-600 mt-1">Immediate action required</p>
+                  <p className="text-xs text-red-600 mt-1">{t("officer.immediateAction", "Immediate action required")}</p>
                 </div>
                 <div className="p-3 bg-orange-100 rounded-lg border border-orange-200">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-700">3 complaints near SLA</span>
+                    <span className="text-sm font-medium text-orange-700">{t("officer.slaNear", "3 complaints near SLA")}</span>
                   </div>
-                  <p className="text-xs text-orange-600 mt-1">Due within 4 hours</p>
+                  <p className="text-xs text-orange-600 mt-1">{t("officer.dueSoon", "Due within 4 hours")}</p>
                 </div>
-                <Button variant="outline" className="w-full border-red-300 text-red-700 hover:bg-red-100" size="sm">View All Alerts</Button>
+                <Button variant="outline" className="w-full border-red-300 text-red-700 hover:bg-red-100" size="sm">{t("officer.viewAllAlerts", "View All Alerts")}</Button>
               </CardContent>
             </Card>
           </div>

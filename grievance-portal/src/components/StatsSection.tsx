@@ -1,31 +1,34 @@
 import { motion } from "framer-motion";
 import { FileText, CheckCircle, Users, Clock } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const StatsSection = () => {
+  const { t } = useLanguage();
+
   const stats = [
     {
       icon: FileText,
       value: "12,456",
-      label: "Total Complaints",
-      description: "Submitted this year",
+      label: t("home.stats.totalComplaints", "Total Complaints"),
+      description: t("home.stats.totalComplaintsDesc", "Submitted this year"),
     },
     {
       icon: CheckCircle,
       value: "10,234",
-      label: "Resolved",
-      description: "Successfully closed",
+      label: t("home.stats.resolved", "Resolved"),
+      description: t("home.stats.resolvedDesc", "Successfully closed"),
     },
     {
       icon: Users,
       value: "8,932",
-      label: "Active Users",
-      description: "Engaged citizens",
+      label: t("home.stats.activeUsers", "Active Users"),
+      description: t("home.stats.activeUsersDesc", "Engaged citizens"),
     },
     {
       icon: Clock,
       value: "3.5",
-      label: "Avg Resolution",
-      description: "Days to resolve",
+      label: t("home.stats.avgResolution", "Avg Resolution"),
+      description: t("home.stats.avgResolutionDesc", "Days to resolve"),
     },
   ];
 
@@ -40,10 +43,10 @@ const StatsSection = () => {
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Trusted by <span className="gradient-text">Thousands</span>
+            {t("home.stats.titlePrefix", "Trusted by")} <span className="gradient-text">{t("home.stats.titleHighlight", "Thousands")}</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Our platform has helped citizens effectively communicate with local authorities
+            {t("home.stats.subtitle", "Our platform has helped citizens effectively communicate with local authorities")}
           </p>
         </motion.div>
 

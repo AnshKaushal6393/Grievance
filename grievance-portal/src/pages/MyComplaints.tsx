@@ -51,6 +51,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Complaint {
   dbId: string;
@@ -67,6 +68,7 @@ interface Complaint {
 }
 
 const MyComplaints = () => {
+  const { t } = useLanguage();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -230,7 +232,7 @@ const MyComplaints = () => {
       // fallback to server-side stats/pagination if needed later
       setComplaints(mapped);
     } catch (error) {
-        toast.error("Failed to fetch complaints");
+        toast.error(t("myComplaints.errorFetch", "Failed to fetch complaints"));
     } finally{
         setIsLoading(false);
     }
@@ -244,7 +246,9 @@ const MyComplaints = () => {
       const response = await complaintService.getComplaintHistory(complaint.dbId);
       setHistoryEvents(response?.data?.history || []);
     } catch (error) {
-      toast.error("Failed to fetch complaint history");
+      toast.error(
+        t("myComplaints.errorFetchHistory", "Failed to fetch complaint history"),
+      );
       setHistoryEvents([]);
     } finally {
       setHistoryLoading(false);
@@ -261,7 +265,9 @@ const MyComplaints = () => {
   const handleSubmitFeedback = async () => {
     if (!selectedComplaint) return;
     if (feedbackRating < 1 || feedbackRating > 5) {
-      toast.error("Please select a rating between 1 and 5");
+      toast.error(
+        t("myComplaints.errorSelectRating", "Please select a rating between 1 and 5"),
+      );
       return;
     }
 
@@ -272,11 +278,15 @@ const MyComplaints = () => {
         feedbackRating,
         feedbackComment,
       );
-      toast.success("Feedback submitted successfully");
+      toast.success(
+        t("myComplaints.feedbackSubmitted", "Feedback submitted successfully"),
+      );
       setFeedbackOpen(false);
       fetchComplaints();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to submit feedback");
+      toast.error(
+        error?.message || t("myComplaints.errorSubmitFeedback", "Failed to submit feedback"),
+      );
     } finally {
       setFeedbackSubmitting(false);
     }
@@ -299,25 +309,25 @@ const MyComplaints = () => {
     switch (status) {
       case "pending":
         return {
-          label: "Pending",
+          label: t("myComplaints.status.pending", "Pending"),
           icon: Clock,
           className: "bg-yellow-100 text-yellow-800 border-yellow-200",
         };
       case "in-progress":
         return {
-          label: "In Progress",
+          label: t("myComplaints.status.inProgress", "In Progress"),
           icon: Loader2,
-          className: "bg-blue-100 text-blue-800 border-blue-200",
+          className: "bg-primary/15 text-primary border-primary/30",
         };
       case "resolved":
         return {
-          label: "Resolved",
+          label: t("myComplaints.status.resolved", "Resolved"),
           icon: CheckCircle2,
           className: "bg-green-100 text-green-800 border-green-200",
         };
       case "rejected":
         return {
-          label: "Rejected",
+          label: t("myComplaints.status.rejected", "Rejected"),
           icon: XCircle,
           className: "bg-red-100 text-red-800 border-red-200",
         };
@@ -340,7 +350,7 @@ const MyComplaints = () => {
       "Street Lights": "bg-yellow-100 text-yellow-800",
       "Parks & Gardens": "bg-green-100 text-green-800",
       Pollution: "bg-red-100 text-red-800",
-      Encroachment: "bg-indigo-100 text-indigo-800",
+      Encroachment: "bg-primary/15 text-primary",
       Other: "bg-purple-100 text-purple-800",
     };
     return colors[category] || "bg-gray-100 text-gray-800";
@@ -451,7 +461,7 @@ const MyComplaints = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/30 to-background">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -462,13 +472,18 @@ const MyComplaints = () => {
           className="mb-8"
         >
           <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold text-gray-900">My Complaints</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {t("myComplaints.title", "My Complaints")}
+            </h1>
             <Badge variant="secondary" className="text-lg px-4 py-1">
               {complaints.length}
             </Badge>
           </div>
           <p className="text-gray-600 mt-2">
-            Track and manage all your filed complaints
+            {t(
+              "myComplaints.subtitle",
+              "Track and manage all your filed complaints",
+            )}
           </p>
         </motion.div>
 
@@ -485,10 +500,10 @@ const MyComplaints = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
                 type="text"
-                placeholder="Search complaints..."
+                placeholder={t("myComplaints.search", "Search complaints...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 rounded-xl border-gray-200 focus:border-blue-500"
+                className="pl-10 rounded-xl border-gray-200 focus:border-primary"
               />
             </div>
 
@@ -496,24 +511,36 @@ const MyComplaints = () => {
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[160px] rounded-xl">
                 <Filter className="w-4 h-4 mr-2 text-gray-500" />
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t("myComplaints.filter.status", "Status")} />
               </SelectTrigger>
               <SelectContent className="bg-white z-50">
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="all">
+                  {t("myComplaints.filter.allStatus", "All Status")}
+                </SelectItem>
+                <SelectItem value="pending">
+                  {t("myComplaints.status.pending", "Pending")}
+                </SelectItem>
+                <SelectItem value="in-progress">
+                  {t("myComplaints.status.inProgress", "In Progress")}
+                </SelectItem>
+                <SelectItem value="resolved">
+                  {t("myComplaints.status.resolved", "Resolved")}
+                </SelectItem>
+                <SelectItem value="rejected">
+                  {t("myComplaints.status.rejected", "Rejected")}
+                </SelectItem>
               </SelectContent>
             </Select>
 
             {/* Category Filter */}
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-[160px] rounded-xl">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder={t("myComplaints.filter.category", "Category")} />
               </SelectTrigger>
               <SelectContent className="bg-white z-50">
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">
+                  {t("myComplaints.filter.allCategories", "All Categories")}
+                </SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
@@ -537,7 +564,7 @@ const MyComplaints = () => {
                       format(dateRange.from, "LLL dd, y")
                     )
                   ) : (
-                    "Date Range"
+                    t("myComplaints.filter.dateRange", "Date Range")
                   )}
                 </Button>
               </PopoverTrigger>
@@ -562,12 +589,18 @@ const MyComplaints = () => {
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-[140px] rounded-xl">
                 <ArrowUpDown className="w-4 h-4 mr-2 text-gray-500" />
-                <SelectValue placeholder="Sort" />
+                <SelectValue placeholder={t("myComplaints.filter.sort", "Sort")} />
               </SelectTrigger>
               <SelectContent className="bg-white z-50">
-                <SelectItem value="latest">Latest</SelectItem>
-                <SelectItem value="oldest">Oldest</SelectItem>
-                <SelectItem value="priority">Priority</SelectItem>
+                <SelectItem value="latest">
+                  {t("myComplaints.sort.latest", "Latest")}
+                </SelectItem>
+                <SelectItem value="oldest">
+                  {t("myComplaints.sort.oldest", "Oldest")}
+                </SelectItem>
+                <SelectItem value="priority">
+                  {t("myComplaints.sort.priority", "Priority")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -583,7 +616,7 @@ const MyComplaints = () => {
               exit={{ opacity: 0 }}
               className="flex justify-center py-12"
             >
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </motion.div>
           ) : paginatedComplaints.length > 0 ? (
             <motion.div
@@ -609,7 +642,7 @@ const MyComplaints = () => {
                           {/* Left Section - ID and Title */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-2">
-                              <span className="text-sm font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                              <span className="text-sm font-mono text-primary bg-primary/10 px-2 py-1 rounded-lg">
                                 {complaint.id}
                               </span>
                               <Badge
@@ -621,7 +654,7 @@ const MyComplaints = () => {
                                 {complaint.category}
                               </Badge>
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate group-hover:text-blue-600 transition-colors">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate group-hover:text-primary transition-colors">
                               {complaint.title}
                             </h3>
                             <p className="text-sm text-gray-500 line-clamp-1">
@@ -649,7 +682,7 @@ const MyComplaints = () => {
                                 {statusConfig.label}
                               </Badge>
                               <span className="text-xs text-gray-500">
-                                Status
+                                {t("myComplaints.statusLabel", "Status")}
                               </span>
                             </div>
 
@@ -666,13 +699,13 @@ const MyComplaints = () => {
                               <div className="flex items-center gap-2 text-gray-600">
                                 <FileText className="w-4 h-4" />
                                 <span>
-                                  Filed: {formatDate(complaint.filedDate)}
+                                  {t("myComplaints.filed", "Filed")}: {formatDate(complaint.filedDate)}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 text-gray-500">
                                 <Clock className="w-4 h-4" />
                                 <span>
-                                  Updated: {formatDate(complaint.lastUpdated)}
+                                  {t("myComplaints.updated", "Updated")}: {formatDate(complaint.lastUpdated)}
                                 </span>
                               </div>
                             </div>
@@ -687,12 +720,12 @@ const MyComplaints = () => {
                                 onClick={() => openHistory(complaint)}
                               >
                                 <History className="w-4 h-4 mr-2" />
-                                History
+                                {t("myComplaints.history", "History")}
                               </Button>
                               <Link to={`/track-complaint?complaintId=${complaint.id}`}>
-                                <Button className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all">
+                                <Button className="w-full lg:w-auto bg-primary text-primary-foreground hover:bg-primary/90 text-white rounded-xl shadow-md hover:shadow-lg transition-all">
                                   <Eye className="w-4 h-4 mr-2" />
-                                  View Details
+                                  {t("myComplaints.viewDetails", "View Details")}
                                 </Button>
                               </Link>
                               {complaint.status === "resolved" && !complaint.feedbackRating && (
@@ -702,13 +735,13 @@ const MyComplaints = () => {
                                   onClick={() => openFeedback(complaint)}
                                 >
                                   <Star className="w-4 h-4 mr-2" />
-                                  Rate
+                                  {t("myComplaints.rate", "Rate")}
                                 </Button>
                               )}
                               {complaint.status === "resolved" &&
                                 (complaint.feedbackRating || 0) > 0 && (
                                   <Badge className="bg-green-100 text-green-800 border-green-200 px-3 py-1 rounded-lg">
-                                    Rated {complaint.feedbackRating}/5
+                                    {t("myComplaints.rated", "Rated")} {complaint.feedbackRating}/5
                                   </Badge>
                                 )}
                             </div>
@@ -717,10 +750,12 @@ const MyComplaints = () => {
 
                         {/* Mobile Dates */}
                         <div className="md:hidden px-6 pb-4 flex gap-4 text-sm text-gray-500">
-                          <span>Filed: {formatDate(complaint.filedDate)}</span>
+                          <span>
+                            {t("myComplaints.filed", "Filed")}: {formatDate(complaint.filedDate)}
+                          </span>
                           <span>•</span>
                           <span>
-                            Updated: {formatDate(complaint.lastUpdated)}
+                            {t("myComplaints.updated", "Updated")}: {formatDate(complaint.lastUpdated)}
                           </span>
                         </div>
                       </CardContent>
@@ -737,23 +772,29 @@ const MyComplaints = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex flex-col items-center justify-center py-16 bg-white rounded-3xl shadow-lg"
             >
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-6">
+              <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center mb-6">
                 <FileX2 className="w-16 h-16 text-blue-400" />
               </div>
               <h3 className="text-2xl font-semibold text-gray-900 mb-2">
-                No complaints found
+                {t("myComplaints.emptyTitle", "No complaints found")}
               </h3>
               <p className="text-gray-500 mb-6 text-center max-w-md">
                 {searchQuery ||
                 statusFilter !== "all" ||
                 categoryFilter !== "all"
-                  ? "No complaints match your current filters. Try adjusting your search criteria."
-                  : "You haven't filed any complaints yet. Start by filing your first complaint."}
+                  ? t(
+                      "myComplaints.emptyFiltered",
+                      "No complaints match your current filters. Try adjusting your search criteria.",
+                    )
+                  : t(
+                      "myComplaints.emptyDefault",
+                      "You haven't filed any complaints yet. Start by filing your first complaint.",
+                    )}
               </p>
               <Link to="/file-complaint">
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl px-8 py-3 shadow-lg hover:shadow-xl transition-all">
+                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 text-white rounded-xl px-8 py-3 shadow-lg hover:shadow-xl transition-all">
                   <Plus className="w-5 h-5 mr-2" />
-                  File Your First Complaint
+                  {t("myComplaints.fileFirst", "File Your First Complaint")}
                 </Button>
               </Link>
             </motion.div>
@@ -770,7 +811,7 @@ const MyComplaints = () => {
           >
             {/* Items per page */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Show</span>
+              <span className="text-sm text-gray-600">{t("myComplaints.show", "Show")}</span>
               <Select
                 value={itemsPerPage.toString()}
                 onValueChange={(v) => {
@@ -787,14 +828,16 @@ const MyComplaints = () => {
                   <SelectItem value="20">20</SelectItem>
                 </SelectContent>
               </Select>
-              <span className="text-sm text-gray-600">per page</span>
+              <span className="text-sm text-gray-600">
+                {t("myComplaints.perPage", "per page")}
+              </span>
             </div>
 
             {/* Page info */}
             <span className="text-sm text-gray-600">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+              {t("myComplaints.showing", "Showing")} {(currentPage - 1) * itemsPerPage + 1} {t("myComplaints.to", "to")}{" "}
               {Math.min(currentPage * itemsPerPage, filteredComplaints.length)}{" "}
-              of {filteredComplaints.length} complaints
+              {t("myComplaints.of", "of")} {filteredComplaints.length} {t("myComplaints.complaints", "complaints")}
             </span>
 
             {/* Page navigation */}
@@ -807,7 +850,7 @@ const MyComplaints = () => {
                 className="rounded-lg"
               >
                 <ChevronLeft className="w-4 h-4" />
-                Previous
+                {t("myComplaints.previous", "Previous")}
               </Button>
 
               <div className="flex gap-1">
@@ -820,7 +863,7 @@ const MyComplaints = () => {
                       onClick={() => setCurrentPage(page)}
                       className={cn(
                         "w-9 h-9 rounded-lg",
-                        currentPage === page && "bg-blue-600 hover:bg-blue-700",
+                        currentPage === page && "bg-primary hover:bg-primary/90",
                       )}
                     >
                       {page}
@@ -838,7 +881,7 @@ const MyComplaints = () => {
                 disabled={currentPage === totalPages}
                 className="rounded-lg"
               >
-                Next
+                {t("myComplaints.next", "Next")}
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
@@ -849,29 +892,37 @@ const MyComplaints = () => {
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
-            <DialogTitle>Complaint History - {historyComplaintId}</DialogTitle>
+            <DialogTitle>
+              {t("myComplaints.historyTitle", "Complaint History")} - {historyComplaintId}
+            </DialogTitle>
           </DialogHeader>
           {historyLoading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
           ) : (
             <div className="max-h-96 overflow-y-auto space-y-3 pr-1">
               {historyEvents.length === 0 && (
-                <p className="text-sm text-gray-500">No history available.</p>
+                <p className="text-sm text-gray-500">
+                  {t("myComplaints.noHistory", "No history available.")}
+                </p>
               )}
               {historyEvents.map((event, idx) => (
                 <div key={idx} className="rounded-xl border border-gray-200 p-3">
                   <div className="flex items-center justify-between">
                     <p className="font-medium text-gray-900 capitalize">
-                      {(event.status || "updated").replaceAll("_", " ").replaceAll("-", " ")}
+                      {(event.status || t("myComplaints.updated", "updated"))
+                        .replaceAll("_", " ")
+                        .replaceAll("-", " ")}
                     </p>
                     <span className="text-xs text-gray-500">
                       {new Date(event.updatedAt).toLocaleString()}
                     </span>
                   </div>
                   <p className="text-sm text-gray-700 mt-1">{event.message}</p>
-                  <p className="text-xs text-gray-500 mt-1">By: {event.updatedBy || "System"}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t("myComplaints.by", "By")}: {event.updatedBy || t("myComplaints.system", "System")}
+                  </p>
                 </div>
               ))}
             </div>
@@ -882,11 +933,11 @@ const MyComplaints = () => {
       <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
         <DialogContent className="max-w-lg bg-white">
           <DialogHeader>
-            <DialogTitle>Rate Resolution</DialogTitle>
+            <DialogTitle>{t("myComplaints.rateResolution", "Rate Resolution")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Share feedback for complaint{" "}
+              {t("myComplaints.shareFeedback", "Share feedback for complaint")}{" "}
               <span className="font-medium">{selectedComplaint?.id}</span>
             </p>
             <div className="flex items-center gap-2">
@@ -911,7 +962,10 @@ const MyComplaints = () => {
             <Textarea
               value={feedbackComment}
               onChange={(e) => setFeedbackComment(e.target.value)}
-              placeholder="Optional comments about resolution quality..."
+              placeholder={t(
+                "myComplaints.feedbackPlaceholder",
+                "Optional comments about resolution quality...",
+              )}
               className="min-h-28"
             />
           </div>
@@ -921,16 +975,16 @@ const MyComplaints = () => {
               onClick={() => setFeedbackOpen(false)}
               disabled={feedbackSubmitting}
             >
-              Cancel
+              {t("myComplaints.cancel", "Cancel")}
             </Button>
             <Button onClick={handleSubmitFeedback} disabled={feedbackSubmitting}>
               {feedbackSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Submitting...
+                  {t("myComplaints.submitting", "Submitting...")}
                 </>
               ) : (
-                "Submit Feedback"
+                t("myComplaints.submitFeedback", "Submit Feedback")
               )}
             </Button>
           </DialogFooter>

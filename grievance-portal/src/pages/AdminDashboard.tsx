@@ -24,6 +24,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ✅ Icon map for alerts — backend sends type string, we map to icon
 const ALERT_ICON_MAP: Record<string, React.ElementType> = {
@@ -36,7 +37,7 @@ const ALERT_ICON_MAP: Record<string, React.ElementType> = {
 
 // ✅ Color map for activity feed
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
-  filed: "bg-blue-500",
+  filed: "bg-primary/100",
   assigned: "bg-purple-500",
   resolved: "bg-green-500",
   rejected: "bg-red-500",
@@ -45,6 +46,7 @@ const ACTIVITY_COLOR_MAP: Record<string, string> = {
 };
 
 const AdminDashboard = () => {
+  const { t, language, setLanguage, getLanguageLabel } = useLanguage();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<"all" | "active" | "resolved" | "unassigned">("all");
@@ -149,7 +151,7 @@ const AdminDashboard = () => {
       setStatsData([
         {
           title: "Total Complaints", value: stats.totalComplaints, subtitle: "All time",
-          trend: null, trendUp: true, icon: FileText, iconBg: "bg-blue-100", iconColor: "text-blue-600",
+          trend: null, trendUp: true, icon: FileText, iconBg: "bg-primary/15", iconColor: "text-primary",
         },
         {
           title: "Today's Complaints", value: stats.todayComplaints, subtitle: "Since midnight",
@@ -219,7 +221,7 @@ const AdminDashboard = () => {
         { id: 1, title: `${sampleStats.pendingReview} complaints pending review`, type: "critical" },
       ]);
       setStatsData([
-        { title: "Total Complaints", value: sampleStats.totalComplaints, subtitle: "All time", trend: null, trendUp: true, icon: FileText, iconBg: "bg-blue-100", iconColor: "text-blue-600" },
+        { title: "Total Complaints", value: sampleStats.totalComplaints, subtitle: "All time", trend: null, trendUp: true, icon: FileText, iconBg: "bg-primary/15", iconColor: "text-primary" },
         { title: "Today's Complaints", value: sampleStats.todayComplaints, subtitle: "Since midnight", trend: null, trendUp: true, icon: TrendingUp, iconBg: "bg-green-100", iconColor: "text-green-600" },
         { title: "Pending Review", value: sampleStats.pendingReview, subtitle: "Awaiting action", trend: null, trendUp: false, icon: Clock, iconBg: "bg-orange-100", iconColor: "text-orange-600" },
         { title: "Resolution Rate", value: sampleStats.resolutionRate, subtitle: "Last 30 days", trend: null, trendUp: true, icon: CheckCircle2, iconBg: "bg-purple-100", iconColor: "text-purple-600" },
@@ -256,27 +258,37 @@ const AdminDashboard = () => {
                   <BarChart3 className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                  <p className="text-xs text-gray-500">Grievance Management System</p>
+                  <h1 className="text-xl font-bold text-gray-900">{t("admin.title")}</h1>
+                  <p className="text-xs text-gray-500">{t("admin.subtitle")}</p>
                 </div>
               </div>
             </div>
             {/* Desktop actions */}
             <div className="hidden md:flex items-center gap-3">
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
+                className="h-9 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
+                aria-label={t("nav.language")}
+              >
+                <option value="en">{getLanguageLabel("en")}</option>
+                <option value="hi">{getLanguageLabel("hi")}</option>
+                <option value="ur">{getLanguageLabel("ur")}</option>
+              </select>
               <Link to="/admin/analytics">
                 <Button variant="outline" size="sm" className="gap-2">
                   <BarChart3 className="w-4 h-4" />
-                  Analytics
+                  {t("admin.analytics")}
                 </Button>
               </Link>
               <Link to="/admin/complaints">
-                <Button variant="outline" size="sm" className="gap-2"><FileText className="w-4 h-4" />All Complaints</Button>
+                <Button variant="outline" size="sm" className="gap-2"><FileText className="w-4 h-4" />{t("admin.allComplaints")}</Button>
               </Link>
               <Link to="/admin/departments">
-                <Button variant="outline" size="sm" className="gap-2"><Users className="w-4 h-4" />Departments</Button>
+                <Button variant="outline" size="sm" className="gap-2"><Users className="w-4 h-4" />{t("admin.departments")}</Button>
               </Link>
               <Link to="/admin/users">
-                <Button variant="outline" size="sm" className="gap-2"><Users className="w-4 h-4" />Users</Button>
+                <Button variant="outline" size="sm" className="gap-2"><Users className="w-4 h-4" />{t("admin.users")}</Button>
               </Link>
               <Button
                 variant="outline"
@@ -285,7 +297,7 @@ const AdminDashboard = () => {
                 onClick={() => navigate("/admin/reports")}
               >
                 <Download className="w-4 h-4" />
-                Generate Report
+                {t("admin.generateReport")}
               </Button>
               <Button
                 variant="outline"
@@ -294,7 +306,7 @@ const AdminDashboard = () => {
                 onClick={() => navigate("/admin/settings")}
               >
                 <Settings className="w-4 h-4" />
-                Settings
+                {t("admin.settings")}
               </Button>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="w-5 h-5" />
@@ -307,12 +319,22 @@ const AdminDashboard = () => {
                 onClick={handleSignOut}
               >
                 <LogOut className="w-4 h-4" />
-                Sign Out
+                {t("admin.signOut")}
               </Button>
             </div>
 
             {/* Mobile actions in dropdown */}
-            <div className="md:hidden">
+            <div className="md:hidden flex items-center gap-2">
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
+                className="h-9 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
+                aria-label={t("nav.language")}
+              >
+                <option value="en">{getLanguageLabel("en")}</option>
+                <option value="hi">{getLanguageLabel("hi")}</option>
+                <option value="ur">{getLanguageLabel("ur")}</option>
+              </select>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="Open admin menu">
@@ -320,32 +342,32 @@ const AdminDashboard = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Navigate</DropdownMenuLabel>
+                <DropdownMenuLabel>{t("admin.title")}</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => navigate("/admin/complaints")}>
-                  <FileText className="w-4 h-4 mr-2" /> All Complaints
+                  <FileText className="w-4 h-4 mr-2" /> {t("admin.allComplaints")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/admin/analytics")}>
-                  <BarChart3 className="w-4 h-4 mr-2" /> Analytics
+                  <BarChart3 className="w-4 h-4 mr-2" /> {t("admin.analytics")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/admin/departments")}>
-                  <Users className="w-4 h-4 mr-2" /> Departments
+                  <Users className="w-4 h-4 mr-2" /> {t("admin.departments")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/admin/users")}>
-                  <Users className="w-4 h-4 mr-2" /> Users
+                  <Users className="w-4 h-4 mr-2" /> {t("admin.users")}
                 </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/admin/reports")}>
-                    <Download className="w-4 h-4 mr-2" /> Generate Report
+                    <Download className="w-4 h-4 mr-2" /> {t("admin.generateReport")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
-                    <Settings className="w-4 h-4 mr-2" /> Settings
+                    <Settings className="w-4 h-4 mr-2" /> {t("admin.settings")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleSignOut}
                     className="text-red-600 focus:text-red-700"
                   >
-                    <LogOut className="w-4 h-4 mr-2" /> Sign Out
+                    <LogOut className="w-4 h-4 mr-2" /> {t("admin.signOut")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -406,7 +428,7 @@ const AdminDashboard = () => {
           ))}
         </div>
         {isLoading && (
-          <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="rounded-xl border border-blue-100 bg-primary/10 px-4 py-3 text-sm text-primary">
             Loading latest dashboard data...
           </div>
         )}
@@ -501,7 +523,7 @@ const AdminDashboard = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input type="text" placeholder="Search departments..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full sm:w-64" />
+                    className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-ring text-sm w-full sm:w-64" />
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -553,7 +575,7 @@ const AdminDashboard = () => {
                       >
                         <div className="flex items-center gap-2">
                           {col.label}
-                          {sortColumn === col.key && <span className="text-blue-600">{sortDirection === "asc" ? "↑" : "↓"}</span>}
+                          {sortColumn === col.key && <span className="text-primary">{sortDirection === "asc" ? "↑" : "↓"}</span>}
                         </div>
                       </th>
                     ))}
@@ -564,8 +586,8 @@ const AdminDashboard = () => {
                   <tr key={dept.id} className="hover:bg-gray-50 cursor-pointer transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                          <Building2 className="w-5 h-5 text-blue-600" />
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Building2 className="w-5 h-5 text-primary" />
                         </div>
                         <span className="font-medium text-gray-900">{dept.name}</span>
                       </div>
@@ -603,7 +625,7 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between mb-6">
             <div><h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3><p className="text-sm text-gray-500">Latest updates and actions</p></div>
             <Link to="/admin/complaints">
-              <Button variant="ghost" size="sm" className="gap-2 text-blue-600">
+              <Button variant="ghost" size="sm" className="gap-2 text-primary">
                 View All
                 <ChevronRight className="w-4 h-4" />
               </Button>

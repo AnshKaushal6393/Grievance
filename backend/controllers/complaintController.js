@@ -15,6 +15,17 @@ const CATEGORY_ALIASES = {
   Other: ["others"],
 };
 
+const parseBoolean = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes"].includes(normalized)) return true;
+    if (["false", "0", "no", ""].includes(normalized)) return false;
+  }
+  return false;
+};
+
 const findDepartmentForCategory = async (category) => {
   const aliases = CATEGORY_ALIASES[category] || [];
   return await Department.findOne({
@@ -48,6 +59,45 @@ const pickLeastLoadedOfficer = async (department) => {
     })[0];
 };
 
+const assignComplaintWorkflow = async (complaint) => {
+  const department = await findDepartmentForCategory(complaint.category);
+  if (department) {
+    complaint.department = department._id;
+
+    const selectedOfficer = await pickLeastLoadedOfficer(department);
+    if (selectedOfficer) {
+      complaint.assignedOfficer = selectedOfficer;
+      complaint.assignedDate = new Date();
+      complaint.recordStatusChange(
+        "assigned",
+        selectedOfficer,
+        "Complaint assigned to department officer",
+        "system",
+      );
+      complaint.timeline.unshift({
+        status: "assigned",
+        message: "Complaint assigned to department officer",
+        updatedBy: selectedOfficer,
+        updatedAt: new Date(),
+      });
+      await createStatusNotification({
+        userId: complaint.user,
+        complaint,
+        status: "assigned",
+        message: "Your complaint has been assigned to an officer.",
+        source: "system",
+      });
+
+      const slaHours = department.slaTargets?.[complaint.priority] || 72;
+      complaint.estimatedResolution = new Date(
+        Date.now() + slaHours * 60 * 60 * 1000,
+      );
+    }
+  }
+
+  await complaint.save();
+};
+
 export const fileComplaint = async (req, res) => {
   try {
     const {
@@ -64,7 +114,8 @@ export const fileComplaint = async (req, res) => {
       voiceConfidence,
       voiceTranscript,
     } = req.body;
-    if (!isDraft) {
+    const draftMode = parseBoolean(isDraft);
+    if (!draftMode) {
       if (!title || !category || !description || !address) {
         return res.status(400).json({
           success: false,
@@ -108,7 +159,7 @@ export const fileComplaint = async (req, res) => {
         },
       },
       attachments,
-      isDraft: isDraft || false,
+      isDraft: draftMode,
       voiceMetadata:
         source === "voice"
           ? {
@@ -124,7 +175,7 @@ export const fileComplaint = async (req, res) => {
           : undefined,
     });
 
-    if (!isDraft) {
+    if (!draftMode) {
       complaint.recordStatusChange(
         "filed",
         req.user.id,
@@ -137,45 +188,7 @@ export const fileComplaint = async (req, res) => {
         updatedBy: req.user.id,
         updatedAt: new Date(),
       });
-    }
-
-    if (!isDraft) {
-      const department = await findDepartmentForCategory(category);
-      if (department) {
-        complaint.department = department._id;
-
-        const selectedOfficer = await pickLeastLoadedOfficer(department);
-        if (selectedOfficer) {
-          complaint.assignedOfficer = selectedOfficer;
-          complaint.assignedDate = new Date();
-          complaint.recordStatusChange(
-            "assigned",
-            selectedOfficer,
-            "Complaint assigned to department officer",
-            "system",
-          );
-          complaint.timeline.unshift({
-            status: "assigned",
-            message: "Complaint assigned to department officer",
-            updatedBy: selectedOfficer,
-            updatedAt: new Date(),
-          });
-          await createStatusNotification({
-            userId: complaint.user,
-            complaint,
-            status: "assigned",
-            message: "Your complaint has been assigned to an officer.",
-            source: "system",
-          });
-
-          const slaHours = department.slaTargets?.[complaint.priority] || 72;
-          complaint.estimatedResolution = new Date(
-            Date.now() + slaHours * 60 * 60 * 1000,
-          );
-        }
-
-        await complaint.save();
-      }
+      await assignComplaintWorkflow(complaint);
     }
     await complaint.populate("user", "name email phone");
     await complaint.populate("department", "name contactInfo");
@@ -183,7 +196,7 @@ export const fileComplaint = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: isDraft
+      message: draftMode
         ? "Complaint saved as draft"
         : "Complaint filed successfully",
       data: {
@@ -416,6 +429,16 @@ export const updateComplaint = async (req, res) => {
     if (address) complaint.location.address = address;
     if (latitude) complaint.location.coordinates.latitude = latitude;
     if (longitude) complaint.location.coordinates.longitude = longitude;
+    if (req.files && req.files.length > 0 && complaint.isDraft) {
+      const attachments = req.files.map((file) => ({
+        fileUrl: file.path,
+        fileType: getFileType(file.mimetype),
+        fileName: file.originalname,
+        fileSize: file.size,
+      }));
+      complaint.attachments = [...(complaint.attachments || []), ...attachments]
+        .slice(0, 5);
+    }
 
     await complaint.save();
 
@@ -459,7 +482,7 @@ export const deleteComplaint = async (req, res) => {
       });
     }
 
-    await complaint.remove();
+    await complaint.deleteOne();
 
     res.status(200).json({
       success: true,
@@ -503,6 +526,66 @@ export const getDashboardStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch dashboard stats",
+      error: error.message,
+    });
+  }
+};
+
+export const submitDraft = async (req, res) => {
+  try {
+    const complaint = await Complaint.findOne({
+      _id: req.params.id,
+      user: req.user.id,
+      isDraft: true,
+    });
+
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: "Draft complaint not found",
+      });
+    }
+
+    if (
+      !complaint.title ||
+      !complaint.category ||
+      !complaint.description ||
+      !complaint.location?.address
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Please complete title, category, description and address",
+      });
+    }
+
+    complaint.isDraft = false;
+    complaint.recordStatusChange(
+      "filed",
+      req.user.id,
+      "Draft complaint submitted by citizen",
+      "user",
+    );
+    complaint.timeline.unshift({
+      status: "filed",
+      message: "Draft complaint submitted by citizen",
+      updatedBy: req.user.id,
+      updatedAt: new Date(),
+    });
+
+    await assignComplaintWorkflow(complaint);
+    await complaint.populate("department", "name contactInfo");
+    await complaint.populate("assignedOfficer", "name email phone");
+
+    res.status(200).json({
+      success: true,
+      message: "Draft submitted successfully",
+      data: { complaint },
+    });
+  } catch (error) {
+    console.error("Submit draft error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to submit draft",
       error: error.message,
     });
   }
@@ -1219,7 +1302,9 @@ export const getMyDrafts = async (req, res) => {
       isDraft: true,
     })
       .sort({ updatedAt: -1 })
-      .select("title category description createdAt updatedAt");
+      .select(
+        "_id complaintId title category description location attachments createdAt updatedAt",
+      );
 
     res.status(200).json({
       success: true,

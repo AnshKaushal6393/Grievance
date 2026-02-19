@@ -146,7 +146,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/40 to-background flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -157,7 +157,7 @@ const Login = () => {
           
           {/* Header */}
           <div className="text-center space-y-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto shadow-lg">
               <FileText className="w-10 h-10 text-white" />
             </div>
             <div className="space-y-2">
@@ -173,27 +173,27 @@ const Login = () => {
             
             {/* Email */}
             <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
               <input
                 type="email"
                 placeholder={t("login.emailOrPhone")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading || isGoogleLoading}
-                className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             {/* Password */}
             <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder={t("login.password")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading || isGoogleLoading}
-                className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 type="button"
@@ -217,13 +217,13 @@ const Login = () => {
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={isLoading || isGoogleLoading}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-ring disabled:opacity-50"
                 />
                 <span className="text-gray-600 text-sm">{t("login.rememberMe")}</span>
               </label>
               <Link
                 to="/forgot-password"
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
+                className="text-primary hover:text-primary text-sm font-medium transition-colors"
               >
                 {t("login.forgotPassword")}
               </Link>
@@ -233,7 +233,7 @@ const Login = () => {
             <Button
               type="submit"
               disabled={isLoading || isGoogleLoading}
-              className="w-full py-4 h-auto text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 rounded-xl shadow-lg hover:shadow-xl transition-all"
+              className="w-full py-4 h-auto text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:from-gray-300 disabled:to-gray-400 rounded-xl shadow-lg hover:shadow-xl transition-all"
             >
               {isLoading ? (
                 <>
@@ -271,7 +271,7 @@ const Login = () => {
               {t("login.noAccount")}{" "}
               <Link
                 to="/register"
-                className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                className="text-primary hover:text-primary font-semibold transition-colors"
               >
                 {t("login.signUpNow")}
               </Link>

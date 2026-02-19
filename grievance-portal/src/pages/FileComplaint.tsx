@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import complaintService from "@/services/complaintService";
 import { motion } from "framer-motion";
 import {
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface UploadedFile {
   id: string;
@@ -30,6 +31,11 @@ interface UploadedFile {
 }
 
 const FileComplaint = () => {
+  const { t } = useLanguage();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftIdFromQuery = searchParams.get("draftId");
+
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
@@ -46,6 +52,9 @@ const FileComplaint = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const geocodeTimeoutRef = useRef<number | null>(null);
   const geocodeAbortRef = useRef<AbortController | null>(null);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [isLoadingDraft, setIsLoadingDraft] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   const categories = [
     { value: "Roads & Infrastructure", label: "Roads & Infrastructure" },
@@ -82,7 +91,7 @@ const FileComplaint = () => {
           setIsLocating(false);
         },
         () => {
-          setAddress("Unable to get location. Please enter manually.");
+          setAddress(t("file.placeholderAddress"));
           setLatitude(null);
           setLongitude(null);
           setGeocodeError(null);
@@ -90,7 +99,7 @@ const FileComplaint = () => {
         },
       );
     } else {
-      setAddress("Geolocation not supported. Please enter manually.");
+      setAddress(t("file.placeholderAddress"));
       setLatitude(null);
       setLongitude(null);
       setGeocodeError(null);
@@ -227,45 +236,96 @@ const FileComplaint = () => {
     });
   };
 
-  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const buildFormData = () => {
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("category", category);
+    formData.append("description", description);
+    formData.append("address", address);
+    if (latitude !== null) formData.append("latitude", String(latitude));
+    if (longitude !== null) formData.append("longitude", String(longitude));
+    uploadedFiles.forEach((file) => {
+      formData.append("attachments", file.file);
+    });
+    return formData;
+  };
+
+  useEffect(() => {
+    const loadDraft = async () => {
+      if (!draftIdFromQuery) return;
+      setIsLoadingDraft(true);
+      try {
+        const response = await complaintService.getComplaint(draftIdFromQuery);
+        const complaint = response?.data?.complaint;
+        if (!complaint?.isDraft) {
+          toast.error(t("file.draftLoadFailed"));
+          navigate("/dashboard");
+          return;
+        }
+        setCurrentDraftId(String(complaint._id));
+        setTitle(complaint.title || "");
+        setCategory(complaint.category || "");
+        setDescription(complaint.description || "");
+        setAddress(complaint.location?.address || "");
+        const lat = complaint.location?.coordinates?.latitude;
+        const lng = complaint.location?.coordinates?.longitude;
+        setLatitude(typeof lat === "number" ? lat : null);
+        setLongitude(typeof lng === "number" ? lng : null);
+      } catch {
+        toast.error(t("file.draftLoadFailed"));
+        navigate("/dashboard");
+      } finally {
+        setIsLoadingDraft(false);
+      }
+    };
+    void loadDraft();
+  }, [draftIdFromQuery, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const formData = new FormData();
-      formData.append("title", title);
-      formData.append("category", category);
-      formData.append("description", description);
-      formData.append("address", address);
-      if (latitude !== null) formData.append("latitude", String(latitude));
-      if (longitude !== null) formData.append("longitude", String(longitude));
+      const formData = buildFormData();
+      let response;
+      if (currentDraftId) {
+        await complaintService.updateDraft(currentDraftId, formData);
+        response = await complaintService.submitDraft(currentDraftId);
+      } else {
+        response = await complaintService.fileComplaint(formData);
+      }
 
-      uploadedFiles.forEach((file) => {
-        formData.append("attachments", file.file);
-      });
-
-      const response = await complaintService.fileComplaint(formData);
-
-      toast.success(`Complaint filed: ${response.data.complaint.complaintId}`);
+      toast.success(`Complaint filed: ${response.data.complaint.complaintId || response.data.complaint._id}`);
       navigate("/my-complaints");
     } catch (error: any) {
-      toast.error("Failed to file complaint");
+      toast.error(t("file.fileFailed"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleSaveDraft = () => {
-    console.log("Saving draft:", {
-      title,
-      category,
-      description,
-      address,
-      files: uploadedFiles,
-    });
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    try {
+      const formData = buildFormData();
+      let response;
+      if (currentDraftId) {
+        response = await complaintService.updateDraft(currentDraftId, formData);
+      } else {
+        response = await complaintService.saveDraft(formData);
+        const newDraftId = response?.data?.complaint?._id;
+        if (newDraftId) {
+          setCurrentDraftId(String(newDraftId));
+          navigate(`/file-complaint?draftId=${newDraftId}`, { replace: true });
+        }
+      }
+      toast.success(response?.message || t("file.draftSaved"));
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || t("file.fileFailed"));
+    } finally {
+      setIsSavingDraft(false);
+    }
   };
 
   const mapEmbedUrl =
@@ -274,7 +334,7 @@ const FileComplaint = () => {
       : null;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/40 to-background">
       <Navbar />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -285,35 +345,41 @@ const FileComplaint = () => {
         >
           {/* Header */}
           <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-linear-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
               <FileText className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900">
-              File New Complaint
+              {currentDraftId ? t("file.titleEdit") : t("file.titleNew")}
             </h1>
-            <p className="text-gray-500 mt-2">Tell us about your issue</p>
+            <p className="text-gray-500 mt-2">
+              {isLoadingDraft
+                ? t("file.subtitleLoading")
+                : currentDraftId
+                  ? t("file.subtitleEdit")
+                  : t("file.subtitleNew")}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Title Input */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Complaint Title <span className="text-red-500">*</span>
+                {t("file.labelTitle")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Brief title of your complaint"
+                placeholder={t("file.placeholderTitle")}
                 required
-                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
               />
             </div>
 
             {/* Category Dropdown */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Category <span className="text-red-500">*</span>
+                {t("file.labelCategory")} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <button
@@ -321,7 +387,7 @@ const FileComplaint = () => {
                   onClick={() => setIsCategoryOpen(!isCategoryOpen)}
                   className={`w-full py-3 px-4 rounded-xl border text-left flex items-center justify-between transition-all ${
                     isCategoryOpen
-                      ? "border-blue-500 ring-2 ring-blue-500 bg-white"
+                      ? "border-primary ring-2 ring-blue-500 bg-white"
                       : "border-gray-200 bg-gray-50 hover:bg-white"
                   }`}
                 >
@@ -330,7 +396,7 @@ const FileComplaint = () => {
                       selectedCategory ? "text-gray-900" : "text-gray-400"
                     }
                   >
-                    {selectedCategory?.label || "Select a category"}
+                    {selectedCategory?.label || t("file.placeholderCategory")}
                   </span>
                   <ChevronDown
                     className={`w-5 h-5 text-gray-400 transition-transform ${isCategoryOpen ? "rotate-180" : ""}`}
@@ -350,8 +416,8 @@ const FileComplaint = () => {
                           type="text"
                           value={categorySearch}
                           onChange={(e) => setCategorySearch(e.target.value)}
-                          placeholder="Search categories..."
-                          className="w-full py-2 pl-9 pr-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder={t("file.searchCategories")}
+                          className="w-full py-2 pl-9 pr-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         />
                       </div>
                     </div>
@@ -367,7 +433,7 @@ const FileComplaint = () => {
                           }}
                           className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
                             category === cat.value
-                              ? "bg-blue-50 text-blue-700"
+                              ? "bg-primary/10 text-primary"
                               : "text-gray-700 hover:bg-gray-50"
                           }`}
                         >
@@ -386,22 +452,22 @@ const FileComplaint = () => {
             {/* Description Textarea */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Description <span className="text-red-500">*</span>
+                {t("file.labelDescription")} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your problem in detail..."
+                placeholder={t("file.placeholderDescription")}
                 rows={6}
                 required
-                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400 resize-none"
+                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400 resize-none"
               />
             </div>
 
             {/* Location Section */}
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Location
+                {t("file.labelLocation")}
               </label>
 
               <div className="flex flex-col sm:flex-row gap-4">
@@ -426,19 +492,19 @@ const FileComplaint = () => {
                   ) : (
                     <MapPin className="w-5 h-5" />
                   )}
-                  {isLocating ? "Getting Location..." : "Use Current Location"}
+                  {isLocating ? t("file.gettingLocation") : t("file.useCurrentLocation")}
                 </Button>
 
                 <span className="text-gray-400 self-center hidden sm:block">
-                  OR
+                  {t("file.or")}
                 </span>
 
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Enter address manually"
-                  className="flex-1 py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                  placeholder={t("file.placeholderAddress")}
+                  className="flex-1 py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                 />
               </div>
 
@@ -456,11 +522,11 @@ const FileComplaint = () => {
               ) : (
                 <div className="w-full h-48 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400">
                   <MapPin className="w-10 h-10 mb-2" />
-                  <span className="text-sm">Map preview will appear here</span>
+                  <span className="text-sm">{t("file.mapPlaceholder")}</span>
                 </div>
               )}
               {isGeocoding && (
-                <p className="text-sm text-gray-500">Finding location…</p>
+                <p className="text-sm text-gray-500">{t("file.findingLocation")}</p>
               )}
               {geocodeError && (
                 <p className="text-sm text-red-500">{geocodeError}</p>
@@ -470,7 +536,7 @@ const FileComplaint = () => {
             {/* Media Upload */}
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Photos / Videos
+                {t("file.labelMedia")}
               </label>
 
               <div
@@ -480,25 +546,25 @@ const FileComplaint = () => {
                 onClick={() => fileInputRef.current?.click()}
                 className={`w-full p-8 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
                   isDragging
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50"
+                    ? "border-primary bg-primary/10"
+                    : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-primary/10/50"
                 }`}
               >
                 <div className="flex flex-col items-center text-center">
                   <div
                     className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 transition-colors ${
-                      isDragging ? "bg-blue-100" : "bg-gray-200"
+                      isDragging ? "bg-primary/15" : "bg-gray-200"
                     }`}
                   >
                     <Upload
-                      className={`w-6 h-6 ${isDragging ? "text-blue-600" : "text-gray-500"}`}
+                      className={`w-6 h-6 ${isDragging ? "text-primary" : "text-gray-500"}`}
                     />
                   </div>
                   <p className="text-gray-700 font-medium">
-                    Click to upload or drag photos/videos
+                    {t("file.uploadHint")}
                   </p>
                   <p className="text-gray-400 text-sm mt-1">
-                    Max 5 files, 10MB each • JPG, PNG, MP4
+                    {t("file.uploadSubHint")}
                   </p>
                 </div>
                 <input
@@ -556,7 +622,7 @@ const FileComplaint = () => {
               {uploadedFiles.length > 0 && (
                 <p className="text-sm text-gray-500 flex items-center gap-1">
                   <AlertCircle className="w-4 h-4" />
-                  {uploadedFiles.length}/5 files uploaded
+                  {uploadedFiles.length}/5 {t("file.uploadCount")}
                 </p>
               )}
             </div>
@@ -567,27 +633,27 @@ const FileComplaint = () => {
                 type="button"
                 variant="outline"
                 onClick={handleSaveDraft}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSavingDraft || isLoadingDraft}
                 className="flex-1 py-4 h-auto text-lg font-semibold rounded-xl"
               >
                 <Save className="w-5 h-5 mr-2" />
-                Save as Draft
+                {isSavingDraft ? t("file.savingDraft") : t("file.saveDraft")}
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting}
-                className="flex-1 py-4 h-auto text-lg font-semibold bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                disabled={isSubmitting || isSavingDraft || isLoadingDraft}
+                className="flex-1 py-4 h-auto text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:from-gray-400 disabled:to-gray-500 rounded-xl shadow-lg hover:shadow-xl transition-all"
               >
                 {" "}
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Submitting.....
+                    {t("file.submitting")}
                   </>
                 ) : (
                   <>
                     {" "}
-                    Submit Complaint
+                    {t("file.submitComplaint")}
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </>
                 )}

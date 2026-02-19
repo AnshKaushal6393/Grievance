@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type ReportType =
   | "summary"
@@ -175,6 +176,7 @@ const buildSimplePdfBytes = (lines: string[]) => {
 
 const AdminReports = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [selectedType, setSelectedType] = useState<ReportType>("summary");
   const [startDate, setStartDate] = useState<string>(new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -357,9 +359,9 @@ const AdminReports = () => {
       const snapshot = await fetchLiveSnapshot();
       setPreviewSnapshot(snapshot);
       setPreviewReady(true);
-      toast.success("Preview generated using live backend data");
+      toast.success(t("adminReports.previewSuccess", "Preview generated using live backend data"));
     } catch {
-      toast.error("Failed to fetch live report data");
+      toast.error(t("adminReports.previewFailed", "Failed to fetch live report data"));
     } finally {
       setPreviewLoading(false);
     }
@@ -502,7 +504,7 @@ const AdminReports = () => {
     writeSavedReports(next);
     setIsGenerating(false);
     setProgress(100);
-    toast.success("Report generated successfully");
+    toast.success(t("adminReports.generated", "Report generated successfully"));
   };
 
   const handleGenerate = async () => {
@@ -514,7 +516,7 @@ const AdminReports = () => {
         setPreviewSnapshot(snapshot);
         setPreviewReady(true);
       } catch {
-        toast.error("Could not fetch live report data");
+        toast.error(t("adminReports.fetchFailed", "Could not fetch live report data"));
         setPreviewLoading(false);
         return;
       } finally {
@@ -536,15 +538,15 @@ const AdminReports = () => {
   };
 
   const handleSaveConfiguration = () => {
-    toast.success("Configuration saved");
+    toast.success(t("adminReports.configSaved", "Configuration saved"));
   };
 
   const handleSchedule = () => {
     if (!scheduleRecurring) {
-      toast.error("Enable recurring schedule checkbox first");
+      toast.error(t("adminReports.enableRecurringFirst", "Enable recurring schedule checkbox first"));
       return;
     }
-    toast.success("Report schedule saved");
+    toast.success(t("adminReports.scheduleSaved", "Report schedule saved"));
   };
 
   return (
@@ -553,18 +555,18 @@ const AdminReports = () => {
       <main className="container mx-auto space-y-6 px-4 py-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Generate Reports</h1>
-            <p className="text-sm text-muted-foreground">Build, preview, and export governance reports</p>
+            <h1 className="text-3xl font-bold text-slate-900">{t("adminReports.title", "Generate Reports")}</h1>
+            <p className="text-sm text-muted-foreground">{t("adminReports.subtitle", "Build, preview, and export governance reports")}</p>
           </div>
           <Button variant="outline" className="gap-2" onClick={() => document.getElementById("recent-reports")?.scrollIntoView({ behavior: "smooth" })}>
             <FileSpreadsheet className="h-4 w-4" />
-            My Saved Reports
+            {t("adminReports.mySavedReports", "My Saved Reports")}
           </Button>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Report Type</CardTitle>
+            <CardTitle>{t("adminReports.reportType", "Report Type")}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {reportTypes.map((item) => {
@@ -575,10 +577,10 @@ const AdminReports = () => {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedType(item.id)}
-                  className={`rounded-xl border p-4 text-left transition-all ${active ? "border-blue-500 bg-blue-50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                  className={`rounded-xl border p-4 text-left transition-all ${active ? "border-primary bg-primary/10 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}
                 >
                   <div className="mb-2 flex items-center gap-2">
-                    <Icon className={`h-5 w-5 ${active ? "text-blue-700" : "text-slate-600"}`} />
+                    <Icon className={`h-5 w-5 ${active ? "text-primary" : "text-slate-600"}`} />
                     <span className="font-semibold text-slate-900">{item.title}</span>
                   </div>
                   <p className="text-xs text-slate-600">{item.description}</p>
@@ -590,18 +592,18 @@ const AdminReports = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><SlidersHorizontal className="h-5 w-5" />Report Configuration</CardTitle>
+            <CardTitle className="flex items-center gap-2"><SlidersHorizontal className="h-5 w-5" />{t("adminReports.configuration", "Report Configuration")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <p className="mb-2 text-sm font-semibold">Time Period</p>
+              <p className="mb-2 text-sm font-semibold">{t("adminReports.timePeriod", "Time Period")}</p>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
-                  <Label className="mb-1 block">Start Date</Label>
+                  <Label className="mb-1 block">{t("adminReports.startDate", "Start Date")}</Label>
                   <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </div>
                 <div>
-                  <Label className="mb-1 block">End Date</Label>
+                  <Label className="mb-1 block">{t("adminReports.endDate", "End Date")}</Label>
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
@@ -617,13 +619,13 @@ const AdminReports = () => {
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card>
-                <CardHeader><CardTitle className="text-base">Filters</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">{t("adminReports.filters", "Filters")}</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="mb-2 block">Department</Label>
+                    <Label className="mb-2 block">{t("adminReports.department", "Department")}</Label>
                     <div className="flex flex-wrap gap-2">
                       {departmentOptions.length === 0 ? (
-                        <span className="text-xs text-slate-500">No departments loaded</span>
+                        <span className="text-xs text-slate-500">{t("adminReports.noDepartments", "No departments loaded")}</span>
                       ) : (
                         departmentOptions.map((dept) => (
                           <Badge key={dept} variant={departments.includes(dept) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleMulti(dept, departments, setDepartments)}>
@@ -634,7 +636,7 @@ const AdminReports = () => {
                     </div>
                   </div>
                   <div>
-                    <Label className="mb-2 block">Category</Label>
+                    <Label className="mb-2 block">{t("adminReports.category", "Category")}</Label>
                     <div className="flex flex-wrap gap-2">
                       {allCategories.map((cat) => (
                         <Badge key={cat} variant={categories.includes(cat) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleMulti(cat, categories, setCategories)}>
@@ -644,7 +646,7 @@ const AdminReports = () => {
                     </div>
                   </div>
                   <div>
-                    <Label className="mb-2 block">Status</Label>
+                    <Label className="mb-2 block">{t("adminReports.status", "Status")}</Label>
                     <div className="flex flex-wrap gap-2">
                       {allStatuses.map((status) => (
                         <Badge key={status} variant={statuses.includes(status) ? "default" : "outline"} className="cursor-pointer capitalize" onClick={() => toggleMulti(status, statuses, setStatuses)}>
@@ -654,7 +656,7 @@ const AdminReports = () => {
                     </div>
                   </div>
                   <div>
-                    <Label className="mb-2 block">Priority Levels</Label>
+                    <Label className="mb-2 block">{t("adminReports.priorityLevels", "Priority Levels")}</Label>
                     <div className="flex flex-wrap gap-2">
                       {allPriorities.map((priority) => (
                         <Badge key={priority} variant={priorities.includes(priority) ? "default" : "outline"} className="cursor-pointer capitalize" onClick={() => toggleMulti(priority, priorities, setPriorities)}>
@@ -667,10 +669,10 @@ const AdminReports = () => {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle className="text-base">Group & Include</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">{t("adminReports.groupInclude", "Group & Include")}</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="mb-2 block">Group By</Label>
+                    <Label className="mb-2 block">{t("adminReports.groupBy", "Group By")}</Label>
                     <Select value={groupBy} onValueChange={(value: GroupByType) => setGroupBy(value)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -710,10 +712,10 @@ const AdminReports = () => {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Output Options</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("adminReports.outputOptions", "Output Options")}</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
-              <Label className="mb-2 block">Format</Label>
+              <Label className="mb-2 block">{t("adminReports.format", "Format")}</Label>
               <Select value={format} onValueChange={(value: OutputFormat) => setFormat(value)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -724,7 +726,7 @@ const AdminReports = () => {
               </Select>
             </div>
             <div>
-              <Label className="mb-2 block">Template</Label>
+              <Label className="mb-2 block">{t("adminReports.template", "Template")}</Label>
               <Select value={template} onValueChange={(value: TemplateType) => setTemplate(value)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -736,21 +738,21 @@ const AdminReports = () => {
             </div>
             <div className="flex items-center gap-2 pt-7">
               <Checkbox checked={sendEmail} onCheckedChange={(v) => setSendEmail(Boolean(v))} />
-              <span className="text-sm">Send via email</span>
+              <span className="text-sm">{t("adminReports.sendEmail", "Send via email")}</span>
             </div>
             <div className="flex items-center gap-2 pt-7">
               <Checkbox checked={scheduleRecurring} onCheckedChange={(v) => setScheduleRecurring(Boolean(v))} />
-              <span className="text-sm">Schedule recurring report</span>
+              <span className="text-sm">{t("adminReports.scheduleRecurring", "Schedule recurring report")}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Preview</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("adminReports.preview", "Preview")}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <Button onClick={handlePreview} className="gap-2" disabled={previewLoading}>
               {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              {previewLoading ? "Loading Preview..." : "Preview Report"}
+              {previewLoading ? t("adminReports.loadingPreview", "Loading Preview...") : t("adminReports.previewReport", "Preview Report")}
             </Button>
             {previewReady && previewSnapshot && (
               <div className="grid grid-cols-1 gap-4 rounded-xl border bg-slate-50 p-4 md:grid-cols-[1.2fr_1fr]">
@@ -765,7 +767,7 @@ const AdminReports = () => {
                   </div>
                   <div className="mt-4 space-y-2">
                     <p className="text-xs text-slate-600">Total Complaints: {previewSnapshot.metrics.totalComplaints}</p>
-                    <div className="h-2 w-full rounded bg-blue-100"><div className="h-2 rounded bg-blue-500" style={{ width: `${previewSnapshot.metrics.totalComplaints === 0 ? 0 : Math.max((previewSnapshot.metrics.resolved / previewSnapshot.metrics.totalComplaints) * 100, 4)}%` }} /></div>
+                    <div className="h-2 w-full rounded bg-primary/15"><div className="h-2 rounded bg-primary/100" style={{ width: `${previewSnapshot.metrics.totalComplaints === 0 ? 0 : Math.max((previewSnapshot.metrics.resolved / previewSnapshot.metrics.totalComplaints) * 100, 4)}%` }} /></div>
                     <p className="text-xs text-slate-600">Resolved: {previewSnapshot.metrics.resolved} • Pending: {previewSnapshot.metrics.pending}</p>
                     <div className="h-2 w-full rounded bg-emerald-100"><div className="h-2 rounded bg-emerald-500" style={{ width: `${previewSnapshot.metrics.slaCompliance}` }} /></div>
                     <p className="text-xs text-slate-600">SLA Compliance: {previewSnapshot.metrics.slaCompliance}</p>
@@ -788,43 +790,43 @@ const AdminReports = () => {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("adminReports.actions", "Actions")}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {isGenerating && (
-              <div className="rounded-lg border bg-blue-50 p-3">
+              <div className="rounded-lg border bg-primary/10 p-3">
                 <div className="mb-2 flex items-center justify-between text-sm">
-                  <span>Generating report...</span>
+                  <span>{t("adminReports.generating", "Generating report...")}</span>
                   <span>{progress}%</span>
                 </div>
                 <Progress value={progress} />
               </div>
             )}
             <div className="flex flex-wrap gap-3">
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleGenerate} disabled={isGenerating}>
-                Generate Report
+              <Button className="bg-primary hover:bg-primary/90" onClick={handleGenerate} disabled={isGenerating}>
+                {t("adminReports.generateReport", "Generate Report")}
               </Button>
-              <Button variant="outline" onClick={handleSaveConfiguration}>Save Configuration</Button>
-              <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleSchedule}>Schedule Report</Button>
+              <Button variant="outline" onClick={handleSaveConfiguration}>{t("adminReports.saveConfiguration", "Save Configuration")}</Button>
+              <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleSchedule}>{t("adminReports.scheduleReport", "Schedule Report")}</Button>
             </div>
           </CardContent>
         </Card>
 
         <Card id="recent-reports">
-          <CardHeader><CardTitle>Recent Reports</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("adminReports.recentReports", "Recent Reports")}</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Generated Date</TableHead>
-                  <TableHead className="text-right">Download</TableHead>
+                  <TableHead>{t("adminReports.name", "Name")}</TableHead>
+                  <TableHead>{t("adminReports.type", "Type")}</TableHead>
+                  <TableHead>{t("adminReports.generatedDate", "Generated Date")}</TableHead>
+                  <TableHead className="text-right">{t("adminReports.download", "Download")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleReports.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">No reports generated yet</TableCell>
+                    <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">{t("adminReports.noReports", "No reports generated yet")}</TableCell>
                   </TableRow>
                 ) : (
                   visibleReports.map((report) => (
@@ -835,7 +837,7 @@ const AdminReports = () => {
                       <TableCell className="text-right">
                         <Button size="sm" variant="outline" className="gap-1" onClick={() => triggerDownload(report)}>
                           <Download className="h-4 w-4" />
-                          Download
+                          {t("adminReports.download", "Download")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -849,9 +851,9 @@ const AdminReports = () => {
         <div className="flex items-center justify-between rounded-xl border bg-white p-4">
           <Button variant="ghost" className="gap-2" onClick={() => navigate("/admin")}>
             <ChevronRight className="h-4 w-4 rotate-180" />
-            Back to Admin Dashboard
+            {t("adminReports.backAdmin", "Back to Admin Dashboard")}
           </Button>
-          <Link to="/admin/complaints" className="text-sm text-blue-600 hover:underline">Go to complaints</Link>
+          <Link to="/admin/complaints" className="text-sm text-primary hover:underline">{t("adminReports.goComplaints", "Go to complaints")}</Link>
         </div>
       </main>
     </div>

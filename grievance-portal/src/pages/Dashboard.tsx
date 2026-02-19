@@ -20,12 +20,14 @@ import {
   RefreshCw,
   Archive,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import complaintService from "@/services/complaintService";
 import authService from "@/services/authService";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface DashboardStats {
   total: number;
@@ -71,7 +73,15 @@ interface NotificationItem {
   isArchived?: boolean;
 }
 
+interface DraftComplaint {
+  id: string;
+  title: string;
+  category: string;
+  updatedAt: string;
+}
+
 const Dashboard = () => {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentComplaints, setRecentComplaints] = useState<RecentComplaint[]>(
     [],
@@ -79,6 +89,7 @@ const Dashboard = () => {
   const [categories, setCategories] = useState<CategoryBreakdownItem[]>([]);
   const [analytics, setAnalytics] = useState<CitizenAnalyticsSummary | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [drafts, setDrafts] = useState<DraftComplaint[]>([]);
   const [notificationFilter, setNotificationFilter] = useState<
     "all" | "unread" | "high"
   >("all");
@@ -103,7 +114,7 @@ const Dashboard = () => {
       case "pending":
         return "bg-yellow-100 text-yellow-700";
       case "in-progress":
-        return "bg-blue-100 text-blue-700";
+        return "bg-primary/15 text-primary";
       case "resolved":
         return "bg-green-100 text-green-700";
       case "rejected":
@@ -116,9 +127,10 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const [dashboardResponse, analyticsResponse] = await Promise.all([
+      const [dashboardResponse, analyticsResponse, draftsResponse] = await Promise.all([
         complaintService.getDashboardStats(),
         complaintService.getCitizenAnalytics(),
+        complaintService.getDrafts(),
       ]);
 
       const dashboardData = dashboardResponse?.data || {};
@@ -145,8 +157,16 @@ const Dashboard = () => {
         })),
       );
       setAnalytics(analyticsData.summary || null);
+      setDrafts(
+        (draftsResponse?.data?.drafts || []).map((d: any) => ({
+          id: String(d._id),
+          title: d.title || "Untitled Draft",
+          category: d.category || "Other",
+          updatedAt: d.updatedAt,
+        })),
+      );
     } catch (error) {
-      toast.error("Failed to load dashboard data");
+      toast.error(t("dashboard.errorLoadData", "Failed to load dashboard data"));
     } finally {
       setIsLoading(false);
     }
@@ -185,7 +205,7 @@ const Dashboard = () => {
   useEffect(() => {
     setNotificationPage(1);
     fetchNotifications(true).catch(() => {
-      toast.error("Failed to load notifications");
+      toast.error(t("dashboard.errorLoadNotifications", "Failed to load notifications"));
     });
   }, [notificationFilter]);
 
@@ -194,7 +214,12 @@ const Dashboard = () => {
       const response = await complaintService.getNotificationPreferences();
       setNotificationPreferences(response?.data?.preferences || null);
     } catch {
-      toast.error("Failed to load notification preferences");
+      toast.error(
+        t(
+          "dashboard.errorLoadNotificationPrefs",
+          "Failed to load notification preferences",
+        ),
+      );
     }
   };
 
@@ -217,9 +242,16 @@ const Dashboard = () => {
     try {
       setIsSavingPrefs(true);
       await complaintService.updateNotificationPreferences(notificationPreferences || {});
-      toast.success("Notification preferences updated");
+      toast.success(
+        t("dashboard.notificationPrefsUpdated", "Notification preferences updated"),
+      );
     } catch {
-      toast.error("Failed to update notification preferences");
+      toast.error(
+        t(
+          "dashboard.errorUpdateNotificationPrefs",
+          "Failed to update notification preferences",
+        ),
+      );
     } finally {
       setIsSavingPrefs(false);
     }
@@ -231,9 +263,13 @@ const Dashboard = () => {
       await complaintService.seedDemoNotifications(12);
       setNotificationPage(1);
       await fetchNotifications(true);
-      toast.success("Demo notifications generated");
+      toast.success(
+        t("dashboard.demoNotificationsGenerated", "Demo notifications generated"),
+      );
     } catch {
-      toast.error("Failed to generate demo notifications");
+      toast.error(
+        t("dashboard.errorGenerateDemoNotifications", "Failed to generate demo notifications"),
+      );
     } finally {
       setIsSeedingDemoNotifications(false);
     }
@@ -248,7 +284,9 @@ const Dashboard = () => {
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
       setNotificationSummary((prev) => ({ ...prev, unreadCount: 0 }));
     } catch {
-      toast.error("Failed to mark notifications as read");
+      toast.error(
+        t("dashboard.errorMarkNotificationsRead", "Failed to mark notifications as read"),
+      );
     }
   };
 
@@ -271,7 +309,7 @@ const Dashboard = () => {
         ),
       }));
     } catch {
-      toast.error("Failed to update notification");
+      toast.error(t("dashboard.errorUpdateNotification", "Failed to update notification"));
     }
   };
 
@@ -280,7 +318,7 @@ const Dashboard = () => {
       await complaintService.archiveNotification(notificationId);
       setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
     } catch {
-      toast.error("Failed to archive notification");
+      toast.error(t("dashboard.errorArchiveNotification", "Failed to archive notification"));
     }
   };
 
@@ -291,14 +329,43 @@ const Dashboard = () => {
       case "high":
         return "bg-orange-100 text-orange-700";
       case "medium":
-        return "bg-blue-100 text-blue-700";
+        return "bg-primary/15 text-primary";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
+
+  const performDeleteDraft = async (draftId: string) => {
+    try {
+      await complaintService.deleteDraft(draftId);
+      setDrafts((prev) => prev.filter((item) => item.id !== draftId));
+      toast.success(t("dashboard.draftDeleted", "Draft deleted"));
+    } catch {
+      toast.error(t("dashboard.errorDeleteDraft", "Failed to delete draft"));
+    }
+  };
+  const handleDeleteDraft = (draftId: string) => {
+    toast(t("dashboard.deleteDraftPrompt", "Delete this draft complaint?"), {
+      description: t(
+        "dashboard.deleteDraftPromptDesc",
+        "This action cannot be undone.",
+      ),
+      action: {
+        label: t("dashboard.delete", "Delete"),
+        onClick: () => {
+          void performDeleteDraft(draftId);
+        },
+      },
+      cancel: {
+        label: t("dashboard.cancel", "Cancel"),
+        onClick: () => {},
+      },
+      duration: 8000,
+    });
+  };
   const [currentTime, setCurrentTime] = useState(new Date());
   const currentUser = authService.getCurrentUser();
-  const userName = currentUser?.name || "User";
+  const userName = currentUser?.name || t("dashboard.userFallback", "User");
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -311,8 +378,8 @@ const Dashboard = () => {
   //     value: 12,
   //     icon: FileText,
   //     color: "from-blue-500 to-blue-600",
-  //     bgColor: "bg-blue-50",
-  //     textColor: "text-blue-600"
+  //     bgColor: "bg-primary/10",
+  //     textColor: "text-primary"
   //   },
   //   {
   //     label: "Pending",
@@ -354,7 +421,7 @@ const Dashboard = () => {
   //     title: "Garbage Not Collected for 3 Days",
   //     category: "Sanitation",
   //     status: "In Progress",
-  //     statusColor: "bg-blue-100 text-blue-700",
+  //     statusColor: "bg-primary/15 text-primary",
   //     date: "12 Jan 2024"
   //   },
   //   {
@@ -368,11 +435,27 @@ const Dashboard = () => {
   // ];
 
   const quickLinks = [
-    { label: "File New Complaint", icon: Plus, href: "/file-complaint" },
-    { label: "File by Voice", icon: Mic, href: "/voice-complaint" },
-    { label: "Track Complaint", icon: FileText, href: "/track-complaint" },
-    { label: "Help & Support", icon: HelpCircle, href: "/help" },
-    { label: "Contact Us", icon: Phone, href: "/contact" },
+    {
+      label: t("dashboard.quick.fileComplaint", "File New Complaint"),
+      icon: Plus,
+      href: "/file-complaint",
+    },
+    {
+      label: t("dashboard.quick.fileVoice", "File by Voice"),
+      icon: Mic,
+      href: "/voice-complaint",
+    },
+    {
+      label: t("dashboard.quick.trackComplaint", "Track Complaint"),
+      icon: FileText,
+      href: "/track-complaint",
+    },
+    {
+      label: t("dashboard.quick.helpSupport", "Help & Support"),
+      icon: HelpCircle,
+      href: "/help",
+    },
+    { label: t("dashboard.quick.contact", "Contact Us"), icon: Phone, href: "/contact" },
   ];
 
   const formatDate = (date: Date) => {
@@ -392,34 +475,42 @@ const Dashboard = () => {
   };
   const statCards = [
     {
-      label: "Total Complaints",
+      label: t("dashboard.stats.total", "Total Complaints"),
       value: stats?.total ?? 0,
       icon: FileText,
-      bgColor: "bg-blue-50",
-      textColor: "text-blue-600",
+      bgColor: "bg-primary/10",
+      textColor: "text-primary",
     },
     {
-      label: "Pending",
+      label: t("dashboard.stats.pending", "Pending"),
       value: stats?.pending ?? 0,
       icon: Clock,
       bgColor: "bg-yellow-50",
       textColor: "text-yellow-600",
     },
     {
-      label: "Resolved",
+      label: t("dashboard.stats.resolved", "Resolved"),
       value: stats?.resolved ?? 0,
       icon: CheckCircle,
       bgColor: "bg-green-50",
       textColor: "text-green-600",
     },
     {
-      label: "Rejected",
+      label: t("dashboard.stats.rejected", "Rejected"),
       value: stats?.rejected ?? 0,
       icon: XCircle,
       bgColor: "bg-red-50",
       textColor: "text-red-600",
     },
   ];
+
+  const notificationFilterLabel = (filter: "all" | "unread" | "high") => {
+    if (filter === "all") return t("dashboard.notifications.filterAll", "All");
+    if (filter === "unread") {
+      return t("dashboard.notifications.filterUnread", "Unread");
+    }
+    return t("dashboard.notifications.filterHigh", "High");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -437,8 +528,8 @@ const Dashboard = () => {
             >
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                  Welcome back,{" "}
-                  <span className="text-blue-600">{userName}!</span>
+                  {t("dashboard.welcomeBack", "Welcome back")},{" "}
+                  <span className="text-primary">{userName}!</span>
                 </h1>
                 <div className="flex items-center gap-2 text-gray-500 mt-1">
                   <Calendar className="w-4 h-4" />
@@ -456,7 +547,7 @@ const Dashboard = () => {
                 <RefreshCw
                   className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
                 />
-                Refresh
+                {t("dashboard.refresh", "Refresh")}
               </Button>
             </motion.div>
 
@@ -500,10 +591,10 @@ const Dashboard = () => {
                       </div>
                       <div>
                         <h3 className="text-xl font-bold">
-                          File New Complaint
+                          {t("dashboard.hero.title", "File New Complaint")}
                         </h3>
                         <p className="text-blue-100 text-sm">
-                          Report an issue in your area
+                          {t("dashboard.hero.subtitle", "Report an issue in your area")}
                         </p>
                       </div>
                     </div>
@@ -522,13 +613,13 @@ const Dashboard = () => {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-900">
-                  Recent Complaints
+                  {t("dashboard.recent.title", "Recent Complaints")}
                 </h2>
                 <Link
                   to="/my-complaints"
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 group"
+                  className="text-primary hover:text-primary/80 text-sm font-medium flex items-center gap-1 group"
                 >
-                  View All
+                  {t("dashboard.recent.viewAll", "View All")}
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -537,10 +628,15 @@ const Dashboard = () => {
                 {!isLoading && recentComplaints.length === 0 && (
                   <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center">
                     <p className="text-sm text-gray-600 mb-3">
-                      No complaints yet. File your first complaint to track updates here.
+                      {t(
+                        "dashboard.recent.empty",
+                        "No complaints yet. File your first complaint to track updates here.",
+                      )}
                     </p>
                     <Link to="/file-complaint">
-                      <Button size="sm">File a Complaint</Button>
+                      <Button size="sm">
+                        {t("dashboard.recent.fileComplaint", "File a Complaint")}
+                      </Button>
                     </Link>
                   </div>
                 )}
@@ -550,7 +646,7 @@ const Dashboard = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.6 + index * 0.1 }}
-                    className="border border-gray-100 rounded-xl p-4 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer group"
+                    className="border border-gray-100 rounded-xl p-4 hover:border-primary/30 hover:shadow-md transition-all cursor-pointer group"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex-1">
@@ -564,7 +660,7 @@ const Dashboard = () => {
                             {complaint.status}
                           </span>
                         </div>
-                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-primary transition-colors">
                           {complaint.title}
                         </h3>
                         <div className="flex items-center gap-3 mt-2">
@@ -580,9 +676,9 @@ const Dashboard = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="shrink-0 group-hover:bg-blue-50 group-hover:border-blue-200 group-hover:text-blue-600"
+                          className="shrink-0 group-hover:bg-primary/10 group-hover:border-primary/30 group-hover:text-primary"
                         >
-                          View Details
+                          {t("dashboard.viewDetails", "View Details")}
                           <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
                       </Link>
@@ -600,29 +696,95 @@ const Dashboard = () => {
               className="bg-white rounded-2xl shadow-sm p-6"
             >
               <div className="flex items-center gap-2 mb-6">
-                <TrendingUp className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-xl font-bold text-gray-900">Analytics Snapshot</h2>
+                <TrendingUp className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-bold text-gray-900">
+                  {t("dashboard.analytics.title", "Analytics Snapshot")}
+                </h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-xl bg-indigo-50 p-4">
-                  <p className="text-sm text-indigo-700">Resolution Rate</p>
-                  <p className="text-2xl font-bold text-indigo-900">
+                <div className="rounded-xl bg-primary/10 p-4">
+                  <p className="text-sm text-primary/80">
+                    {t("dashboard.analytics.resolutionRate", "Resolution Rate")}
+                  </p>
+                  <p className="text-2xl font-bold text-primary-foreground">
                     {analytics?.resolutionRate || "0%"}
                   </p>
                 </div>
                 <div className="rounded-xl bg-emerald-50 p-4">
-                  <p className="text-sm text-emerald-700">Avg Resolution Time</p>
+                  <p className="text-sm text-emerald-700">
+                    {t("dashboard.analytics.avgResolutionTime", "Avg Resolution Time")}
+                  </p>
                   <p className="text-2xl font-bold text-emerald-900">
-                    {analytics?.avgResolutionDays || "0 days"}
+                    {analytics?.avgResolutionDays || t("dashboard.analytics.zeroDays", "0 days")}
                   </p>
                 </div>
                 <div className="rounded-xl bg-amber-50 p-4">
-                  <p className="text-sm text-amber-700">Open Complaints</p>
+                  <p className="text-sm text-amber-700">
+                    {t("dashboard.analytics.openComplaints", "Open Complaints")}
+                  </p>
                   <p className="text-2xl font-bold text-amber-900">
                     {analytics?.pendingCount ?? 0}
                   </p>
                 </div>
               </div>
+            </motion.div>
+
+            {/* Saved Drafts */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="bg-white rounded-2xl shadow-sm p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {t("dashboard.drafts.title", "Saved Drafts")}
+                </h2>
+                <span className="text-sm text-gray-500">
+                  {drafts.length} {t("dashboard.drafts.count", "drafts")}
+                </span>
+              </div>
+              {drafts.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  {t(
+                    "dashboard.drafts.empty",
+                    'No drafts yet. Use "Save as Draft" on complaint form.',
+                  )}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {drafts.map((draft) => (
+                    <div
+                      key={draft.id}
+                      className="rounded-xl border border-gray-200 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900">{draft.title}</p>
+                        <p className="text-xs text-gray-500">
+                          {draft.category} · Updated{" "}
+                          {new Date(draft.updatedAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link to={`/file-complaint?draftId=${draft.id}`}>
+                          <Button size="sm" variant="outline">
+                            {t("dashboard.resume", "Resume")}
+                          </Button>
+                        </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => handleDeleteDraft(draft.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          {t("dashboard.delete", "Delete")}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           </div>
 
@@ -636,16 +798,16 @@ const Dashboard = () => {
             {/* Quick Links */}
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Quick Links
+                {t("dashboard.quickLinks", "Quick Links")}
               </h3>
               <div className="space-y-2">
                 {quickLinks.map((link) => (
                   <Link
                     key={link.label}
                     to={link.href}
-                    className="flex items-center gap-3 p-3 rounded-xl text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors group"
+                    className="flex items-center gap-3 p-3 rounded-xl text-gray-700 hover:bg-primary/10 hover:text-primary transition-colors group"
                   >
-                    <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                    <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-primary/15 transition-colors">
                       <link.icon className="w-4 h-4" />
                     </div>
                     <span className="font-medium text-sm">{link.label}</span>
@@ -657,13 +819,16 @@ const Dashboard = () => {
             {/* Categories */}
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Folder className="w-5 h-5 text-blue-600" />
-                Categories
+                <Folder className="w-5 h-5 text-primary" />
+                {t("dashboard.categories.title", "Categories")}
               </h3>
               <div className="space-y-3">
                 {!isLoading && categories.length === 0 && (
                   <p className="text-sm text-gray-500">
-                    Category insights will appear once complaints are filed.
+                    {t(
+                      "dashboard.categories.empty",
+                      "Category insights will appear once complaints are filed.",
+                    )}
                   </p>
                 )}
                 {categories.map((category) => (
@@ -687,16 +852,20 @@ const Dashboard = () => {
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
                 <MessageSquare className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold mb-2">Need Help?</h3>
+              <h3 className="text-lg font-bold mb-2">
+                {t("dashboard.help.title", "Need Help?")}
+              </h3>
               <p className="text-indigo-100 text-sm mb-4">
-                Our support team is available 24/7 to assist you with your
-                queries.
+                {t(
+                  "dashboard.help.subtitle",
+                  "Our support team is available 24/7 to assist you with your queries.",
+                )}
               </p>
               <Button
                 variant="secondary"
-                className="w-full bg-white text-indigo-600 hover:bg-indigo-50"
+                className="w-full bg-white text-primary hover:bg-primary/10"
               >
-                Contact Support
+                {t("dashboard.help.contact", "Contact Support")}
               </Button>
             </div>
 
@@ -704,8 +873,8 @@ const Dashboard = () => {
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-blue-600" />
-                  Status Notifications
+                  <Bell className="w-5 h-5 text-primary" />
+                  {t("dashboard.notifications.title", "Status Notifications")}
                 </h3>
                 <div className="flex items-center gap-2">
                   <Button
@@ -720,7 +889,7 @@ const Dashboard = () => {
                       }
                     }}
                   >
-                    Preferences
+                    {t("dashboard.notifications.preferences", "Preferences")}
                   </Button>
                   <Button
                     variant="outline"
@@ -729,14 +898,18 @@ const Dashboard = () => {
                     onClick={handleSeedDemoNotifications}
                     disabled={isSeedingDemoNotifications}
                   >
-                    {isSeedingDemoNotifications ? "Generating..." : "Generate Demo"}
+                    {isSeedingDemoNotifications
+                      ? t("dashboard.notifications.generating", "Generating...")
+                      : t("dashboard.notifications.generateDemo", "Generate Demo")}
                   </Button>
                   <span className="text-xs text-gray-500">
-                    {notificationSummary.unreadCount} unread
+                    {notificationSummary.unreadCount}{" "}
+                    {t("dashboard.notifications.unread", "unread")}
                   </span>
                   <span className="text-xs text-orange-600 flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
-                    {notificationSummary.highPriorityCount} high priority
+                    {notificationSummary.highPriorityCount}{" "}
+                    {t("dashboard.notifications.highPriority", "high priority")}
                   </span>
                   {notifications.some((n) => !n.isRead) && (
                     <Button
@@ -745,7 +918,7 @@ const Dashboard = () => {
                       className="h-7 px-2 text-xs"
                       onClick={handleMarkAllNotificationsRead}
                     >
-                      Mark all read
+                      {t("dashboard.notifications.markAllRead", "Mark all read")}
                     </Button>
                   )}
                 </div>
@@ -753,7 +926,7 @@ const Dashboard = () => {
               {showNotificationPrefs && (
                 <div className="mb-3 rounded-lg border border-gray-200 p-3 space-y-3">
                   <p className="text-xs font-semibold text-gray-700 uppercase">
-                    Delivery Channels
+                    {t("dashboard.notifications.deliveryChannels", "Delivery Channels")}
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
                     {[
@@ -784,7 +957,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-gray-700 uppercase">
-                      Digest
+                      {t("dashboard.notifications.digest", "Digest")}
                     </label>
                     <select
                       className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
@@ -793,9 +966,9 @@ const Dashboard = () => {
                         updatePreference("digest.frequency", e.target.value)
                       }
                     >
-                      <option value="none">None</option>
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
+                      <option value="none">{t("dashboard.none", "None")}</option>
+                      <option value="daily">{t("dashboard.daily", "Daily")}</option>
+                      <option value="weekly">{t("dashboard.weekly", "Weekly")}</option>
                     </select>
                   </div>
                   <Button
@@ -804,7 +977,9 @@ const Dashboard = () => {
                     onClick={saveNotificationPreferences}
                     disabled={isSavingPrefs}
                   >
-                    {isSavingPrefs ? "Saving..." : "Save Preferences"}
+                    {isSavingPrefs
+                      ? t("dashboard.saving", "Saving...")
+                      : t("dashboard.notifications.savePreferences", "Save Preferences")}
                   </Button>
                 </div>
               )}
@@ -818,13 +993,15 @@ const Dashboard = () => {
                     className="h-7 px-2 text-xs capitalize"
                     onClick={() => setNotificationFilter(filter)}
                   >
-                    {filter}
+                    {notificationFilterLabel(filter)}
                   </Button>
                 ))}
               </div>
               <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                 {notifications.length === 0 && (
-                  <p className="text-sm text-gray-500">No recent status updates.</p>
+                  <p className="text-sm text-gray-500">
+                    {t("dashboard.notifications.empty", "No recent status updates.")}
+                  </p>
                 )}
                 {notifications.map((notification) => (
                   <div
@@ -832,7 +1009,7 @@ const Dashboard = () => {
                     className={`block rounded-xl border p-3 transition-colors ${
                       notification.isRead
                         ? "border-gray-100 bg-gray-50"
-                        : "border-blue-200 bg-blue-50 hover:border-blue-300"
+                        : "border-primary/30 bg-primary/10 hover:border-primary/40"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -841,7 +1018,7 @@ const Dashboard = () => {
                           to={`/track-complaint?complaintId=${notification.complaintId}`}
                           onClick={() => handleMarkNotificationRead(notification.id, true)}
                         >
-                          <p className="text-xs text-blue-600 font-semibold">
+                          <p className="text-xs text-primary font-semibold">
                             {notification.complaintId}
                           </p>
                           <p className="text-sm font-medium text-gray-900 line-clamp-2">
@@ -872,7 +1049,7 @@ const Dashboard = () => {
                               handleMarkNotificationRead(notification.id, true)
                             }
                           >
-                            Mark read
+                            {t("dashboard.notifications.markRead", "Mark read")}
                           </Button>
                         )}
                         <Button
@@ -894,7 +1071,7 @@ const Dashboard = () => {
                     className="w-full"
                     onClick={() => fetchNotifications(false)}
                   >
-                    Load more
+                    {t("dashboard.loadMore", "Load more")}
                   </Button>
                 )}
               </div>

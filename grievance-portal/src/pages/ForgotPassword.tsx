@@ -5,10 +5,12 @@ import { Mail, ArrowLeft, Loader2, KeyRound, Lock, Eye, EyeOff, CheckCircle2 } f
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import authService from "@/services/authService";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Step = "email" | "otp" | "newPassword" | "success";
 
 const ForgotPassword = () => {
+  const { t } = useLanguage();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
@@ -34,7 +36,7 @@ const ForgotPassword = () => {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      toast.error("Please enter your email address");
+      toast.error(t("register.errorValidEmail", "Please enter your email address"));
       return;
     }
 
@@ -43,7 +45,7 @@ const ForgotPassword = () => {
       const response = await authService.forgotPassword({ email: email.trim() });
       const userId = response?.data?.userId;
       if (!userId) {
-        toast.success(response.message || "If your email is registered, you will receive an OTP");
+        toast.success(response.message || t("forgot.sendOtp"));
         return;
       }
 
@@ -51,7 +53,7 @@ const ForgotPassword = () => {
       setOtp(Array(6).fill(""));
       setStep("otp");
       setTimer(45);
-      toast.success(response.message || "OTP sent to your email");
+      toast.success(response.message || t("forgot.sendOtp"));
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (error: any) {
       toast.error(error?.message || "Failed to send reset OTP");
@@ -81,14 +83,14 @@ const ForgotPassword = () => {
 
   const handleVerifyOtp = async () => {
     if (!resetUserId) {
-      toast.error("Please request OTP again");
+      toast.error(t("forgot.resendOtp", "Please request OTP again"));
       setStep("email");
       return;
     }
 
     const otpCode = otp.join("");
     if (otpCode.length !== 6) {
-      toast.error("Please enter a valid 6-digit OTP");
+      toast.error(t("forgot.verifyOtp", "Please enter a valid 6-digit OTP"));
       return;
     }
 
@@ -101,15 +103,15 @@ const ForgotPassword = () => {
 
       const token = response?.data?.resetToken;
       if (!token) {
-        toast.error("Failed to verify OTP");
+      toast.error(t("forgot.verifyOtp", "Failed to verify OTP"));
         return;
       }
 
       setResetToken(token);
       setStep("newPassword");
-      toast.success(response.message || "OTP verified");
+      toast.success(response.message || t("forgot.verifyOtp"));
     } catch (error: any) {
-      toast.error(error?.message || "OTP verification failed");
+      toast.error(error?.message || t("forgot.verifyOtp", "OTP verification failed"));
     } finally {
       setIsLoading(false);
     }
@@ -141,13 +143,13 @@ const ForgotPassword = () => {
     e.preventDefault();
 
     if (!resetToken) {
-      toast.error("Session expired. Please verify OTP again");
+      toast.error(t("forgot.verifyOtp", "Session expired. Please verify OTP again"));
       setStep("otp");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error(t("forgot.passwordMismatch"));
       return;
     }
 
@@ -163,11 +165,11 @@ const ForgotPassword = () => {
         newPassword,
         confirmPassword,
       });
-      toast.success(response.message || "Password reset successful");
+      toast.success(response.message || t("forgot.successTitle"));
       setStep("success");
       setTimeout(() => navigate("/login"), 3000);
     } catch (error: any) {
-      toast.error(error?.message || "Password reset failed");
+      toast.error(error?.message || t("forgot.resetPassword", "Password reset failed"));
     } finally {
       setIsLoading(false);
     }
@@ -181,7 +183,7 @@ const ForgotPassword = () => {
 
   const handleResendOtp = async () => {
     if (!email.trim()) {
-      toast.error("Please enter your email again");
+      toast.error(t("register.errorValidEmail", "Please enter your email again"));
       setStep("email");
       return;
     }
@@ -191,14 +193,14 @@ const ForgotPassword = () => {
       const response = await authService.forgotPassword({ email: email.trim() });
       const userId = response?.data?.userId;
       if (!userId) {
-        toast.success(response.message || "If your email is registered, you will receive an OTP");
+      toast.success(response.message || t("forgot.sendOtp"));
         return;
       }
 
       setResetUserId(userId);
       setTimer(45);
       setOtp(Array(6).fill(""));
-      toast.success(response.message || "OTP resent");
+      toast.success(response.message || t("forgot.resendOtp"));
       otpRefs.current[0]?.focus();
     } catch (error: any) {
       toast.error(error?.message || "Failed to resend OTP");
@@ -214,7 +216,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/40 to-background flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -236,46 +238,46 @@ const ForgotPassword = () => {
                 {/* Back Button */}
                 <Link to="/login" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors">
                   <ArrowLeft className="w-4 h-4" />
-                  <span className="text-sm">Back to Login</span>
+                  <span className="text-sm">{t("forgot.backLogin")}</span>
                 </Link>
 
                 {/* Header */}
                 <div className="text-center space-y-4">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+                  <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto shadow-lg">
                     <KeyRound className="w-10 h-10 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h1 className="text-3xl font-bold text-gray-900">Forgot Password?</h1>
-                    <p className="text-gray-500">Enter your email to receive a reset OTP</p>
+                    <h1 className="text-3xl font-bold text-gray-900">{t("forgot.title")}</h1>
+                    <p className="text-gray-500">{t("forgot.subtitle")}</p>
                   </div>
                 </div>
 
                 {/* Email Form */}
                 <form onSubmit={handleSendOtp} className="space-y-6">
                   <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type="email"
-                      placeholder="Enter your email address"
+                      placeholder={t("forgot.emailPlaceholder")}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                      className="w-full py-4 pl-12 pr-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
                   <Button
                     type="submit"
                     disabled={!email || isLoading}
-                    className="w-full py-4 h-auto text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    className="w-full py-4 h-auto text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:from-gray-300 disabled:to-gray-400 rounded-xl shadow-lg hover:shadow-xl transition-all"
                   >
                     {isLoading ? (
                       <>
                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Sending OTP...
+                        {t("forgot.sendingOtp")}
                       </>
                     ) : (
-                      "Send Reset OTP"
+                      t("forgot.sendOtp")
                     )}
                   </Button>
                 </form>
@@ -298,7 +300,7 @@ const ForgotPassword = () => {
                   className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span className="text-sm">Back</span>
+                  <span className="text-sm">{t("forgot.back")}</span>
                 </button>
 
                 {/* Header */}
@@ -307,9 +309,9 @@ const ForgotPassword = () => {
                     <Mail className="w-10 h-10 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h1 className="text-3xl font-bold text-gray-900">Verify OTP</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">{t("forgot.verifyTitle")}</h1>
                     <p className="text-gray-500">
-                      Enter the 6-digit code sent to <span className="font-medium">{email}</span>
+                      {t("forgot.verifySubtitle")} <span className="font-medium">{email}</span>
                     </p>
                   </div>
                 </div>
@@ -328,9 +330,9 @@ const ForgotPassword = () => {
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       className={`w-12 h-12 sm:w-14 sm:h-14 text-center text-xl font-bold rounded-xl border-2 transition-all outline-none ${
                         digit
-                          ? "border-blue-500 bg-blue-50 text-blue-600"
+                          ? "border-primary bg-primary/10 text-primary"
                           : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                      } focus:border-blue-500 focus:ring-4 focus:ring-blue-100`}
+                      } focus:border-primary focus:ring-4 focus:ring-ring/20`}
                     />
                   ))}
                 </div>
@@ -339,22 +341,22 @@ const ForgotPassword = () => {
                 <div className="text-center">
                   {timer > 0 ? (
                     <p className="text-gray-500">
-                      Resend OTP in{" "}
-                      <span className="font-mono font-bold text-blue-600">{formatTimer(timer)}</span>
+                      {t("forgot.resendIn")}{" "}
+                      <span className="font-mono font-bold text-primary">{formatTimer(timer)}</span>
                     </p>
                   ) : (
                     <button
                       onClick={handleResendOtp}
                       disabled={isLoading}
-                      className="text-blue-600 hover:text-blue-700 font-semibold transition-colors inline-flex items-center gap-2"
+                      className="text-primary hover:text-primary/80 font-semibold transition-colors inline-flex items-center gap-2"
                     >
                       {isLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Sending...
+                          {t("forgot.sending")}
                         </>
                       ) : (
-                        "Resend OTP"
+                        t("forgot.resendOtp")
                       )}
                     </button>
                   )}
@@ -368,10 +370,10 @@ const ForgotPassword = () => {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Verifying...
+                      {t("forgot.verifying")}
                     </>
                   ) : (
-                    "Verify OTP"
+                    t("forgot.verifyOtp")
                   )}
                 </Button>
               </motion.div>
@@ -393,8 +395,8 @@ const ForgotPassword = () => {
                     <Lock className="w-10 h-10 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h1 className="text-3xl font-bold text-gray-900">Set New Password</h1>
-                    <p className="text-gray-500">Create a strong password for your account</p>
+                    <h1 className="text-3xl font-bold text-gray-900">{t("forgot.newPasswordTitle")}</h1>
+                    <p className="text-gray-500">{t("forgot.newPasswordSubtitle")}</p>
                   </div>
                 </div>
 
@@ -403,13 +405,13 @@ const ForgotPassword = () => {
                   {/* New Password */}
                   <div className="space-y-2">
                     <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                       <input
                         type={showPassword ? "text" : "password"}
-                        placeholder="New Password"
+                        placeholder={t("forgot.newPassword")}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                        className="w-full py-4 pl-12 pr-12 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                       />
                       <button
                         type="button"
@@ -440,10 +442,10 @@ const ForgotPassword = () => {
 
                   {/* Confirm Password */}
                   <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
                       type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Confirm New Password"
+                      placeholder={t("forgot.confirmPassword")}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       className={`w-full py-4 pl-12 pr-12 rounded-xl border bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400 ${
@@ -451,7 +453,7 @@ const ForgotPassword = () => {
                           ? passwordsMatch
                             ? "border-green-500 focus:ring-green-500"
                             : "border-red-500 focus:ring-red-500"
-                          : "border-gray-200 focus:ring-blue-500"
+                          : "border-gray-200 focus:ring-ring"
                       }`}
                     />
                     <button
@@ -463,7 +465,7 @@ const ForgotPassword = () => {
                     </button>
                   </div>
                   {confirmPassword && !passwordsMatch && (
-                    <p className="text-sm text-red-500">Passwords do not match</p>
+                    <p className="text-sm text-red-500">{t("forgot.passwordMismatch")}</p>
                   )}
 
                   <Button
@@ -474,10 +476,10 @@ const ForgotPassword = () => {
                     {isLoading ? (
                       <>
                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Resetting Password...
+                        {t("forgot.resetting")}
                       </>
                     ) : (
-                      "Reset Password"
+                      t("forgot.resetPassword")
                     )}
                   </Button>
                 </form>
@@ -503,10 +505,10 @@ const ForgotPassword = () => {
                   <CheckCircle2 className="w-12 h-12 text-white" />
                 </motion.div>
                 <div className="space-y-2">
-                  <h1 className="text-3xl font-bold text-gray-900">Password Reset!</h1>
-                  <p className="text-gray-500">Your password has been successfully reset</p>
+                  <h1 className="text-3xl font-bold text-gray-900">{t("forgot.successTitle")}</h1>
+                  <p className="text-gray-500">{t("forgot.successSubtitle")}</p>
                 </div>
-                <p className="text-gray-400">Redirecting to login...</p>
+                <p className="text-gray-400">{t("forgot.redirecting")}</p>
               </motion.div>
             )}
           </AnimatePresence>

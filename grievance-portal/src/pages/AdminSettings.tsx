@@ -591,7 +591,7 @@ const AdminSettings = () => {
                     type="button"
                     onClick={() => setSection(item.id)}
                     className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition ${
-                      active ? "border-blue-500 bg-blue-50 text-blue-800" : "border-transparent hover:border-slate-200 hover:bg-slate-50"
+                      active ? "border-primary bg-primary/10 text-primary" : "border-transparent hover:border-slate-200 hover:bg-slate-50"
                     }`}
                   >
                     <span className="flex items-center gap-2">
@@ -757,7 +757,7 @@ const AdminSettings = () => {
 
                   <div className="rounded-lg border p-4 space-y-4">
                     <div className="flex items-center gap-2">
-                      <Megaphone className="h-5 w-5 text-blue-600" />
+                      <Megaphone className="h-5 w-5 text-primary" />
                       <h3 className="font-semibold text-slate-900">Broadcast Announcement</h3>
                     </div>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/select";
 import Navbar from "@/components/Navbar";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Officer {
   id: string;
@@ -129,8 +130,8 @@ const departmentIcons = [
   {
     icon: Building2,
     name: "Building",
-    color: "text-blue-600",
-    bg: "bg-blue-100",
+    color: "text-primary",
+    bg: "bg-primary/15",
   },
   { icon: Droplets, name: "Water", color: "text-cyan-600", bg: "bg-cyan-100" },
   {
@@ -156,8 +157,8 @@ const departmentIcons = [
   {
     icon: Landmark,
     name: "Municipal",
-    color: "text-indigo-600",
-    bg: "bg-indigo-100",
+    color: "text-primary",
+    bg: "bg-primary/15",
   },
   {
     icon: Stethoscope,
@@ -182,6 +183,7 @@ const departmentIcons = [
 const initialDepartments: Department[] = [];
 
 const DepartmentManagement = () => {
+  const { t } = useLanguage();
   const [departments, setDepartments] =
     useState<Department[]>(initialDepartments);
   const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
@@ -274,7 +276,7 @@ const DepartmentManagement = () => {
       setDepartments(mapped);
       return mapped;
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to load departments");
+      toast.error(err.response?.data?.message || t("departments.error.loadDepartments", "Failed to load departments"));
       return [];
     }
   };
@@ -294,13 +296,13 @@ const DepartmentManagement = () => {
           })),
       );
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to load users");
+      toast.error(err.response?.data?.message || t("departments.error.loadUsers", "Failed to load users"));
     }
   };
 
   const handleSaveDepartment = async () => {
     if (!formData.name || !formData.code) {
-      toast.error("Name and code are required");
+      toast.error(t("departments.error.nameCodeRequired", "Name and code are required"));
       return;
     }
     setIsSaving(true);
@@ -323,16 +325,16 @@ const DepartmentManagement = () => {
 
       if (editingDepartment?._id) {
         await adminService.updateDepartment(editingDepartment._id, payload);
-        toast.success("Department updated!");
+        toast.success(t("departments.updated", "Department updated!"));
       } else {
         await adminService.createDepartment(payload);
-        toast.success("Department created!");
+        toast.success(t("departments.created", "Department created!"));
       }
 
       await fetchDepartments();
       setIsAddEditModalOpen(false);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to save");
+      toast.error(err.response?.data?.message || t("departments.error.save", "Failed to save"));
     } finally {
       setIsSaving(false);
     }
@@ -360,7 +362,7 @@ const DepartmentManagement = () => {
           newOfficer.designation,
         ];
         if (required.some((v) => !v)) {
-          toast.error("Please fill all new officer details");
+          toast.error(t("departments.error.officerDetailsRequired", "Please fill all new officer details"));
           return;
         }
         await adminService.addOfficer(selectedDepartment._id, {
@@ -377,7 +379,7 @@ const DepartmentManagement = () => {
           },
         });
       }
-      toast.success("Officer added!");
+      toast.success(t("departments.officerAdded", "Officer added!"));
       setNewOfficer({
         userId: "",
         designation: "",
@@ -394,7 +396,7 @@ const DepartmentManagement = () => {
       const updated = updatedDepartments.find((d) => d._id === selectedDepartment._id);
       if (updated) setSelectedDepartment(updated);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to add officer");
+      toast.error(err.response?.data?.message || t("departments.error.addOfficer", "Failed to add officer"));
     }
   };
 
@@ -402,10 +404,10 @@ const DepartmentManagement = () => {
     if (!selectedDepartment?._id) return;
     try{
     await adminService.removeOfficer(selectedDepartment._id, officerId);
-    toast.success("Officer removed!");
+    toast.success(t("departments.officerRemoved", "Officer removed!"));
     await fetchDepartments();
     } catch(err:any){
-      toast.error(err.response?.data?.message || "Failed to remove officer");
+      toast.error(err.response?.data?.message || t("departments.error.removeOfficer", "Failed to remove officer"));
     }
   };
 
@@ -497,7 +499,7 @@ const DepartmentManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/30 to-background dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navbar />
 
       <div className="container mx-auto px-4 py-8">
@@ -505,7 +507,7 @@ const DepartmentManagement = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Manage Departments
+              {t("departments.title", "Manage Departments")}
             </h1>
             <p className="text-muted-foreground mt-1">
               Configure departments, assign officers, and set SLA targets
@@ -513,10 +515,10 @@ const DepartmentManagement = () => {
           </div>
           <Button
             onClick={openAddModal}
-            className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 gap-2"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
           >
             <Plus className="h-5 w-5" />
-            Add New Department
+            {t("departments.addNew", "Add New Department")}
           </Button>
         </div>
 
@@ -691,12 +693,12 @@ const DepartmentManagement = () => {
               {editingDepartment ? (
                 <>
                   <Edit className="h-5 w-5" />
-                  Edit Department
+                  {t("departments.edit", "Edit Department")}
                 </>
               ) : (
                 <>
                   <Plus className="h-5 w-5" />
-                  Add New Department
+                  {t("departments.addNew", "Add New Department")}
                 </>
               )}
             </DialogTitle>
@@ -708,7 +710,7 @@ const DepartmentManagement = () => {
           <div className="space-y-6 py-4">
             {/* Icon Selection */}
             <div>
-              <Label className="mb-3 block">Department Icon</Label>
+              <Label className="mb-3 block">{t("departments.icon", "Department Icon")}</Label>
               <div className="flex flex-wrap gap-2">
                 {departmentIcons.map((iconData, idx) => {
                   const IconComp = iconData.icon;
@@ -735,10 +737,10 @@ const DepartmentManagement = () => {
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Department Name *</Label>
+                <Label htmlFor="name">{t("departments.name", "Department Name")} *</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., Public Works Department"
+                  placeholder={t("departments.namePlaceholder", "e.g., Public Works Department")}
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
@@ -747,7 +749,7 @@ const DepartmentManagement = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="code">Department Code *</Label>
+                <Label htmlFor="code">{t("departments.code", "Department Code")} *</Label>
                 <Input
                   id="code"
                   placeholder="e.g., PWD"
@@ -939,7 +941,7 @@ const DepartmentManagement = () => {
               variant="outline"
               onClick={() => setIsAddEditModalOpen(false)}
             >
-              Cancel
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               onClick={handleSaveDepartment}
@@ -954,7 +956,7 @@ const DepartmentManagement = () => {
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  {editingDepartment ? "Update Department" : "Add Department"}
+                  {editingDepartment ? t("departments.update", "Update Department") : t("departments.add", "Add Department")}
                 </>
               )}
             </Button>
@@ -968,10 +970,10 @@ const DepartmentManagement = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Manage Officers - {selectedDepartment?.name}
+              {t("departments.manageOfficers", "Manage Officers")} - {selectedDepartment?.name}
             </DialogTitle>
             <DialogDescription>
-              Add or remove officers assigned to this department.
+              {t("departments.manageOfficersSub", "Add or remove officers assigned to this department.")}
             </DialogDescription>
           </DialogHeader>
 
@@ -979,7 +981,7 @@ const DepartmentManagement = () => {
             {/* Current Officers */}
             <div>
               <Label className="mb-3 block">
-                Current Officers ({selectedDepartment?.officers.length || 0})
+                {t("departments.currentOfficers", "Current Officers")} ({selectedDepartment?.officers.length || 0})
               </Label>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {selectedDepartment?.officers.map((officer) => (
@@ -1025,7 +1027,7 @@ const DepartmentManagement = () => {
             <div className="pt-4 border-t space-y-3">
               <Label className="flex items-center gap-2">
                 <UserPlus className="h-4 w-4" />
-                Add New Officer
+                {t("departments.addOfficer", "Add New Officer")}
               </Label>
 
               <div className="grid grid-cols-2 gap-2">

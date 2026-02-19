@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import complaintService from "@/services/complaintService";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ComplaintResult {
   id: string;
@@ -39,6 +40,7 @@ interface ComplaintResult {
 }
 
 const TrackComplaint = () => {
+  const { t } = useLanguage();
   const [complaintId, setComplaintId] = useState("");
   const [searchParams] = useSearchParams();
   const [isSearching, setIsSearching] = useState(false);
@@ -96,7 +98,7 @@ const TrackComplaint = () => {
       if (error.response?.status === 404) {
         setNotFound(true);
       } else {
-        toast.error("Failed to track complaint");
+        toast.error(t("track.errorGeneric"));
       }
     } finally {
       setIsSearching(false);
@@ -113,10 +115,10 @@ const TrackComplaint = () => {
   }, [searchParams]);
 
   const stages = [
-    { key: "filed", label: "Filed", icon: FileText },
-    { key: "assigned", label: "Assigned", icon: User },
-    { key: "in-progress", label: "In Progress", icon: Loader2 },
-    { key: "resolved", label: "Resolved", icon: CheckCircle2 },
+    { key: "filed", label: t("track.filed"), icon: FileText },
+    { key: "assigned", label: t("track.assigned"), icon: User },
+    { key: "in-progress", label: t("track.inProgress"), icon: Loader2 },
+    { key: "resolved", label: t("track.resolved"), icon: CheckCircle2 },
   ];
 
   const getStageIndex = (status: string) => {
@@ -147,7 +149,7 @@ const TrackComplaint = () => {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       filed: "bg-gray-100 text-gray-800",
-      assigned: "bg-blue-100 text-blue-800",
+      assigned: "bg-primary/15 text-primary",
       "in-progress": "bg-yellow-100 text-yellow-800",
       resolved: "bg-green-100 text-green-800",
     };
@@ -155,7 +157,7 @@ const TrackComplaint = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/30 to-background">
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -167,10 +169,10 @@ const TrackComplaint = () => {
         >
           <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200">
             <Shield className="w-4 h-4 text-green-600" />
-            <span className="text-sm text-gray-600">Public Tracking</span>
+            <span className="text-sm text-gray-600">{t("track.publicTracking")}</span>
             <span className="text-gray-300">|</span>
             <Lock className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-500">No login required</span>
+            <span className="text-sm text-gray-500">{t("track.noLoginRequired")}</span>
           </div>
         </motion.div>
 
@@ -181,7 +183,7 @@ const TrackComplaint = () => {
           transition={{ delay: 0.1 }}
         >
           <Card className="rounded-3xl shadow-2xl border-0 overflow-hidden bg-white">
-            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white text-center">
+            <div className="bg-primary text-primary-foreground p-8 text-white text-center">
               <motion.div
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
@@ -191,10 +193,10 @@ const TrackComplaint = () => {
                   <Search className="w-10 h-10 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold mb-2">
-                  Track Your Complaint
+                  {t("track.title")}
                 </h1>
                 <p className="text-blue-100">
-                  Enter your complaint ID to check the current status
+                  {t("track.subtitle")}
                 </p>
               </motion.div>
             </div>
@@ -205,27 +207,27 @@ const TrackComplaint = () => {
                   <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <Input
                     type="text"
-                    placeholder="Enter Complaint ID"
+                    placeholder={t("track.placeholder")}
                     value={complaintId}
                     onChange={(e) => setComplaintId(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    className="pl-12 pr-4 py-6 text-lg rounded-xl border-2 border-gray-200 focus:border-blue-500 transition-colors"
+                    className="pl-12 pr-4 py-6 text-lg rounded-xl border-2 border-gray-200 focus:border-primary transition-colors"
                   />
                 </div>
                   <Button
                     onClick={() => handleSearch()}
                     disabled={isSearching || !complaintId.trim()}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
                 >
                   {isSearching ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Searching...
+                      {t("track.searchingBtn")}
                     </>
                   ) : (
                     <>
                       <Search className="w-5 h-5 mr-2" />
-                      Track
+                      {t("track.trackBtn")}
                     </>
                   )}
                 </Button>
@@ -247,8 +249,8 @@ const TrackComplaint = () => {
               exit={{ opacity: 0, y: -20 }}
               className="mt-8 flex flex-col items-center justify-center py-12"
             >
-              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4" />
-              <p className="text-gray-600">Searching for your complaint...</p>
+              <div className="w-16 h-16 border-4 border-primary/30 border-t-blue-600 rounded-full animate-spin mb-4" />
+              <p className="text-gray-600">{t("track.searchingMsg")}</p>
             </motion.div>
           )}
 
@@ -266,7 +268,7 @@ const TrackComplaint = () => {
                     <AlertCircle className="w-8 h-8 text-red-500" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Complaint Not Found
+                    {t("track.notFoundTitle")}
                   </h3>
                   <p className="text-gray-600 mb-4">
                     No complaint found with ID:{" "}
@@ -275,8 +277,7 @@ const TrackComplaint = () => {
                     </span>
                   </p>
                   <p className="text-sm text-gray-500">
-                    Please check the complaint ID and try again. If you believe
-                    this is an error, please contact our helpline.
+                    {t("track.notFoundHelp")}
                   </p>
                 </CardContent>
               </Card>
@@ -296,8 +297,8 @@ const TrackComplaint = () => {
                 <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 border-b">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Complaint ID</p>
-                      <CardTitle className="text-xl font-mono text-blue-600">
+                      <p className="text-sm text-gray-500 mb-1">{t("track.complaintId")}</p>
+                      <CardTitle className="text-xl font-mono text-primary">
                         {result.id}
                       </CardTitle>
                     </div>
@@ -318,7 +319,7 @@ const TrackComplaint = () => {
                     {result.title}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Assigned to:</span>{" "}
+                    <span className="font-medium">{t("track.assignedTo")}</span>{" "}
                     {result.department}
                   </p>
                 </CardContent>
@@ -327,7 +328,7 @@ const TrackComplaint = () => {
               {/* Progress Bar */}
               <Card className="rounded-2xl shadow-lg border-0">
                 <CardHeader>
-                  <CardTitle className="text-lg">Complaint Progress</CardTitle>
+                  <CardTitle className="text-lg">{t("track.progress")}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
                   <div className="relative">
@@ -390,9 +391,9 @@ const TrackComplaint = () => {
                               <motion.span
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="text-xs text-blue-600 mt-1"
+                                className="text-xs text-primary mt-1"
                               >
-                                Current
+                                {t("track.current")}
                               </motion.span>
                             )}
                           </motion.div>
@@ -406,17 +407,17 @@ const TrackComplaint = () => {
               {/* Timeline */}
               <Card className="rounded-2xl shadow-lg border-0">
                 <CardHeader>
-                  <CardTitle className="text-lg">Timeline</CardTitle>
+                  <CardTitle className="text-lg">{t("track.timeline")}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
                   <div className="space-y-4">
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-blue-600" />
+                      <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">
-                          Complaint Filed
+                          {t("track.complaintFiled")}
                         </p>
                         <p className="text-sm text-gray-500">
                           {formatDate(result.filedDate)}
@@ -426,12 +427,12 @@ const TrackComplaint = () => {
 
                     {result.assignedDate && (
                       <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                          <User className="w-5 h-5 text-indigo-600" />
+                        <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-primary" />
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">
-                            Assigned to Department
+                            {t("track.assignedDept")}
                           </p>
                           <p className="text-sm text-gray-500">
                             {formatDate(result.assignedDate)}
@@ -449,7 +450,7 @@ const TrackComplaint = () => {
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">
-                          Last Updated
+                          {t("track.lastUpdated")}
                         </p>
                         <p className="text-sm text-gray-500">
                           {formatDate(result.lastUpdate)}
@@ -463,7 +464,7 @@ const TrackComplaint = () => {
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">
-                          Estimated Resolution
+                          {t("track.estimatedResolution")}
                         </p>
                         <p className="text-sm text-gray-500">
                           {formatDate(result.estimatedResolution)}
@@ -479,20 +480,20 @@ const TrackComplaint = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-3">
-                      <Lock className="w-6 h-6 text-blue-600" />
+                      <Lock className="w-6 h-6 text-primary" />
                       <div>
                         <p className="font-medium text-gray-900">
-                          Want more details?
+                          {t("track.moreDetails")}
                         </p>
                         <p className="text-sm text-gray-600">
-                          Login to view complete information and updates
+                          {t("track.moreDetailsSub")}
                         </p>
                       </div>
                     </div>
                     <Link to="/login">
-                      <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl">
+                      <Button className="bg-primary text-primary-foreground hover:bg-primary/90 text-white rounded-xl">
                         <LogIn className="w-4 h-4 mr-2" />
-                        Login for Details
+                        {t("track.loginDetails")}
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </Link>
@@ -518,10 +519,10 @@ const TrackComplaint = () => {
                 </div>
                 <div className="flex-1 text-center sm:text-left">
                   <h3 className="text-xl font-semibold text-gray-900 mb-1">
-                    Need Help?
+                    {t("track.needHelp")}
                   </h3>
                   <p className="text-gray-600">
-                    Our support team is available 24/7 to assist you
+                    {t("track.needHelpSub")}
                   </p>
                 </div>
                 <div className="flex flex-col items-center sm:items-end gap-2">
@@ -530,7 +531,7 @@ const TrackComplaint = () => {
                     <span>1800-XXX-XXXX</span>
                   </div>
                   <span className="text-sm text-gray-500">
-                    Toll Free | Available 24/7
+                    {t("track.tollFree")}
                   </span>
                 </div>
               </div>

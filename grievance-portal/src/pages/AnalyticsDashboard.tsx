@@ -18,6 +18,7 @@ import {
 import { format, subDays } from "date-fns";
 import adminService from "@/services/adminService";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const timeRanges = [
   { label: "Today", value: "today" },
@@ -28,7 +29,7 @@ const timeRanges = [
 ];
 
 const EMPTY_METRICS = [
-  { title: "Total Complaints Filed", value: "0", change: 0, trend: "up", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
+  { title: "Total Complaints Filed", value: "0", change: 0, trend: "up", icon: FileText, color: "text-primary", bgColor: "bg-primary/15" },
   { title: "Resolution Rate", value: "0%", change: 0, trend: "up", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
   { title: "Avg Resolution Time", value: "0.0 days", change: 0, trend: "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
   { title: "Citizen Satisfaction", value: "0.0/5", change: 0, trend: "up", icon: Star, color: "text-amber-600", bgColor: "bg-amber-100" },
@@ -61,6 +62,7 @@ const SparklineChart = ({ data, direction }: { data: number[]; direction: "up" |
 
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [selectedRange, setSelectedRange] = useState("30days");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
@@ -109,7 +111,7 @@ const AnalyticsDashboard = () => {
       if (d.keyMetrics) {
         const cmp = d.keyMetrics.comparison || {};
         setKeyMetrics([
-          { title: "Total Complaints Filed", value: d.keyMetrics.totalFiled ?? "0", change: Number(cmp.totalFiled ?? 0), trend: Number(cmp.totalFiled ?? 0) >= 0 ? "up" : "down", icon: FileText, color: "text-blue-600", bgColor: "bg-blue-100" },
+          { title: "Total Complaints Filed", value: d.keyMetrics.totalFiled ?? "0", change: Number(cmp.totalFiled ?? 0), trend: Number(cmp.totalFiled ?? 0) >= 0 ? "up" : "down", icon: FileText, color: "text-primary", bgColor: "bg-primary/15" },
           { title: "Resolution Rate", value: d.keyMetrics.resolutionRate ?? "0%", change: Number(cmp.resolutionRate ?? 0), trend: Number(cmp.resolutionRate ?? 0) >= 0 ? "up" : "down", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
           { title: "Avg Resolution Time", value: d.keyMetrics.avgResolutionTime ?? "0.0 days", change: Number(cmp.avgResolutionTime ?? 0), trend: Number(cmp.avgResolutionTime ?? 0) >= 0 ? "up" : "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
           { title: "Citizen Satisfaction", value: d.keyMetrics.citizenSatisfaction ?? "0.0/5", change: Number(cmp.citizenSatisfaction ?? 0), trend: Number(cmp.citizenSatisfaction ?? 0) >= 0 ? "up" : "down", icon: Star, color: "text-amber-600", bgColor: "bg-amber-100" },
@@ -195,7 +197,7 @@ const AnalyticsDashboard = () => {
       setCategoryBreakdown([]);
       setHeatmapZones([]);
       setInsights([]);
-      toast.error("Failed to load analytics data");
+      toast.error(t("analytics.error.loadData", "Failed to load analytics data"));
     } finally {
       setIsLoading(false);
     }
@@ -212,11 +214,11 @@ const AnalyticsDashboard = () => {
   const handleExportReport = () => {
     try {
       if (selectedRange === "custom" && (!dateFrom || !dateTo)) {
-        toast.error("Select both start and end dates for custom range");
+        toast.error(t("analytics.error.selectRange", "Select both start and end dates for custom range"));
         return;
       }
       if (selectedRange === "custom" && dateFrom && dateTo && dateFrom > dateTo) {
-        toast.error("Start date cannot be after end date");
+        toast.error(t("analytics.error.invalidRange", "Start date cannot be after end date"));
         return;
       }
 
@@ -229,18 +231,18 @@ const AnalyticsDashboard = () => {
           ? `${format(dateFrom!, "yyyy-MM-dd")} to ${format(dateTo!, "yyyy-MM-dd")}`
           : timeRanges.find((r) => r.value === selectedRange)?.label || selectedRange;
 
-      lines.push("Admin Analytics Report");
+      lines.push(t("analytics.export.title", "Admin Analytics Report"));
       lines.push(`Generated At,${csvEscape(now.toISOString())}`);
       lines.push(`Time Range,${csvEscape(rangeLabel)}`);
       lines.push("");
 
-      lines.push("Key Metrics");
-      lines.push("Metric,Value");
+      lines.push(t("analytics.export.keyMetrics", "Key Metrics"));
+      lines.push(t("analytics.export.metricValue", "Metric,Value"));
       keyMetrics.forEach((m) => lines.push(`${csvEscape(m.title)},${csvEscape(m.value)}`));
       lines.push("");
 
-      lines.push("Trend Data");
-      lines.push("Period,Filed,Resolved,Pending");
+      lines.push(t("analytics.export.trendData", "Trend Data"));
+      lines.push(t("analytics.export.periodFiledResolvedPending", "Period,Filed,Resolved,Pending"));
       trendData.forEach((t: any) =>
         lines.push(
           `${csvEscape(t.name ?? "")},${csvEscape(t.filed ?? 0)},${csvEscape(t.resolved ?? 0)},${csvEscape(t.pending ?? 0)}`,
@@ -248,22 +250,22 @@ const AnalyticsDashboard = () => {
       );
       lines.push("");
 
-      lines.push("Category Distribution");
-      lines.push("Category,Value");
+      lines.push(t("analytics.export.categoryDistribution", "Category Distribution"));
+      lines.push(t("analytics.export.categoryValue", "Category,Value"));
       categoryData.forEach((c: any) =>
         lines.push(`${csvEscape(c.name ?? "")},${csvEscape(c.value ?? 0)}`),
       );
       lines.push("");
 
-      lines.push("Department Performance");
-      lines.push("Department,Avg Resolution Time (days)");
+      lines.push(t("analytics.export.departmentPerformance", "Department Performance"));
+      lines.push(t("analytics.export.departmentAvgTime", "Department,Avg Resolution Time (days)"));
       deptData.forEach((d: any) =>
         lines.push(`${csvEscape(d.name ?? "")},${csvEscape(d.time ?? 0)}`),
       );
       lines.push("");
 
-      lines.push("Status Distribution");
-      lines.push("Status,Value");
+      lines.push(t("analytics.export.statusDistribution", "Status Distribution"));
+      lines.push(t("analytics.export.statusValue", "Status,Value"));
       statusData.forEach((s: any) =>
         lines.push(`${csvEscape(s.name ?? "")},${csvEscape(s.value ?? 0)}`),
       );
@@ -275,9 +277,9 @@ const AnalyticsDashboard = () => {
       link.download = `admin-analytics-${selectedRange}-${format(now, "yyyyMMdd-HHmm")}.csv`;
       link.click();
       URL.revokeObjectURL(url);
-      toast.success("Report exported");
+      toast.success(t("analytics.export.success", "Report exported"));
     } catch {
-      toast.error("Failed to export report");
+      toast.error(t("analytics.export.failed", "Failed to export report"));
     } finally {
       setIsExporting(false);
     }
@@ -293,7 +295,7 @@ const AnalyticsDashboard = () => {
     const map: Record<string, string> = {
       warning: "bg-yellow-100 text-yellow-800 border-yellow-300",
       alert:   "bg-orange-100 text-orange-800 border-orange-300",
-      info:    "bg-blue-100 text-blue-800 border-blue-300",
+      info:    "bg-primary/15 text-primary border-primary/40",
       critical:"bg-red-100 text-red-800 border-red-300",
       success: "bg-green-100 text-green-800 border-green-300",
     };
@@ -309,8 +311,8 @@ const AnalyticsDashboard = () => {
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}><ArrowLeft className="h-5 w-5" /></Button>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Analytics Dashboard</h1>
-                <p className="text-muted-foreground text-sm">Comprehensive grievance analytics and insights</p>
+                <h1 className="text-2xl font-bold text-foreground">{t("analytics.title", "Analytics Dashboard")}</h1>
+                <p className="text-muted-foreground text-sm">{t("analytics.subtitle", "Comprehensive grievance analytics and insights")}</p>
               </div>
             </div>
             <Button
@@ -319,14 +321,14 @@ const AnalyticsDashboard = () => {
                 isExporting ||
                 (selectedRange === "custom" && (!dateFrom || !dateTo))
               }
-              className="hidden sm:inline-flex bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+              className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 text-white"
             >
               {isExporting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Download className="h-4 w-4 mr-2" />
               )}
-              {isExporting ? "Exporting..." : "Export Report"}
+              {isExporting ? t("analytics.exporting", "Exporting...") : t("analytics.exportReport", "Export Report")}
             </Button>
           </div>
         </div>
@@ -337,7 +339,7 @@ const AnalyticsDashboard = () => {
         <Card>
           <CardContent className="py-4">
             <div className="flex flex-wrap items-center gap-4">
-              <span className="text-sm font-medium text-muted-foreground">Time Range:</span>
+              <span className="text-sm font-medium text-muted-foreground">{t("analytics.timeRange", "Time Range:")}</span>
               <div className="flex flex-wrap gap-2">
                 {timeRanges.map(range => (
                   <Button key={range.value} variant={selectedRange === range.value ? "default" : "outline"} size="sm" onClick={() => setSelectedRange(range.value)}>
@@ -349,16 +351,16 @@ const AnalyticsDashboard = () => {
                 <div className="flex items-center gap-2">
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm"><Calendar className="h-4 w-4 mr-2" />{dateFrom ? format(dateFrom, "MMM dd, yyyy") : "Start Date"}</Button>
+                      <Button variant="outline" size="sm"><Calendar className="h-4 w-4 mr-2" />{dateFrom ? format(dateFrom, "MMM dd, yyyy") : t("analytics.startDate", "Start Date")}</Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <CalendarComponent mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus />
                     </PopoverContent>
                   </Popover>
-                  <span className="text-muted-foreground">to</span>
+                  <span className="text-muted-foreground">{t("analytics.to", "to")}</span>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm"><Calendar className="h-4 w-4 mr-2" />{dateTo ? format(dateTo, "MMM dd, yyyy") : "End Date"}</Button>
+                      <Button variant="outline" size="sm"><Calendar className="h-4 w-4 mr-2" />{dateTo ? format(dateTo, "MMM dd, yyyy") : t("analytics.endDate", "End Date")}</Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <CalendarComponent mode="single" selected={dateTo} onSelect={setDateTo} initialFocus />
@@ -373,14 +375,14 @@ const AnalyticsDashboard = () => {
                     isExporting ||
                     (selectedRange === "custom" && (!dateFrom || !dateTo))
                   }
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-white"
                 >
                   {isExporting ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Download className="h-4 w-4 mr-2" />
                   )}
-                  {isExporting ? "Exporting..." : "Export Report"}
+                  {isExporting ? t("analytics.exporting", "Exporting...") : t("analytics.exportReport", "Export Report")}
                 </Button>
               </div>
             </div>
@@ -391,7 +393,7 @@ const AnalyticsDashboard = () => {
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
-              Loading analytics...
+              {t("analytics.loading", "Loading analytics...")}
             </CardContent>
           </Card>
         )}
@@ -420,11 +422,11 @@ const AnalyticsDashboard = () => {
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="min-h-[380px]">
-            <CardHeader><CardTitle className="text-lg">Complaint Trends Over Time</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg">{t("analytics.trends", "Complaint Trends Over Time")}</CardTitle></CardHeader>
             <CardContent>
               {trendData.length === 0 ? (
                 <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
-                  No trend data for selected range
+                  {t("analytics.noTrendData", "No trend data for selected range")}
                 </div>
               ) : (
                 <div className="w-full" style={{ height: 300, minHeight: 300, minWidth: 0 }}>
@@ -435,9 +437,9 @@ const AnalyticsDashboard = () => {
                       <YAxis stroke="hsl(var(--muted-foreground))" />
                       <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
                       <Legend />
-                      <Line type="monotone" dataKey="filed" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} name="Filed" />
-                      <Line type="monotone" dataKey="resolved" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} name="Resolved" />
-                      <Line type="monotone" dataKey="pending" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} name="Pending" />
+                      <Line type="monotone" dataKey="filed" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.filed", "Filed")} />
+                      <Line type="monotone" dataKey="resolved" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.resolved", "Resolved")} />
+                      <Line type="monotone" dataKey="pending" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.pending", "Pending")} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -446,11 +448,11 @@ const AnalyticsDashboard = () => {
           </Card>
 
           <Card className="min-h-[380px]">
-            <CardHeader><CardTitle className="text-lg">Department Performance Comparison</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg">{t("analytics.departmentPerformance", "Department Performance Comparison")}</CardTitle></CardHeader>
             <CardContent>
               {deptData.length === 0 ? (
                 <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
-                  No department performance data
+                  {t("analytics.noDepartmentData", "No department performance data")}
                 </div>
               ) : (
                 <div className="w-full" style={{ height: 300, minHeight: 300, minWidth: 0 }}>
@@ -459,7 +461,7 @@ const AnalyticsDashboard = () => {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
                       <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v} days`, "Avg Resolution"]} />
+                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v} ${t("analytics.days", "days")}`, t("analytics.avgResolution", "Avg Resolution")]} />
                       <Bar dataKey="time" radius={[4, 4, 0, 0]}>
                         {deptData.map((d, i) => <Cell key={i} fill={getDeptBarColor(Number(d.time || 0))} />)}
                       </Bar>
@@ -474,13 +476,13 @@ const AnalyticsDashboard = () => {
         {/* Charts Row 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="min-h-[360px]">
-            <CardHeader><CardTitle className="text-lg">Complaints by Category</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg">{t("analytics.complaintsByCategory", "Complaints by Category")}</CardTitle></CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row items-center gap-4">
                 <div className="w-full" style={{ height: 280, minHeight: 280, minWidth: 0 }}>
                   {categoryData.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                      No category distribution data
+                      {t("analytics.noCategoryData", "No category distribution data")}
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
@@ -494,7 +496,7 @@ const AnalyticsDashboard = () => {
                               opacity={selectedCategory === null || selectedCategory === entry.name ? 1 : 0.4} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v}`, "Count"]} />
+                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v}`, t("analytics.count", "Count")]} />
                       </PieChart>
                     </ResponsiveContainer>
                   )}
@@ -515,13 +517,13 @@ const AnalyticsDashboard = () => {
           </Card>
 
           <Card className="min-h-[360px]">
-            <CardHeader><CardTitle className="text-lg">Status Distribution</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg">{t("analytics.statusDistribution", "Status Distribution")}</CardTitle></CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row items-center gap-4">
                 <div className="w-full" style={{ height: 280, minHeight: 280, minWidth: 0 }}>
                   {statusData.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                      No status distribution data
+                      {t("analytics.noStatusData", "No status distribution data")}
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
@@ -559,7 +561,7 @@ const AnalyticsDashboard = () => {
 
         {/* Geographic Heatmap */}
         <Card>
-          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />Complaint Density Heat Map</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />{t("analytics.heatmap", "Complaint Density Heat Map")}</CardTitle></CardHeader>
           <CardContent>
             <div className="relative bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-lg h-80 overflow-hidden">
               <div className="absolute inset-0 grid grid-cols-4 grid-rows-3 opacity-20">
@@ -573,7 +575,7 @@ const AnalyticsDashboard = () => {
                 >
                   {hoveredZone === zone.id && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-popover text-popover-foreground px-3 py-2 rounded-lg shadow-lg text-sm whitespace-nowrap border border-border">
-                      <p className="font-semibold">{zone.name}</p><p>{zone.complaints} complaints</p>
+                      <p className="font-semibold">{zone.name}</p><p>{zone.complaints} {t("analytics.complaints", "complaints")}</p>
                     </div>
                   )}
                   <span className="text-white font-bold text-xs">{zone.complaints}</span>
@@ -581,13 +583,13 @@ const AnalyticsDashboard = () => {
               ))}
               {heatmapZones.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
-                  No geo-density data for selected range
+                  {t("analytics.noGeoData", "No geo-density data for selected range")}
                 </div>
               )}
               <div className="absolute bottom-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 border border-border">
-                <p className="text-xs font-semibold text-foreground mb-2">Density</p>
+                <p className="text-xs font-semibold text-foreground mb-2">{t("analytics.density", "Density")}</p>
                 <div className="space-y-1">
-                  {[{ color: "bg-red-500", label: "High (>50)" }, { color: "bg-yellow-500", label: "Medium (20-50)" }, { color: "bg-green-500", label: "Low (<20)" }].map(l => (
+                  {[{ color: "bg-red-500", label: t("analytics.high", "High (>50)") }, { color: "bg-yellow-500", label: t("analytics.medium", "Medium (20-50)") }, { color: "bg-green-500", label: t("analytics.low", "Low (<20)") }].map(l => (
                     <div key={l.label} className="flex items-center gap-2 text-xs">
                       <span className={`w-3 h-3 rounded-full ${l.color}`} /><span className="text-muted-foreground">{l.label}</span>
                     </div>
@@ -600,12 +602,12 @@ const AnalyticsDashboard = () => {
 
         {/* AI Insights */}
         <Card className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
-          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-600" />AI-Generated Insights</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-600" />{t("analytics.aiInsights", "AI-Generated Insights")}</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
               {insights.length === 0 && (
                 <div className="p-3 bg-card rounded-lg border border-border text-sm text-muted-foreground">
-                  No insights available for selected range.
+                  {t("analytics.noInsights", "No insights available for selected range.")}
                 </div>
               )}
               {insights.map(insight => (
@@ -623,23 +625,23 @@ const AnalyticsDashboard = () => {
 
         {/* Category Breakdown Table */}
         <Card>
-          <CardHeader><CardTitle className="text-lg">Category Breakdown</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-lg">{t("analytics.categoryBreakdown", "Category Breakdown")}</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Pending</TableHead>
-                  <TableHead className="text-right">Avg Time</TableHead>
-                  <TableHead className="text-center">Trend</TableHead>
+                  <TableHead>{t("analytics.category", "Category")}</TableHead>
+                  <TableHead className="text-right">{t("analytics.total", "Total")}</TableHead>
+                  <TableHead className="text-right">{t("analytics.pending", "Pending")}</TableHead>
+                  <TableHead className="text-right">{t("analytics.avgTime", "Avg Time")}</TableHead>
+                  <TableHead className="text-center">{t("analytics.trend", "Trend")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {categoryBreakdown.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No category breakdown data
+                      {t("analytics.noBreakdownData", "No category breakdown data")}
                     </TableCell>
                   </TableRow>
                 ) : categoryBreakdown.map(row => (

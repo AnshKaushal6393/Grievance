@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type UserRole = "user" | "officer" | "admin";
 type UserStatus = "active" | "inactive" | "banned";
@@ -48,6 +49,7 @@ const parseErr = (err: unknown, fallback: string) => {
 };
 
 const AdminUserManagement = () => {
+  const { t } = useLanguage();
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -104,7 +106,7 @@ const AdminUserManagement = () => {
       setUsers(res?.data?.users || []);
       setTotal(res?.data?.pagination?.total || 0);
     } catch (err: unknown) {
-      toast.error(parseErr(err, "Failed to load users"));
+      toast.error(parseErr(err, t("adminUsers.error.loadUsers", "Failed to load users")));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -120,7 +122,7 @@ const AdminUserManagement = () => {
       setEditRole(u.role);
       setEditDept(u.department?.id || "none");
     } catch (err: unknown) {
-      toast.error(parseErr(err, "Failed to load details"));
+      toast.error(parseErr(err, t("adminUsers.error.loadDetails", "Failed to load details")));
       setDetailsOpen(false);
     } finally {
       setDetailsLoading(false);
@@ -142,9 +144,9 @@ const AdminUserManagement = () => {
       sseErrorToastRef.current = false;
       sseDisconnectedAtRef.current = null;
       if (wasDisconnected) {
-        toast.success("Realtime connection restored");
+        toast.success(t("adminUsers.realtime.restored", "Realtime connection restored"));
       } else {
-        toast.success("Realtime updates connected");
+        toast.success(t("adminUsers.realtime.connected", "Realtime updates connected"));
       }
     };
 
@@ -157,7 +159,7 @@ const AdminUserManagement = () => {
 
     source.onerror = () => {
       if (!sseErrorToastRef.current) {
-        toast.error("Realtime connection lost. Reconnecting...");
+        toast.error(t("adminUsers.realtime.lost", "Realtime connection lost. Reconnecting..."));
         sseErrorToastRef.current = true;
       }
       if (!sseDisconnectedAtRef.current) {
@@ -169,7 +171,7 @@ const AdminUserManagement = () => {
       source.close();
       streamRef.current = null;
       if (sseConnectedRef.current) {
-        toast.info("Realtime updates disconnected");
+        toast.info(t("adminUsers.realtime.disconnected", "Realtime updates disconnected"));
       }
       sseConnectedRef.current = false;
     };
@@ -190,8 +192,8 @@ const AdminUserManagement = () => {
   };
 
   const doBulk = async () => {
-    if (!selectedIds.length) return toast.error("Select users first");
-    if (bulkAction === "none") return toast.error("Choose bulk action");
+    if (!selectedIds.length) return toast.error(t("adminUsers.error.selectUsers", "Select users first"));
+    if (bulkAction === "none") return toast.error(t("adminUsers.error.chooseAction", "Choose bulk action"));
     if (bulkAction === "export") {
       const headers = ["name", "email", "phone", "role", "status", "department"];
       const csv = [headers.join(","), ...selectedRows.map((u) => [u.name, u.email, u.phone, u.role, u.status, u.department?.name || ""].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
@@ -213,10 +215,10 @@ const AdminUserManagement = () => {
       const res = await adminService.importUsersFile(file, true);
       const ok = res?.data?.created?.length || 0;
       const bad = res?.data?.failed?.length || 0;
-      toast.success(`Imported ${ok}, failed ${bad}`);
+      toast.success(t("adminUsers.import.result", `Imported ${ok}, failed ${bad}`));
       await loadUsers(true);
     } catch (err: unknown) {
-      toast.error(parseErr(err, "Import failed"));
+      toast.error(parseErr(err, t("adminUsers.error.import", "Import failed")));
     } finally {
       setSaving(false);
       e.target.value = "";
@@ -228,14 +230,14 @@ const AdminUserManagement = () => {
     setSaving(true);
     try {
       if (confirm.type === "ban" && confirm.userId) {
-        if (!reason.trim()) return toast.error("Ban reason required");
+        if (!reason.trim()) return toast.error(t("adminUsers.error.banReason", "Ban reason required"));
         await adminService.updateUserStatus(confirm.userId, "banned", reason.trim());
       } else if (confirm.type === "unban" && confirm.userId) {
         await adminService.updateUserStatus(confirm.userId, "active");
       } else if (confirm.type === "reset" && confirm.userId) {
         const res = await adminService.resetUserPassword(confirm.userId, resetPwd.trim() || undefined);
         const temp = res?.data?.tempPassword;
-        toast.success(temp ? `Temp password: ${temp}` : "Password reset");
+        toast.success(temp ? t("adminUsers.password.temp", `Temp password: ${temp}`) : t("adminUsers.password.reset", "Password reset"));
       } else if (confirm.type === "bulk" && confirm.bulkAction) {
         await adminService.bulkUserAction(selectedIds, confirm.bulkAction);
         setSelectedIds([]);
@@ -244,7 +246,7 @@ const AdminUserManagement = () => {
       await loadUsers(true);
       if (detail) await openDetails(detail._id);
     } catch (err: unknown) {
-      toast.error(parseErr(err, "Action failed"));
+      toast.error(parseErr(err, t("adminUsers.error.action", "Action failed")));
     } finally {
       setSaving(false);
     }
@@ -254,15 +256,15 @@ const AdminUserManagement = () => {
   const pageEnd = Math.min(page * limit, total);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/30 to-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div><h1 className="text-3xl font-bold">User Management</h1></div>
+          <div><h1 className="text-3xl font-bold">{t("adminUsers.title", "User Management")}</h1></div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={downloadTemplate} className="gap-2"><Download className="h-4 w-4" />Download Template</Button>
-            <Button variant="outline" onClick={() => importRef.current?.click()} className="gap-2"><FileSpreadsheet className="h-4 w-4" />Import Users</Button>
-            <Button onClick={() => setAddOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add New User</Button>
+            <Button variant="outline" onClick={downloadTemplate} className="gap-2"><Download className="h-4 w-4" />{t("adminUsers.downloadTemplate", "Download Template")}</Button>
+            <Button variant="outline" onClick={() => importRef.current?.click()} className="gap-2"><FileSpreadsheet className="h-4 w-4" />{t("adminUsers.importUsers", "Import Users")}</Button>
+            <Button onClick={() => setAddOpen(true)} className="gap-2"><Plus className="h-4 w-4" />{t("adminUsers.addUser", "Add New User")}</Button>
             <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={importCsv} />
           </div>
         </div>
@@ -270,32 +272,32 @@ const AdminUserManagement = () => {
         <Card className="mb-4"><CardContent className="pt-6">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
             <div className="xl:col-span-2">
-              <Label className="mb-2 block">Search</Label>
-              <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-10" value={filterDraft.search} onChange={(e) => setFilterDraft((p) => ({ ...p, search: e.target.value }))} placeholder="name/email/phone" /></div>
+              <Label className="mb-2 block">{t("adminUsers.search", "Search")}</Label>
+              <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-10" value={filterDraft.search} onChange={(e) => setFilterDraft((p) => ({ ...p, search: e.target.value }))} placeholder={t("adminUsers.searchPlaceholder", "name/email/phone")} /></div>
             </div>
-            <div><Label className="mb-2 block">Role</Label><Select value={filterDraft.role} onValueChange={(v) => setFilterDraft((p) => ({ ...p, role: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="user">Citizen</SelectItem><SelectItem value="officer">Officer</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select></div>
-            <div><Label className="mb-2 block">Status</Label><Select value={filterDraft.status} onValueChange={(v) => setFilterDraft((p) => ({ ...p, status: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="banned">Banned</SelectItem></SelectContent></Select></div>
-            <div><Label className="mb-2 block">Department</Label><Select value={filterDraft.department} onValueChange={(v) => setFilterDraft((p) => ({ ...p, department: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem>{departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="flex items-end"><Button className="w-full" onClick={() => { setPage(1); setFilters(filterDraft); }}>Apply</Button></div>
+            <div><Label className="mb-2 block">{t("adminUsers.role", "Role")}</Label><Select value={filterDraft.role} onValueChange={(v) => setFilterDraft((p) => ({ ...p, role: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("common.all", "All")}</SelectItem><SelectItem value="user">{t("adminUsers.citizen", "Citizen")}</SelectItem><SelectItem value="officer">{t("adminUsers.officer", "Officer")}</SelectItem><SelectItem value="admin">{t("adminUsers.admin", "Admin")}</SelectItem></SelectContent></Select></div>
+            <div><Label className="mb-2 block">{t("adminUsers.status", "Status")}</Label><Select value={filterDraft.status} onValueChange={(v) => setFilterDraft((p) => ({ ...p, status: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("common.all", "All")}</SelectItem><SelectItem value="active">{t("adminUsers.active", "Active")}</SelectItem><SelectItem value="inactive">{t("adminUsers.inactive", "Inactive")}</SelectItem><SelectItem value="banned">{t("adminUsers.banned", "Banned")}</SelectItem></SelectContent></Select></div>
+            <div><Label className="mb-2 block">{t("adminUsers.department", "Department")}</Label><Select value={filterDraft.department} onValueChange={(v) => setFilterDraft((p) => ({ ...p, department: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("common.all", "All")}</SelectItem>{departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="flex items-end"><Button className="w-full" onClick={() => { setPage(1); setFilters(filterDraft); }}>{t("adminUsers.apply", "Apply")}</Button></div>
           </div>
         </CardContent></Card>
 
         <Card><CardContent className="p-0">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
-            <span className="text-sm text-muted-foreground">Showing {pageStart}-{pageEnd} of {total}</span>
+            <span className="text-sm text-muted-foreground">{t("adminUsers.showing", "Showing")} {pageStart}-{pageEnd} {t("adminUsers.of", "of")} {total}</span>
             <div className="flex gap-2">
-              <Select value={bulkAction} onValueChange={(v: BulkAction) => setBulkAction(v)}><SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Bulk Action</SelectItem><SelectItem value="activate">Activate</SelectItem><SelectItem value="deactivate">Deactivate</SelectItem><SelectItem value="export">Export</SelectItem></SelectContent></Select>
-              <Button variant="outline" onClick={doBulk}>Apply</Button>
+              <Select value={bulkAction} onValueChange={(v: BulkAction) => setBulkAction(v)}><SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">{t("adminUsers.bulkAction", "Bulk Action")}</SelectItem><SelectItem value="activate">{t("adminUsers.activate", "Activate")}</SelectItem><SelectItem value="deactivate">{t("adminUsers.deactivate", "Deactivate")}</SelectItem><SelectItem value="export">{t("adminUsers.export", "Export")}</SelectItem></SelectContent></Select>
+              <Button variant="outline" onClick={doBulk}>{t("adminUsers.apply", "Apply")}</Button>
               <Button variant="ghost" size="icon" onClick={() => loadUsers()}><RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></Button>
             </div>
           </div>
 
           <div className="overflow-x-auto"><Table><TableHeader><TableRow>
             <TableHead><Checkbox checked={users.length > 0 && selectedIds.length === users.length} onCheckedChange={(c) => setSelectedIds(c ? users.map((u) => u._id) : [])} /></TableHead>
-            <TableHead>Avatar</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Phone</TableHead><TableHead>Role</TableHead><TableHead>Department</TableHead><TableHead>Status</TableHead><TableHead>Complaints Filed</TableHead><TableHead>Joined</TableHead><TableHead>Last Active</TableHead><TableHead>Actions</TableHead>
+            <TableHead>{t("adminUsers.avatar", "Avatar")}</TableHead><TableHead>{t("adminUsers.name", "Name")}</TableHead><TableHead>{t("adminUsers.email", "Email")}</TableHead><TableHead>{t("adminUsers.phone", "Phone")}</TableHead><TableHead>{t("adminUsers.role", "Role")}</TableHead><TableHead>{t("adminUsers.department", "Department")}</TableHead><TableHead>{t("adminUsers.status", "Status")}</TableHead><TableHead>{t("adminUsers.complaintsFiled", "Complaints Filed")}</TableHead><TableHead>{t("adminUsers.joined", "Joined")}</TableHead><TableHead>{t("adminUsers.lastActive", "Last Active")}</TableHead><TableHead>{t("adminUsers.actions", "Actions")}</TableHead>
           </TableRow></TableHeader><TableBody>
-            {loading ? <TableRow><TableCell colSpan={12} className="py-8 text-center">Loading...</TableCell></TableRow> :
-              users.length === 0 ? <TableRow><TableCell colSpan={12} className="py-8 text-center">No users found</TableCell></TableRow> :
+            {loading ? <TableRow><TableCell colSpan={12} className="py-8 text-center">{t("common.loading", "Loading...")}</TableCell></TableRow> :
+              users.length === 0 ? <TableRow><TableCell colSpan={12} className="py-8 text-center">{t("adminUsers.noUsers", "No users found")}</TableCell></TableRow> :
                 users.map((u) => <TableRow key={u._id}>
                   <TableCell><Checkbox checked={selectedIds.includes(u._id)} onCheckedChange={(c) => setSelectedIds((p) => c ? [...p, u._id] : p.filter((id) => id !== u._id))} /></TableCell>
                   <TableCell>{u.avatarUrl ? <img src={u.avatarUrl} alt={u.name} className="h-8 w-8 rounded-full object-cover" /> : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold">{initials(u.name)}</div>}</TableCell>
@@ -303,19 +305,19 @@ const AdminUserManagement = () => {
                   <TableCell>{u.email}</TableCell><TableCell>{u.phone}</TableCell>
                   <TableCell><Badge variant="secondary">{roleLabel(u.role)}</Badge></TableCell>
                   <TableCell>{u.role === "officer" ? u.department?.name || "-" : "-"}</TableCell>
-                  <TableCell>{u.status === "banned" ? <Badge className="bg-red-100 text-red-700">Banned</Badge> : <Button variant="outline" size="sm" onClick={async () => { setSaving(true); try { await adminService.updateUserStatus(u._id, u.status === "active" ? "inactive" : "active"); await loadUsers(true); } catch (err: unknown) { toast.error(parseErr(err, "Failed status update")); } finally { setSaving(false); } }}>{u.status === "active" ? "Active" : "Inactive"}</Button>}</TableCell>
+                  <TableCell>{u.status === "banned" ? <Badge className="bg-red-100 text-red-700">{t("adminUsers.banned", "Banned")}</Badge> : <Button variant="outline" size="sm" onClick={async () => { setSaving(true); try { await adminService.updateUserStatus(u._id, u.status === "active" ? "inactive" : "active"); await loadUsers(true); } catch (err: unknown) { toast.error(parseErr(err, t("adminUsers.error.statusUpdate", "Failed status update"))); } finally { setSaving(false); } }}>{u.status === "active" ? t("adminUsers.active", "Active") : t("adminUsers.inactive", "Inactive")}</Button>}</TableCell>
                   <TableCell>{u.role === "user" ? u.complaintsFiled : "-"}</TableCell>
                   <TableCell>{new Date(u.joinedDate).toLocaleDateString()}</TableCell>
                   <TableCell>{formatDistanceToNow(new Date(u.lastActive), { addSuffix: true })}</TableCell>
-                  <TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" onClick={() => openDetails(u._id)}><Eye className="h-4 w-4" /></Button>{u.status === "banned" ? <Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "unban", userId: u._id, userName: u.name })}>Unban</Button> : <Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "ban", userId: u._id, userName: u.name })}><Ban className="h-4 w-4 text-red-600" /></Button>}</div></TableCell>
+                  <TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" onClick={() => openDetails(u._id)}><Eye className="h-4 w-4" /></Button>{u.status === "banned" ? <Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "unban", userId: u._id, userName: u.name })}>{t("adminUsers.unban", "Unban")}</Button> : <Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "ban", userId: u._id, userName: u.name })}><Ban className="h-4 w-4 text-red-600" /></Button>}</div></TableCell>
                 </TableRow>)}
           </TableBody></Table></div>
-          <div className="flex justify-end gap-2 border-t p-4"><Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button><span className="self-center text-sm">Page {page}</span><Button variant="outline" disabled={pageEnd >= total} onClick={() => setPage((p) => p + 1)}>Next</Button></div>
+          <div className="flex justify-end gap-2 border-t p-4"><Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>{t("common.previous", "Previous")}</Button><span className="self-center text-sm">{t("common.page", "Page")} {page}</span><Button variant="outline" disabled={pageEnd >= total} onClick={() => setPage((p) => p + 1)}>{t("common.next", "Next")}</Button></div>
         </CardContent></Card>
       </div>
 
-      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>User Details</DialogTitle><DialogDescription>Profile, activity and admin controls</DialogDescription></DialogHeader>
-        {detailsLoading || !detail ? <div className="py-8 text-center text-muted-foreground">Loading...</div> : <div className="space-y-4">
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{t("adminUsers.userDetails", "User Details")}</DialogTitle><DialogDescription>{t("adminUsers.userDetailsSub", "Profile, activity and admin controls")}</DialogDescription></DialogHeader>
+        {detailsLoading || !detail ? <div className="py-8 text-center text-muted-foreground">{t("common.loading", "Loading...")}</div> : <div className="space-y-4">
           <div className="rounded-lg border p-4"><p className="text-lg font-semibold">{detail.name}</p><p className="text-sm text-muted-foreground">{detail.email} • {detail.phone}</p><div className="mt-2 flex gap-2"><Badge>{roleLabel(detail.role)}</Badge><Badge variant="outline">Joined {new Date(detail.joinedDate).toLocaleDateString()}</Badge></div><p className="mt-2 text-sm">Verification: Email {detail.verification.email ? "✓" : "✗"} | Phone {detail.verification.phone ? "✓" : "✗"} | Aadhaar {detail.verification.aadhaar ? "✓" : "✗"}</p></div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3"><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Total complaints</p><p className="text-xl font-semibold">{detail.activity.totalComplaints}</p></CardContent></Card><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Resolved</p><p className="text-xl font-semibold">{detail.activity.resolvedComplaints}</p></CardContent></Card><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Avg rating</p><p className="text-xl font-semibold">{detail.activity.avgRating}</p></CardContent></Card></div>
           <div className="rounded-lg border p-4"><p className="mb-2 font-medium">Recent activity</p><div className="space-y-2">{detail.activity.recentTimeline.length ? detail.activity.recentTimeline.map((t) => <div key={t.id} className="rounded-md bg-muted/40 p-2"><p className="text-sm font-medium">{t.label}</p><p className="text-xs text-muted-foreground">{t.description}</p></div>) : <p className="text-sm text-muted-foreground">No activity</p>}</div></div>

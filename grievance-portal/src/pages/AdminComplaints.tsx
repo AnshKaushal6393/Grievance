@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import Navbar from "@/components/Navbar";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ✅ Normalized complaint shape used in UI
 interface Complaint {
@@ -61,6 +62,7 @@ const statuses = ["all","filed","assigned","in-progress","resolved","rejected"];
 const priorities = ["low","medium","high","critical"];
 
 const AdminComplaints = () => {
+  const { t } = useLanguage();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -112,7 +114,10 @@ const AdminComplaints = () => {
       setTotalComplaints(pagination?.total ?? raw.length);
       setTotalPages(pagination?.pages ?? 1);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to fetch complaints");
+      toast.error(
+        err.response?.data?.message ||
+          t("adminComplaints.errorFetch", "Failed to fetch complaints"),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -135,22 +140,22 @@ const AdminComplaints = () => {
 
   const getStatusConfig = (status: string) => {
     const map: Record<string, any> = {
-      filed:       { label: "Filed",       className: "bg-amber-100 text-amber-800",   icon: Clock },
-      pending:     { label: "Pending",     className: "bg-amber-100 text-amber-800",   icon: Clock },
-      assigned:    { label: "Assigned",    className: "bg-blue-100 text-blue-800",     icon: Users },
-      "in-progress":{ label: "In Progress",className: "bg-purple-100 text-purple-800", icon: Loader2 },
-      resolved:    { label: "Resolved",    className: "bg-green-100 text-green-800",   icon: CheckCircle },
-      rejected:    { label: "Rejected",    className: "bg-red-100 text-red-800",       icon: XCircle },
+      filed:       { label: t("adminComplaints.status.filed", "Filed"),       className: "bg-amber-100 text-amber-800",   icon: Clock },
+      pending:     { label: t("adminComplaints.status.pending", "Pending"),     className: "bg-amber-100 text-amber-800",   icon: Clock },
+      assigned:    { label: t("adminComplaints.status.assigned", "Assigned"),    className: "bg-primary/15 text-primary",     icon: Users },
+      "in-progress":{ label: t("adminComplaints.status.inProgress", "In Progress"),className: "bg-purple-100 text-purple-800", icon: Loader2 },
+      resolved:    { label: t("adminComplaints.status.resolved", "Resolved"),    className: "bg-green-100 text-green-800",   icon: CheckCircle },
+      rejected:    { label: t("adminComplaints.status.rejected", "Rejected"),    className: "bg-red-100 text-red-800",       icon: XCircle },
     };
     return map[status] ?? { label: status, className: "bg-gray-100 text-gray-800", icon: Circle };
   };
 
   const getPriorityConfig = (priority: string) => {
     const map: Record<string, any> = {
-      low:      { label: "Low",      dotClass: "bg-gray-400",   textClass: "text-gray-600" },
-      medium:   { label: "Medium",   dotClass: "bg-amber-400",  textClass: "text-amber-600" },
-      high:     { label: "High",     dotClass: "bg-orange-500", textClass: "text-orange-600" },
-      critical: { label: "Critical", dotClass: "bg-red-500",    textClass: "text-red-600" },
+      low:      { label: t("adminComplaints.priority.low", "Low"),      dotClass: "bg-gray-400",   textClass: "text-gray-600" },
+      medium:   { label: t("adminComplaints.priority.medium", "Medium"),   dotClass: "bg-amber-400",  textClass: "text-amber-600" },
+      high:     { label: t("adminComplaints.priority.high", "High"),     dotClass: "bg-orange-500", textClass: "text-orange-600" },
+      critical: { label: t("adminComplaints.priority.critical", "Critical"), dotClass: "bg-red-500",    textClass: "text-red-600" },
     };
     return map[priority] ?? { label: priority, dotClass: "bg-gray-400", textClass: "text-gray-600" };
   };
@@ -196,38 +201,50 @@ const AdminComplaints = () => {
 
   const handleEditComplaint = () => {
     if (!quickViewComplaint) return;
-    toast.info(`Edit flow coming soon for ${quickViewComplaint.complaintId}`);
+    toast.info(
+      `${t("adminComplaints.editFlowSoon", "Edit flow coming soon for")} ${quickViewComplaint.complaintId}`,
+    );
   };
 
   const handleAssignComplaint = () => {
     if (!quickViewComplaint) return;
-    toast.info(`Assign flow coming soon for ${quickViewComplaint.complaintId}`);
+    toast.info(
+      `${t("adminComplaints.assignFlowSoon", "Assign flow coming soon for")} ${quickViewComplaint.complaintId}`,
+    );
   };
 
   const handleEscalateComplaint = () => {
     if (!quickViewComplaint) return;
-    toast.info(`Escalation flow coming soon for ${quickViewComplaint.complaintId}`);
+    toast.info(
+      `${t("adminComplaints.escalationFlowSoon", "Escalation flow coming soon for")} ${quickViewComplaint.complaintId}`,
+    );
   };
 
   // Row-level handlers (non-modal)
   const handleRowAssign = (complaintId: string) => {
-    toast.info(`Assign flow coming soon for ${complaintId}`);
+    toast.info(`${t("adminComplaints.assignFlowSoon", "Assign flow coming soon for")} ${complaintId}`);
   };
 
   const handleRowEscalate = (complaintId: string) => {
-    toast.info(`Escalation flow coming soon for ${complaintId}`);
+    toast.info(
+      `${t("adminComplaints.escalationFlowSoon", "Escalation flow coming soon for")} ${complaintId}`,
+    );
   };
 
   const handleRowEdit = (complaintId: string) => {
-    toast.info(`Edit flow coming soon for ${complaintId}`);
+    toast.info(`${t("adminComplaints.editFlowSoon", "Edit flow coming soon for")} ${complaintId}`);
   };
 
   const handleRowClose = (complaintId: string) => {
-    toast.info(`Close complaint flow coming soon for ${complaintId}`);
+    toast.info(
+      `${t("adminComplaints.closeFlowSoon", "Close complaint flow coming soon for")} ${complaintId}`,
+    );
   };
 
   const handleRowDelete = (complaintId: string) => {
-    toast.info(`Delete complaint flow coming soon for ${complaintId}`);
+    toast.info(
+      `${t("adminComplaints.deleteFlowSoon", "Delete complaint flow coming soon for")} ${complaintId}`,
+    );
   };
 
   const exportToCsv = async () => {
@@ -259,9 +276,9 @@ const AdminComplaints = () => {
       link.download = `complaints-${new Date().toISOString().slice(0,10)}.csv`;
       link.click();
       URL.revokeObjectURL(url);
-      toast.success("Export ready");
+      toast.success(t("adminComplaints.exportReady", "Export ready"));
     } catch (err:any) {
-      toast.error(err.response?.data?.message || "Export failed");
+      toast.error(err.response?.data?.message || t("adminComplaints.exportFailed", "Export failed"));
     } finally {
       setIsExporting(false);
     }
@@ -284,16 +301,21 @@ const AdminComplaints = () => {
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground">All Complaints</h1>
+            <h1 className="text-3xl font-bold text-foreground">
+              {t("adminComplaints.title", "All Complaints")}
+            </h1>
             <Badge variant="secondary" className="text-lg px-3 py-1">{totalComplaints}</Badge>
           </div>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" className="gap-2" onClick={exportToCsv} disabled={isExporting}>
               {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-              {isExporting ? "Exporting..." : "Export to CSV"}
+              {isExporting
+                ? t("adminComplaints.exporting", "Exporting...")
+                : t("adminComplaints.exportCsv", "Export to CSV")}
             </Button>
             <Button variant={showAdvancedFilters ? "default" : "outline"} className="gap-2" onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}>
-              <Filter className="h-4 w-4" />Advanced Filters
+              <Filter className="h-4 w-4" />
+              {t("adminComplaints.advancedFilters", "Advanced Filters")}
               {(selectedStatus !== "all" || selectedCategory !== "all" || selectedDepartment !== "all" || selectedPriority !== "all" || dateFrom || dateTo || searchQuery) && (
                 <Badge className="ml-1 bg-primary-foreground text-primary h-5 w-5 p-0 flex items-center justify-center rounded-full">!</Badge>
               )}
@@ -309,63 +331,101 @@ const AdminComplaints = () => {
                 <CardContent className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     <div className="lg:col-span-2">
-                      <label className="text-sm font-medium mb-2 block">Search</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        {t("adminComplaints.search", "Search")}
+                      </label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search by ID, Title, or Description..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
+                        <Input
+                          placeholder={t(
+                            "adminComplaints.searchPlaceholder",
+                            "Search by ID, Title, or Description...",
+                          )}
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Status</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        {t("adminComplaints.status", "Status")}
+                      </label>
                       <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                        <SelectTrigger><SelectValue placeholder="All Statuses" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("adminComplaints.allStatuses", "All Statuses")} />
+                        </SelectTrigger>
                         <SelectContent>
                           {statuses.map(status => (
                             <SelectItem key={status} value={status} className="capitalize">
-                              {status === "all" ? "All Statuses" : status.replace("-", " ")}
+                              {status === "all"
+                                ? t("adminComplaints.allStatuses", "All Statuses")
+                                : status.replace("-", " ")}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Priority</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        {t("adminComplaints.priority", "Priority")}
+                      </label>
                       <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                        <SelectTrigger><SelectValue placeholder="All Priorities" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("adminComplaints.allPriorities", "All Priorities")} />
+                        </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Priorities</SelectItem>
+                          <SelectItem value="all">
+                            {t("adminComplaints.allPriorities", "All Priorities")}
+                          </SelectItem>
                           {priorities.map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Department</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        {t("adminComplaints.department", "Department")}
+                      </label>
                       <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                        <SelectTrigger><SelectValue placeholder="All Departments" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("adminComplaints.allDepartments", "All Departments")} />
+                        </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Departments</SelectItem>
+                          <SelectItem value="all">
+                            {t("adminComplaints.allDepartments", "All Departments")}
+                          </SelectItem>
                           {departmentOptions.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Category</label>
+                      <label className="text-sm font-medium mb-2 block">
+                        {t("adminComplaints.category", "Category")}
+                      </label>
                       <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger><SelectValue placeholder="All Categories" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t("adminComplaints.allCategories", "All Categories")} />
+                        </SelectTrigger>
                         <SelectContent>
                           {categories.map(c => (
-                            <SelectItem key={c} value={c}>{c === "all" ? "All Categories" : c}</SelectItem>
+                            <SelectItem key={c} value={c}>
+                              {c === "all" ? t("adminComplaints.allCategories", "All Categories") : c}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="lg:col-span-2 flex gap-3">
                       <div className="flex-1">
-                        <label className="text-sm font-medium mb-2 block">From date</label>
+                        <label className="text-sm font-medium mb-2 block">
+                          {t("adminComplaints.fromDate", "From date")}
+                        </label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full justify-between">
-                              {dateFrom ? format(dateFrom, "dd MMM yyyy") : "Select start date"}
+                              {dateFrom
+                                ? format(dateFrom, "dd MMM yyyy")
+                                : t("adminComplaints.selectStartDate", "Select start date")}
                               <Calendar className="h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -375,11 +435,15 @@ const AdminComplaints = () => {
                         </Popover>
                       </div>
                       <div className="flex-1">
-                        <label className="text-sm font-medium mb-2 block">To date</label>
+                        <label className="text-sm font-medium mb-2 block">
+                          {t("adminComplaints.toDate", "To date")}
+                        </label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full justify-between">
-                              {dateTo ? format(dateTo, "dd MMM yyyy") : "Select end date"}
+                              {dateTo
+                                ? format(dateTo, "dd MMM yyyy")
+                                : t("adminComplaints.selectEndDate", "Select end date")}
                               <Calendar className="h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -391,8 +455,12 @@ const AdminComplaints = () => {
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4 pt-4 border-t">
-                    <Button onClick={() => setCurrentPage(1)}>Apply Filters</Button>
-                    <Button variant="outline" onClick={clearAllFilters}>Clear All</Button>
+                    <Button onClick={() => setCurrentPage(1)}>
+                      {t("adminComplaints.applyFilters", "Apply Filters")}
+                    </Button>
+                    <Button variant="outline" onClick={clearAllFilters}>
+                      {t("adminComplaints.clearAll", "Clear All")}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -408,11 +476,19 @@ const AdminComplaints = () => {
                 <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <Check className="h-5 w-5 text-primary" />
-                    <span className="font-medium">{selectedRows.length} complaints selected</span>
+                    <span className="font-medium">
+                      {selectedRows.length} {t("adminComplaints.selected", "complaints selected")}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" className="gap-2"><UserPlus className="h-4 w-4" />Bulk Assign</Button>
-                    <Button size="sm" variant="outline" className="gap-2"><Download className="h-4 w-4" />Bulk Export</Button>
+                    <Button size="sm" variant="outline" className="gap-2">
+                      <UserPlus className="h-4 w-4" />
+                      {t("adminComplaints.bulkAssign", "Bulk Assign")}
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-2">
+                      <Download className="h-4 w-4" />
+                      {t("adminComplaints.bulkExport", "Bulk Export")}
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => setSelectedRows([])}><X className="h-4 w-4" /></Button>
                   </div>
                 </CardContent>
@@ -432,22 +508,26 @@ const AdminComplaints = () => {
                       <Checkbox checked={selectedRows.length === complaints.length && complaints.length > 0} onCheckedChange={handleSelectAll} />
                     </TableHead>
                     <SortableHeader column="complaintId">ID</SortableHeader>
-                    <SortableHeader column="title">Title</SortableHeader>
-                    <SortableHeader column="category">Category</SortableHeader>
-                    <SortableHeader column="status">Status</SortableHeader>
-                    <SortableHeader column="priority">Priority</SortableHeader>
-                    <SortableHeader column="citizenName">Citizen</SortableHeader>
-                    <SortableHeader column="department">Department</SortableHeader>
-                    <SortableHeader column="filedDate">Filed Date</SortableHeader>
-                    <SortableHeader column="lastUpdated">Last Updated</SortableHeader>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <SortableHeader column="title">{t("adminComplaints.table.title", "Title")}</SortableHeader>
+                    <SortableHeader column="category">{t("adminComplaints.table.category", "Category")}</SortableHeader>
+                    <SortableHeader column="status">{t("adminComplaints.table.status", "Status")}</SortableHeader>
+                    <SortableHeader column="priority">{t("adminComplaints.table.priority", "Priority")}</SortableHeader>
+                    <SortableHeader column="citizenName">{t("adminComplaints.table.citizen", "Citizen")}</SortableHeader>
+                    <SortableHeader column="department">{t("adminComplaints.table.department", "Department")}</SortableHeader>
+                    <SortableHeader column="filedDate">{t("adminComplaints.table.filedDate", "Filed Date")}</SortableHeader>
+                    <SortableHeader column="lastUpdated">{t("adminComplaints.table.lastUpdated", "Last Updated")}</SortableHeader>
+                    <TableHead className="text-right">{t("adminComplaints.table.actions", "Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow><TableCell colSpan={11} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
                   ) : complaints.length === 0 ? (
-                    <TableRow><TableCell colSpan={11} className="text-center py-12 text-muted-foreground">No complaints found</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
+                        {t("adminComplaints.noComplaints", "No complaints found")}
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     complaints.map(complaint => {
                       const statusConfig = getStatusConfig(complaint.status);
@@ -476,7 +556,7 @@ const AdminComplaints = () => {
                             <TableCell>
                               {complaint.department
                                 ? <span className="text-sm">{complaint.department}</span>
-                                : <span className="text-muted-foreground text-sm italic">Unassigned</span>}
+                                : <span className="text-muted-foreground text-sm italic">{t("adminComplaints.unassigned", "Unassigned")}</span>}
                             </TableCell>
                             <TableCell className="text-sm">{formatDate(complaint.filedDate)}</TableCell>
                             <TableCell className="text-sm">{formatDate(complaint.lastUpdated)}</TableCell>
@@ -488,10 +568,10 @@ const AdminComplaints = () => {
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem className="gap-2" onClick={() => handleRowEdit(complaint.complaintId)}><Edit className="h-4 w-4" />Edit</DropdownMenuItem>
-                                    <DropdownMenuItem className="gap-2" onClick={() => handleRowClose(complaint.complaintId)}><XCircle className="h-4 w-4" />Close Complaint</DropdownMenuItem>
+                                    <DropdownMenuItem className="gap-2" onClick={() => handleRowEdit(complaint.complaintId)}><Edit className="h-4 w-4" />{t("adminComplaints.edit", "Edit")}</DropdownMenuItem>
+                                    <DropdownMenuItem className="gap-2" onClick={() => handleRowClose(complaint.complaintId)}><XCircle className="h-4 w-4" />{t("adminComplaints.closeComplaint", "Close Complaint")}</DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleRowDelete(complaint.complaintId)}><Trash2 className="h-4 w-4" />Delete</DropdownMenuItem>
+                                    <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleRowDelete(complaint.complaintId)}><Trash2 className="h-4 w-4" />{t("adminComplaints.delete", "Delete")}</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
@@ -503,8 +583,8 @@ const AdminComplaints = () => {
                                 <TableCell colSpan={11} className="p-0">
                                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="bg-muted/30 p-4 border-t">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div><h4 className="font-medium mb-2">Description</h4><p className="text-sm text-muted-foreground">{complaint.description}</p></div>
-                                      <div><h4 className="font-medium mb-2">Contact</h4><p className="text-sm text-muted-foreground">{complaint.citizenEmail}</p></div>
+                                      <div><h4 className="font-medium mb-2">{t("adminComplaints.description", "Description")}</h4><p className="text-sm text-muted-foreground">{complaint.description}</p></div>
+                                      <div><h4 className="font-medium mb-2">{t("adminComplaints.contact", "Contact")}</h4><p className="text-sm text-muted-foreground">{complaint.citizenEmail}</p></div>
                                     </div>
                                   </motion.div>
                                 </TableCell>
@@ -522,18 +602,19 @@ const AdminComplaints = () => {
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Showing</span>
+                <span>{t("adminComplaints.showing", "Showing")}</span>
                 <Select value={itemsPerPage.toString()} onValueChange={v => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
                   <SelectTrigger className="w-20 h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[10,25,50,100].map(n => <SelectItem key={n} value={`${n}`}>{n}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <span>of {totalComplaints} complaints</span>
+                <span>{t("adminComplaints.of", "of")} {totalComplaints} {t("adminComplaints.complaints", "complaints")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                  <ChevronLeft className="h-4 w-4" />Previous
+                  <ChevronLeft className="h-4 w-4" />
+                  {t("adminComplaints.previous", "Previous")}
                 </Button>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -544,7 +625,8 @@ const AdminComplaints = () => {
                   })}
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                  Next<ChevronRight className="h-4 w-4" />
+                  {t("adminComplaints.next", "Next")}
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -568,31 +650,31 @@ const AdminComplaints = () => {
                 <p className="text-muted-foreground mt-2">{quickViewComplaint.description}</p>
               </div>
               <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div><p className="text-sm text-muted-foreground">Category</p><Badge variant="secondary" className={getCategoryColor(quickViewComplaint.category)}>{quickViewComplaint.category}</Badge></div>
+                <div><p className="text-sm text-muted-foreground">{t("adminComplaints.category", "Category")}</p><Badge variant="secondary" className={getCategoryColor(quickViewComplaint.category)}>{quickViewComplaint.category}</Badge></div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Priority</p>
+                  <p className="text-sm text-muted-foreground">{t("adminComplaints.priority", "Priority")}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`w-2 h-2 rounded-full ${getPriorityConfig(quickViewComplaint.priority).dotClass}`} />
                     <span className={getPriorityConfig(quickViewComplaint.priority).textClass}>{getPriorityConfig(quickViewComplaint.priority).label}</span>
                   </div>
                 </div>
-                <div><p className="text-sm text-muted-foreground">Citizen</p><p className="font-medium">{quickViewComplaint.citizenName}</p><p className="text-sm text-muted-foreground">{quickViewComplaint.citizenEmail}</p></div>
-                <div><p className="text-sm text-muted-foreground">Department</p><p className="font-medium">{quickViewComplaint.department || "Unassigned"}</p></div>
-                <div><p className="text-sm text-muted-foreground">Filed Date</p><p className="font-medium">{formatDate(quickViewComplaint.filedDate)}</p></div>
-                <div><p className="text-sm text-muted-foreground">Last Updated</p><p className="font-medium">{formatDate(quickViewComplaint.lastUpdated)}</p></div>
+                <div><p className="text-sm text-muted-foreground">{t("adminComplaints.table.citizen", "Citizen")}</p><p className="font-medium">{quickViewComplaint.citizenName}</p><p className="text-sm text-muted-foreground">{quickViewComplaint.citizenEmail}</p></div>
+                <div><p className="text-sm text-muted-foreground">{t("adminComplaints.department", "Department")}</p><p className="font-medium">{quickViewComplaint.department || t("adminComplaints.unassigned", "Unassigned")}</p></div>
+                <div><p className="text-sm text-muted-foreground">{t("adminComplaints.table.filedDate", "Filed Date")}</p><p className="font-medium">{formatDate(quickViewComplaint.filedDate)}</p></div>
+                <div><p className="text-sm text-muted-foreground">{t("adminComplaints.table.lastUpdated", "Last Updated")}</p><p className="font-medium">{formatDate(quickViewComplaint.lastUpdated)}</p></div>
               </div>
               <div className="flex gap-2 pt-4 border-t">
                 <Button className="gap-2" onClick={handleEditComplaint}>
                   <Edit className="h-4 w-4" />
-                  Edit Complaint
+                  {t("adminComplaints.editComplaint", "Edit Complaint")}
                 </Button>
                 <Button variant="outline" className="gap-2" onClick={handleAssignComplaint}>
                   <UserPlus className="h-4 w-4" />
-                  Assign
+                  {t("adminComplaints.assign", "Assign")}
                 </Button>
                 <Button variant="outline" className="gap-2" onClick={handleEscalateComplaint}>
                   <Flag className="h-4 w-4" />
-                  Escalate
+                  {t("adminComplaints.escalate", "Escalate")}
                 </Button>
               </div>
             </div>

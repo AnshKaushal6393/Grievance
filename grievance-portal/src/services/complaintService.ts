@@ -48,6 +48,31 @@ export const complaintService = {
     const response = await api.get(`/complaints/my-complaints?${params.toString()}`);
     return response.data;
   },
+  saveDraft: async (formData: FormData) => {
+    formData.set("isDraft", "true");
+    const response = await api.post("/complaints/create", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+  updateDraft: async (id: string, formData: FormData) => {
+    const response = await api.put(`/complaints/drafts/${id}`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+  deleteDraft: async (id: string) => {
+    const response = await api.delete(`/complaints/drafts/${id}`);
+    return response.data;
+  },
+  submitDraft: async (id: string) => {
+    const response = await api.post(`/complaints/drafts/${id}/submit`);
+    return response.data;
+  },
 
   getComplaint: async (id: string) => {
     const response = await api.get(`/complaints/${id}`);
@@ -136,7 +161,7 @@ export const complaintService = {
   getDrafts: async () => {
     const response = await api.get('/complaints/drafts');
     return response.data;
-  }
+  },
 
 };
 

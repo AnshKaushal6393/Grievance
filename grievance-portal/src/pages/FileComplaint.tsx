@@ -334,24 +334,24 @@ const FileComplaint = () => {
       : null;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-background via-muted/40 to-background">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl shadow-2xl p-8 sm:p-12"
+          className="bg-card rounded border border-border p-6 sm:p-8"
         >
           {/* Header */}
           <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <FileText className="w-8 h-8 text-white" />
+            <div className="w-14 h-14 bg-primary rounded flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl font-semibold text-foreground">
               {currentDraftId ? t("file.titleEdit") : t("file.titleNew")}
             </h1>
-            <p className="text-gray-500 mt-2">
+            <p className="text-muted-foreground mt-2">
               {isLoadingDraft
                 ? t("file.subtitleLoading")
                 : currentDraftId
@@ -363,32 +363,34 @@ const FileComplaint = () => {
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Title Input */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="complaint-title" className="block text-sm font-medium text-foreground">
                 {t("file.labelTitle")} <span className="text-red-500">*</span>
               </label>
               <input
+                id="complaint-title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t("file.placeholderTitle")}
                 required
-                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                className="w-full rounded border border-input bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
 
             {/* Category Dropdown */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="complaint-category-trigger" className="block text-sm font-medium text-foreground">
                 {t("file.labelCategory")} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <button
+                  id="complaint-category-trigger"
                   type="button"
                   onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                  className={`w-full py-3 px-4 rounded-xl border text-left flex items-center justify-between transition-all ${
+                  className={`w-full rounded border px-4 py-3 text-left flex items-center justify-between ${
                     isCategoryOpen
-                      ? "border-primary ring-2 ring-blue-500 bg-white"
-                      : "border-gray-200 bg-gray-50 hover:bg-white"
+                      ? "border-primary ring-2 ring-ring bg-background"
+                      : "border-input bg-background"
                   }`}
                 >
                   <span
@@ -407,7 +409,7 @@ const FileComplaint = () => {
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
+                    className="absolute z-50 w-full mt-2 bg-background rounded border border-input overflow-hidden"
                   >
                     <div className="p-2 border-b border-gray-100">
                       <div className="relative">
@@ -451,22 +453,23 @@ const FileComplaint = () => {
 
             {/* Description Textarea */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="complaint-description" className="block text-sm font-medium text-foreground">
                 {t("file.labelDescription")} <span className="text-red-500">*</span>
               </label>
               <textarea
+                id="complaint-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={t("file.placeholderDescription")}
                 rows={6}
                 required
-                className="w-full py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400 resize-none"
+                className="w-full rounded border border-input bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
               />
             </div>
 
             {/* Location Section */}
             <div className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="complaint-address" className="block text-sm font-medium text-foreground">
                 {t("file.labelLocation")}
               </label>
 
@@ -476,7 +479,7 @@ const FileComplaint = () => {
                   variant="outline"
                   onClick={handleUseCurrentLocation}
                   disabled={isLocating}
-                  className="flex items-center gap-2 py-3 h-auto rounded-xl"
+                  className="flex items-center gap-2 py-3 h-auto rounded"
                 >
                   {isLocating ? (
                     <motion.div
@@ -500,17 +503,18 @@ const FileComplaint = () => {
                 </span>
 
                 <input
+                  id="complaint-address"
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder={t("file.placeholderAddress")}
-                  className="flex-1 py-3 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
+                  className="flex-1 rounded border border-input bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
               {/* Map Preview Placeholder */}
               {mapEmbedUrl ? (
-                <div className="w-full h-48 rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                <div className="w-full h-48 rounded overflow-hidden border border-input bg-muted">
                   <iframe
                     title="Interactive map"
                     src={mapEmbedUrl}
@@ -520,7 +524,7 @@ const FileComplaint = () => {
                   />
                 </div>
               ) : (
-                <div className="w-full h-48 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400">
+                <div className="w-full h-48 bg-muted rounded border-2 border-dashed border-input flex flex-col items-center justify-center text-muted-foreground">
                   <MapPin className="w-10 h-10 mb-2" />
                   <span className="text-sm">{t("file.mapPlaceholder")}</span>
                 </div>
@@ -535,7 +539,7 @@ const FileComplaint = () => {
 
             {/* Media Upload */}
             <div className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="complaint-media" className="block text-sm font-medium text-foreground">
                 {t("file.labelMedia")}
               </label>
 
@@ -544,10 +548,10 @@ const FileComplaint = () => {
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onClick={() => fileInputRef.current?.click()}
-                className={`w-full p-8 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
+                className={`w-full p-8 rounded border-2 border-dashed transition-colors cursor-pointer ${
                   isDragging
                     ? "border-primary bg-primary/10"
-                    : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-primary/10/50"
+                    : "border-input bg-background hover:border-primary/60 hover:bg-muted"
                 }`}
               >
                 <div className="flex flex-col items-center text-center">
@@ -569,6 +573,7 @@ const FileComplaint = () => {
                 </div>
                 <input
                   ref={fileInputRef}
+                  id="complaint-media"
                   type="file"
                   accept="image/*,video/*"
                   multiple
@@ -587,7 +592,7 @@ const FileComplaint = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       className="relative group"
                     >
-                      <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                      <div className="aspect-square rounded overflow-hidden bg-muted border border-input">
                         {file.type === "image" ? (
                           <img
                             src={file.preview}
@@ -596,22 +601,22 @@ const FileComplaint = () => {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                            <Video className="w-8 h-8 text-white" />
+                            <Video className="w-8 h-8 text-primary-foreground" />
                           </div>
                         )}
                       </div>
                       <button
                         type="button"
                         onClick={() => removeFile(file.id)}
-                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-primary-foreground rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <X className="w-4 h-4" />
                       </button>
                       <div className="absolute bottom-1 left-1">
                         {file.type === "image" ? (
-                          <Image className="w-4 h-4 text-white drop-shadow" />
+                          <Image className="w-4 h-4 text-primary-foreground drop-shadow" />
                         ) : (
-                          <Video className="w-4 h-4 text-white drop-shadow" />
+                          <Video className="w-4 h-4 text-primary-foreground drop-shadow" />
                         )}
                       </div>
                     </motion.div>
@@ -634,7 +639,7 @@ const FileComplaint = () => {
                 variant="outline"
                 onClick={handleSaveDraft}
                 disabled={isSubmitting || isSavingDraft || isLoadingDraft}
-                className="flex-1 py-4 h-auto text-lg font-semibold rounded-xl"
+                className="flex-1 py-4 h-auto text-base font-semibold rounded"
               >
                 <Save className="w-5 h-5 mr-2" />
                 {isSavingDraft ? t("file.savingDraft") : t("file.saveDraft")}
@@ -642,7 +647,7 @@ const FileComplaint = () => {
               <Button
                 type="submit"
                 disabled={isSubmitting || isSavingDraft || isLoadingDraft}
-                className="flex-1 py-4 h-auto text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:from-gray-400 disabled:to-gray-500 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                className="flex-1 py-4 h-auto text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded"
               >
                 {" "}
                 {isSubmitting ? (

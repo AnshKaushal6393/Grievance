@@ -53,8 +53,8 @@ const About = () => {
       <Navbar />
 
       <section className="relative overflow-hidden bg-linear-to-br from-background via-muted/40 to-background">
-        <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-blue-300/20 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-indigo-300/20 blur-3xl" />
+        <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-primary/15 blur-3xl" />
 
         <div className="container mx-auto px-4 py-20 md:py-28">
           <motion.div
@@ -63,11 +63,11 @@ const About = () => {
             transition={{ duration: 0.5 }}
             className="mx-auto max-w-3xl text-center"
           >
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-full bg-card/90 px-4 py-2 text-sm font-medium text-foreground shadow-sm border border-border">
               <Target className="h-4 w-4 text-primary" />
               {t("about.badge", "About Grievance Portal")}
             </span>
-            <h1 className="mt-6 text-4xl font-bold text-gray-900 md:text-6xl">
+            <h1 className="mt-6 text-3xl font-bold text-gray-900 md:text-5xl">
               {t("about.title", "Built to turn feedback into action")}
             </h1>
             <p className="mt-5 text-lg text-gray-600 md:text-xl">

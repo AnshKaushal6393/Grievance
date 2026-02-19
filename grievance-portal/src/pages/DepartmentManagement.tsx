@@ -499,7 +499,7 @@ const DepartmentManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-background via-muted/30 to-background dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
 
       <div className="container mx-auto px-4 py-8">
@@ -541,11 +541,11 @@ const DepartmentManagement = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="hover:shadow-lg transition-all duration-300 group">
+                <Card className="transition-colors border border-border group hover:border-slate-300">
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`p-3 rounded-xl ${dept.bgColor}`}>
+                        <div className={`p-3 rounded ${dept.bgColor}`}>
                           <Icon className={`h-6 w-6 ${dept.iconColor}`} />
                         </div>
                         <div>
@@ -721,11 +721,11 @@ const DepartmentManagement = () => {
                       onClick={() =>
                         setFormData({ ...formData, selectedIcon: idx })
                       }
-                      className={`p-3 rounded-xl transition-all ${iconData.bg} ${
+                      className={`p-3 rounded ${iconData.bg} ${
                         formData.selectedIcon === idx
                           ? "ring-2 ring-primary ring-offset-2"
-                          : "hover:scale-105"
-                      }`}
+                          : "hover:border-slate-300"
+                      } border`}
                     >
                       <IconComp className={`h-5 w-5 ${iconData.color}`} />
                     </button>
@@ -790,7 +790,7 @@ const DepartmentManagement = () => {
                         ? "default"
                         : "outline"
                     }
-                    className="cursor-pointer transition-all hover:scale-105"
+                    className="cursor-pointer transition-colors hover:border-slate-300"
                     onClick={() => toggleCategory(category)}
                   >
                     {formData.categories.includes(category) && (
@@ -1189,3 +1189,4 @@ const DepartmentManagement = () => {
 };
 
 export default DepartmentManagement;
+

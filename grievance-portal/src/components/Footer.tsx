@@ -1,109 +1,75 @@
-import { Shield, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Footer = () => {
   const { t } = useLanguage();
-
-  const quickLinks = [
-    { label: t("home.footer.fileComplaint", "File Complaint"), href: "#" },
-    { label: t("home.footer.trackStatus", "Track Status"), href: "#" },
-    { label: t("home.footer.faq", "FAQs"), href: "#" },
-    { label: t("home.footer.contactUs", "Contact Us"), href: "#" },
-  ];
-
-  const categories = [
-    { label: t("home.footer.catRoads", "Roads & Transport"), href: "#" },
-    { label: t("home.footer.catWater", "Water Supply"), href: "#" },
-    { label: t("home.footer.catElectricity", "Electricity"), href: "#" },
-    { label: t("home.footer.catSanitation", "Sanitation"), href: "#" },
-  ];
-
-  const socialLinks = [
-    { icon: Facebook, href: "#" },
-    { icon: Twitter, href: "#" },
-    { icon: Instagram, href: "#" },
-    { icon: Linkedin, href: "#" },
-  ];
+  const lastUpdated = new Date().toLocaleDateString();
 
   return (
-    <footer className="bg-card border-t border-border">
-      <div className="container mx-auto px-4 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-lg gradient-bg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold">GrievanceHub</span>
-            </div>
-            <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-              {t("home.footer.brandText", "Empowering citizens to voice their concerns and create positive change in their communities.")}
-            </p>
-            <div className="flex gap-3">
-              {socialLinks.map((social, index) => (
-                <a
-                  key={index}
-                  href={social.href}
-                  className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-colors"
-                >
-                  <social.icon className="w-5 h-5" />
-                </a>
-              ))}
-            </div>
-          </div>
+    <footer className="mt-10 border-t border-border bg-slate-900 text-slate-100">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-10 md:grid-cols-4">
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide">
+            {t("footer.aboutGov", "Government of India")}
+          </h3>
+          <p className="text-sm text-slate-300">
+            {t(
+              "footer.aboutText",
+              "This portal is for citizen grievance registration, tracking, and redressal by concerned departments.",
+            )}
+          </p>
+        </section>
 
-          <div>
-            <h3 className="font-semibold mb-4">{t("home.footer.quickLinks", "Quick Links")}</h3>
-            <ul className="space-y-3">
-              {quickLinks.map((link) => (
-                <li key={link.label}>
-                  <a href={link.href} className="text-muted-foreground hover:text-primary transition-colors text-sm">{link.label}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide">
+            {t("footer.quickLinks", "Quick Links")}
+          </h3>
+          <ul className="space-y-2 text-sm text-slate-300">
+            <li><Link to="/file-complaint-options" className="hover:text-white">{t("footer.file", "File Grievance")}</Link></li>
+            <li><Link to="/track-complaint" className="hover:text-white">{t("footer.track", "Track Grievance")}</Link></li>
+            <li><Link to="/about" className="hover:text-white">{t("footer.help", "Help and Guidelines")}</Link></li>
+            <li><Link to="/dashboard" className="hover:text-white">{t("footer.dashboard", "Citizen Dashboard")}</Link></li>
+          </ul>
+        </section>
 
-          <div>
-            <h3 className="font-semibold mb-4">{t("home.footer.categories", "Categories")}</h3>
-            <ul className="space-y-3">
-              {categories.map((category) => (
-                <li key={category.label}>
-                  <a href={category.href} className="text-muted-foreground hover:text-primary transition-colors text-sm">{category.label}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide">
+            {t("footer.policies", "Policies")}
+          </h3>
+          <ul className="space-y-2 text-sm text-slate-300">
+            <li><a href="#" className="hover:text-white">{t("footer.privacy", "Privacy Policy")}</a></li>
+            <li><a href="#" className="hover:text-white">{t("footer.terms", "Terms and Conditions")}</a></li>
+            <li><a href="#" className="hover:text-white">{t("footer.accessibility", "Accessibility Statement")}</a></li>
+            <li><a href="#" className="hover:text-white">{t("footer.sitemap", "Sitemap")}</a></li>
+          </ul>
+        </section>
 
-          <div>
-            <h3 className="font-semibold mb-4">{t("home.footer.contactUs", "Contact Us")}</h3>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-primary mt-0.5" />
-                <span className="text-muted-foreground text-sm">
-                  {t("home.footer.address1", "123 Civic Center, Downtown")}
-                  <br />
-                  {t("home.footer.address2", "City, State 12345")}
-                </span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-primary" />
-                <span className="text-muted-foreground text-sm">1800-123-4567</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-primary" />
-                <span className="text-muted-foreground text-sm">support@grievancehub.gov</span>
-              </li>
-            </ul>
-          </div>
-        </div>
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide">
+            {t("footer.contact", "Contact")}
+          </h3>
+          <ul className="space-y-3 text-sm text-slate-300">
+            <li className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-4 w-4" />
+              <span>{t("footer.address", "Public Grievance Cell, New Delhi, India")}</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              <span>{t("footer.phone", "Helpline: 1800-000-0000")}</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              <span>{t("footer.email", "support@grievance.gov.in")}</span>
+            </li>
+          </ul>
+        </section>
+      </div>
 
-        <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-muted-foreground text-sm">{t("home.footer.copyright", "(c) 2024 GrievanceHub. All rights reserved.")}</p>
-          <div className="flex gap-6 text-sm">
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">{t("home.footer.privacy", "Privacy Policy")}</a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">{t("home.footer.terms", "Terms of Service")}</a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">{t("home.footer.accessibility", "Accessibility")}</a>
-          </div>
+      <div className="border-t border-slate-700 bg-slate-950">
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-2 px-4 py-4 text-xs text-slate-300 md:flex-row">
+          <p>{t("footer.copyright", "© Government of India. All rights reserved.")}</p>
+          <p>{t("footer.lastUpdated", "Last Updated on")}: {lastUpdated}</p>
         </div>
       </div>
     </footer>

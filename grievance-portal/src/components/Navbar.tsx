@@ -1,7 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Menu, X, Bell, User, Users, ChevronDown, LayoutDashboard, FileQuestion, LogOut, BarChart3, Mic } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  FileQuestion,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Mic,
+  User,
+  Users,
+  X,
+  BarChart3,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import authService from "@/services/authService";
 import complaintService from "@/services/complaintService";
@@ -19,6 +31,7 @@ const Navbar = ({ branding }: NavbarProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [fontScale, setFontScale] = useState<"sm" | "md" | "lg">("md");
   const isLoggedIn = authService.isAuthenticated();
   const currentUser = authService.getCurrentUser();
   const displayName = currentUser?.name || "User";
@@ -82,40 +95,56 @@ const Navbar = ({ branding }: NavbarProps) => {
     };
   }, [branding, currentUser?.role, location.pathname]);
 
+  useEffect(() => {
+    const sizes: Record<typeof fontScale, string> = { sm: "14px", md: "16px", lg: "18px" };
+    document.documentElement.style.fontSize = sizes[fontScale];
+  }, [fontScale]);
+
   const navLinks =
     currentUser?.role === "admin"
       ? [
-          { label: t("nav.adminDashboard"), href: "/admin" },
-          { label: t("nav.complaints"), href: "/admin/complaints" },
-          { label: t("nav.users"), href: "/admin/users" },
-          { label: t("nav.departments"), href: "/admin/departments" },
-          { label: t("nav.reports"), href: "/admin/reports" },
-          { label: t("nav.analytics"), href: "/admin/analytics" },
+          { label: t("nav.adminDashboard", "Admin Dashboard"), href: "/admin" },
+          { label: t("nav.complaints", "Complaints"), href: "/admin/complaints" },
+          { label: t("nav.users", "Users"), href: "/admin/users" },
+          { label: t("nav.departments", "Departments"), href: "/admin/departments" },
+          { label: t("nav.reports", "Reports"), href: "/admin/reports" },
+          { label: t("nav.analytics", "Analytics"), href: "/admin/analytics" },
         ]
-      : [
-          { label: t("nav.home"), href: "/" },
-          { label: t("nav.voiceComplaint"), href: "/voice-complaint" },
-          { label: t("nav.about"), href: "/about" },
-          { label: t("nav.trackComplaint"), href: "/track-complaint" },
-        ];
+      : currentUser?.role === "officer"
+        ? [
+            { label: t("nav.dashboard", "Dashboard"), href: "/officer" },
+            { label: t("nav.myComplaints", "My Complaints"), href: "/officer" },
+            { label: t("nav.about", "Help"), href: "/about" },
+          ]
+        : [
+            { label: t("nav.home", "Home"), href: "/" },
+            { label: t("nav.fileGrievance", "File Grievance"), href: "/file-complaint-options" },
+            { label: t("nav.trackComplaint", "Track Grievance"), href: "/track-complaint" },
+            { label: t("nav.about", "Help"), href: "/about" },
+          ];
 
   const profileMenuItems =
     currentUser?.role === "admin"
       ? [
-          { label: t("nav.adminDashboard"), icon: LayoutDashboard, href: "/admin" },
-          { label: t("nav.allComplaints"), icon: FileQuestion, href: "/admin/complaints" },
-          { label: t("nav.users"), icon: Users, href: "/admin/users" },
-          { label: t("nav.departments"), icon: Users, href: "/admin/departments" },
-          { label: t("nav.reports"), icon: BarChart3, href: "/admin/reports" },
-          { label: t("nav.analytics"), icon: BarChart3, href: "/admin/analytics" },
-          { label: t("nav.profile"), icon: User, href: "/profile" },
+          { label: t("nav.adminDashboard", "Admin Dashboard"), icon: LayoutDashboard, href: "/admin" },
+          { label: t("nav.allComplaints", "All Complaints"), icon: FileQuestion, href: "/admin/complaints" },
+          { label: t("nav.users", "Users"), icon: Users, href: "/admin/users" },
+          { label: t("nav.departments", "Departments"), icon: Users, href: "/admin/departments" },
+          { label: t("nav.reports", "Reports"), icon: BarChart3, href: "/admin/reports" },
+          { label: t("nav.analytics", "Analytics"), icon: BarChart3, href: "/admin/analytics" },
+          { label: t("nav.profile", "Profile"), icon: User, href: "/profile" },
         ]
-      : [
-          { label: t("nav.dashboard"), icon: LayoutDashboard, href: "/dashboard" },
-          { label: t("nav.voiceComplaint"), icon: Mic, href: "/voice-complaint" },
-          { label: t("nav.myComplaints"), icon: FileQuestion, href: "/my-complaints" },
-          { label: t("nav.profile"), icon: User, href: "/profile" },
-        ];
+      : currentUser?.role === "officer"
+        ? [
+            { label: t("nav.dashboard", "Dashboard"), icon: LayoutDashboard, href: "/officer" },
+            { label: t("nav.profile", "Profile"), icon: User, href: "/profile" },
+          ]
+        : [
+            { label: t("nav.dashboard", "Dashboard"), icon: LayoutDashboard, href: "/dashboard" },
+            { label: t("nav.voiceComplaint", "Voice Complaint"), icon: Mic, href: "/voice-complaint" },
+            { label: t("nav.myComplaints", "My Complaints"), icon: FileQuestion, href: "/my-complaints" },
+            { label: t("nav.profile", "Profile"), icon: User, href: "/profile" },
+          ];
 
   const isActiveLink = (href: string) => location.pathname === href;
 
@@ -130,85 +159,105 @@ const Navbar = ({ branding }: NavbarProps) => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-card shadow-md border-b border-border/60">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-3">
-            {brandLogo ? (
-              <img src={brandLogo} alt="Site logo" className="w-10 h-10 rounded-xl border border-border object-cover shadow-md" />
-            ) : (
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-md">
-                <FileText className="w-5 h-5 text-primary-foreground" />
-              </div>
-            )}
-            <div className="hidden sm:block">
-              <h1 className="text-lg font-bold text-foreground leading-tight">{brandName}</h1>
-              <p className="text-xs text-muted-foreground -mt-0.5">{t("nav.platformSubtitle")}</p>
+    <>
+      <header className="sticky top-0 z-50 border-b border-border bg-background">
+        <a
+          href="#main-content"
+          className="skip-link absolute left-2 top-2 z-[60] -translate-y-16 rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus:translate-y-0"
+        >
+          {t("nav.skipContent", "Skip to main content")}
+        </a>
+
+        <div className="border-b border-slate-700 bg-slate-900 text-white">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1 text-xs">
+            <p className="font-semibold">{t("nav.goi", "Government of India")}</p>
+            <div className="flex items-center gap-2">
+              <span>{t("nav.textSize", "Text Size")}</span>
+              <button type="button" className="rounded border border-slate-500 px-1" onClick={() => setFontScale("sm")} aria-label={t("nav.textSizeSmall", "Decrease text size")}>A-</button>
+              <button type="button" className="rounded border border-slate-500 px-1" onClick={() => setFontScale("md")} aria-label={t("nav.textSizeDefault", "Default text size")}>A</button>
+              <button type="button" className="rounded border border-slate-500 px-1" onClick={() => setFontScale("lg")} aria-label={t("nav.textSizeLarge", "Increase text size")}>A+</button>
             </div>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                to={link.href}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  isActiveLink(link.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
           </div>
+        </div>
 
-          <div className="hidden md:flex items-center gap-2">
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
-              className="h-9 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
-              aria-label={t("nav.language")}
-            >
-              <option value="en">{getLanguageLabel("en")}</option>
-              <option value="hi">{getLanguageLabel("hi")}</option>
-              <option value="ur">{getLanguageLabel("ur")}</option>
-            </select>
-            {isLoggedIn ? (
-              <>
-                <button className="relative p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors">
-                  <Bell className="w-5 h-5" />
-                  {notificationCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                      {notificationCount > 99 ? "99+" : notificationCount}
-                    </span>
-                  )}
-                </button>
+        <div className="border-b border-border bg-white">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+            <Link to="/" className="flex items-center gap-3" aria-label={t("nav.home", "Home")}>
+              {brandLogo ? (
+                <img src={brandLogo} alt={t("nav.departmentLogo", "Department logo")} className="h-10 w-10 border border-border object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center bg-primary text-primary-foreground">
+                  <FileText className="h-5 w-5" />
+                </div>
+              )}
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("nav.goiDept", "Public Grievance Redressal")}</p>
+                <p className="text-lg font-semibold leading-tight text-foreground">{brandName}</p>
+              </div>
+            </Link>
 
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setIsProfileOpen(!isProfileOpen);
-                    }}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors"
-                  >
-                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary-foreground" />
-                    </div>
-                    <span className="text-sm font-medium text-foreground">{displayName}</span>
-                    <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
+            <div className="hidden items-center gap-2 md:flex">
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
+                className="h-9 rounded border border-input bg-background px-2 text-sm text-foreground"
+                aria-label={t("nav.language", "Language")}
+              >
+                <option value="en">{getLanguageLabel("en")}</option>
+                <option value="hi">{getLanguageLabel("hi")}</option>
+                <option value="ur">{getLanguageLabel("ur")}</option>
+              </select>
+              <span className="text-xs text-muted-foreground">{t("nav.helpline", "Helpline: 1800-000-0000")}</span>
+            </div>
+          </div>
+        </div>
+
+        <nav className="border-b border-border bg-slate-50" aria-label={t("nav.primary", "Primary")}> 
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2">
+            <div className="hidden items-center gap-1 md:flex">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  to={link.href}
+                  className={`rounded px-3 py-2 text-sm font-medium ${
+                    isActiveLink(link.href)
+                      ? "bg-primary text-primary-foreground"
+                      : "text-slate-800 hover:bg-slate-200"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="hidden items-center gap-2 md:flex">
+              {isLoggedIn ? (
+                <>
+                  <button type="button" className="relative rounded p-2 text-slate-700 hover:bg-slate-200" aria-label={t("nav.notifications", "Notifications")}>
+                    <Bell className="h-5 w-5" />
+                    {notificationCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
+                        {notificationCount > 99 ? "99+" : notificationCount}
+                      </span>
+                    )}
                   </button>
-
-                  <AnimatePresence>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsProfileOpen((prev) => !prev)}
+                      className="flex items-center gap-2 rounded border border-border bg-white px-2 py-1.5"
+                      aria-label={t("nav.profileMenu", "Profile menu")}
+                      aria-expanded={isProfileOpen}
+                      aria-haspopup="menu"
+                    >
+                      <User className="h-4 w-4" />
+                      <span className="text-sm">{displayName}</span>
+                      <ChevronDown className={`h-3 w-3 transition-transform ${isProfileOpen ? "rotate-180" : ""}`} />
+                    </button>
                     {isProfileOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-56 bg-card rounded-xl shadow-lg border border-border py-2 z-50"
-                      >
-                        <div className="px-4 py-3 border-b border-border">
-                          <p className="text-sm font-semibold text-foreground">{displayName}</p>
+                      <div className="absolute right-0 mt-2 w-56 border border-border bg-white py-2 shadow" role="menu" aria-label={t("nav.profileMenu", "Profile menu")}>
+                        <div className="border-b border-border px-4 py-2">
+                          <p className="text-sm font-semibold">{displayName}</p>
                           <p className="text-xs text-muted-foreground">{displayEmail}</p>
                         </div>
                         {profileMenuItems.map((item) => (
@@ -216,139 +265,81 @@ const Navbar = ({ branding }: NavbarProps) => {
                             key={item.label}
                             to={item.href}
                             onClick={() => setIsProfileOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100"
                           >
-                            <item.icon className="w-4 h-4 text-muted-foreground" />
+                            <item.icon className="h-4 w-4 text-muted-foreground" />
                             {item.label}
                           </Link>
                         ))}
-                        <div className="border-t border-border mt-2 pt-2">
+                        <div className="mt-2 border-t border-border pt-2">
                           <button
+                            type="button"
                             onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50"
                           >
-                            <LogOut className="w-4 h-4" />
-                            {t("nav.logout")}
+                            <LogOut className="h-4 w-4" />
+                            {t("nav.logout", "Logout")}
                           </button>
                         </div>
-                      </motion.div>
+                      </div>
                     )}
-                  </AnimatePresence>
-                </div>
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" className="text-gray-600" asChild>
-                  <Link to="/login">{t("nav.signIn")}</Link>
-                </Button>
-                <Button
-                  size="sm"
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
-                  asChild
-                >
-                  <Link to="/register">{t("nav.signUp")}</Link>
-                </Button>
-              </>
-            )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/login">{t("nav.signIn", "Sign In")}</Link>
+                  </Button>
+                  <Button size="sm" asChild>
+                    <Link to="/register">{t("nav.signUp", "Sign Up")}</Link>
+                  </Button>
+                </>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsOpen((prev) => !prev)}
+              className="rounded border border-border bg-white p-2 md:hidden"
+              aria-label={t("nav.menu", "Menu")}
+            >
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
+        </nav>
 
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-          >
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-      </div>
-
-      <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-card border-t border-border shadow-lg"
-          >
-            <div className="px-4 py-4 space-y-2">
-              <div className="px-1 pb-2">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {t("nav.language")}
-                </label>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
-                  className="w-full h-10 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
-                >
-                  <option value="en">{getLanguageLabel("en")}</option>
-                  <option value="hi">{getLanguageLabel("hi")}</option>
-                  <option value="ur">{getLanguageLabel("ur")}</option>
-                </select>
-              </div>
+          <div className="border-t border-border bg-white md:hidden">
+            <div className="space-y-2 px-4 py-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("nav.language", "Language")}</label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
+                className="h-10 w-full rounded border border-input bg-background px-2 text-sm text-foreground"
+                aria-label={t("nav.language", "Language")}
+              >
+                <option value="en">{getLanguageLabel("en")}</option>
+                <option value="hi">{getLanguageLabel("hi")}</option>
+                <option value="ur">{getLanguageLabel("ur")}</option>
+              </select>
               {navLinks.map((link) => (
                 <Link
                   key={link.label}
                   to={link.href}
-                  className={`block px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    isActiveLink(link.href)
-                      ? "bg-primary/10 text-primary"
-                      : "text-foreground hover:bg-muted"
-                  }`}
                   onClick={() => setIsOpen(false)}
+                  className={`block rounded px-3 py-2 text-sm ${
+                    isActiveLink(link.href) ? "bg-primary text-primary-foreground" : "hover:bg-slate-100"
+                  }`}
                 >
                   {link.label}
                 </Link>
               ))}
-
-              {!isLoggedIn && (
-                <div className="border-t border-border pt-4 mt-4 space-y-2">
-                  <Button variant="outline" className="w-full py-3 h-auto" asChild>
-                    <Link to="/login" onClick={() => setIsOpen(false)}>{t("nav.signIn")}</Link>
-                  </Button>
-                  <Button
-                    className="w-full py-3 h-auto bg-primary text-primary-foreground hover:bg-primary/90"
-                    asChild
-                  >
-                    <Link to="/register" onClick={() => setIsOpen(false)}>{t("nav.signUp")}</Link>
-                  </Button>
-                </div>
-              )}
-
-              {isLoggedIn && (
-                <div className="border-t border-border pt-4 mt-4 space-y-2">
-                  <div className="flex items-center gap-3 px-4 py-2">
-                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-primary-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{displayName}</p>
-                      <p className="text-xs text-muted-foreground">{displayEmail}</p>
-                    </div>
-                  </div>
-                  {profileMenuItems.map((item) => (
-                    <Link
-                      key={item.label}
-                      to={item.href}
-                      onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-foreground hover:bg-muted transition-colors"
-                    >
-                      <item.icon className="w-4 h-4 text-muted-foreground" />
-                      {item.label}
-                    </Link>
-                  ))}
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    {t("nav.logout")}
-                  </button>
-                </div>
-              )}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </nav>
+      </header>
+      <div id="main-content" tabIndex={-1} />
+    </>
   );
 };
 

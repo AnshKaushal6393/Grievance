@@ -295,18 +295,18 @@ const AdminComplaints = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-foreground">
               {t("adminComplaints.title", "All Complaints")}
             </h1>
             <Badge variant="secondary" className="text-lg px-3 py-1">{totalComplaints}</Badge>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="gap-2" onClick={exportToCsv} disabled={isExporting}>
               {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
               {isExporting
@@ -329,14 +329,15 @@ const AdminComplaints = () => {
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-6">
               <Card>
                 <CardContent className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    <div className="lg:col-span-2">
-                      <label className="text-sm font-medium mb-2 block">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="xl:col-span-2">
+                      <label htmlFor="admin-complaints-search" className="text-sm font-medium mb-2 block">
                         {t("adminComplaints.search", "Search")}
                       </label>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
+                          id="admin-complaints-search"
                           placeholder={t(
                             "adminComplaints.searchPlaceholder",
                             "Search by ID, Title, or Description...",
@@ -348,11 +349,11 @@ const AdminComplaints = () => {
                       </div>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">
+                      <label htmlFor="admin-complaints-status" className="text-sm font-medium mb-2 block">
                         {t("adminComplaints.status", "Status")}
                       </label>
                       <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                        <SelectTrigger>
+                        <SelectTrigger id="admin-complaints-status">
                           <SelectValue placeholder={t("adminComplaints.allStatuses", "All Statuses")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -367,11 +368,11 @@ const AdminComplaints = () => {
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">
+                      <label htmlFor="admin-complaints-priority" className="text-sm font-medium mb-2 block">
                         {t("adminComplaints.priority", "Priority")}
                       </label>
                       <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                        <SelectTrigger>
+                        <SelectTrigger id="admin-complaints-priority">
                           <SelectValue placeholder={t("adminComplaints.allPriorities", "All Priorities")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -383,11 +384,11 @@ const AdminComplaints = () => {
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">
+                      <label htmlFor="admin-complaints-department" className="text-sm font-medium mb-2 block">
                         {t("adminComplaints.department", "Department")}
                       </label>
                       <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                        <SelectTrigger>
+                        <SelectTrigger id="admin-complaints-department">
                           <SelectValue placeholder={t("adminComplaints.allDepartments", "All Departments")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -399,11 +400,11 @@ const AdminComplaints = () => {
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">
+                      <label htmlFor="admin-complaints-category" className="text-sm font-medium mb-2 block">
                         {t("adminComplaints.category", "Category")}
                       </label>
                       <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger>
+                        <SelectTrigger id="admin-complaints-category">
                           <SelectValue placeholder={t("adminComplaints.allCategories", "All Categories")} />
                         </SelectTrigger>
                         <SelectContent>
@@ -415,14 +416,15 @@ const AdminComplaints = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="lg:col-span-2 flex gap-3">
+                    <div className="xl:col-span-2">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className="flex-1">
-                        <label className="text-sm font-medium mb-2 block">
+                        <label htmlFor="admin-complaints-from-date" className="text-sm font-medium mb-2 block">
                           {t("adminComplaints.fromDate", "From date")}
                         </label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between">
+                            <Button id="admin-complaints-from-date" variant="outline" className="w-full justify-between">
                               {dateFrom
                                 ? format(dateFrom, "dd MMM yyyy")
                                 : t("adminComplaints.selectStartDate", "Select start date")}
@@ -435,12 +437,12 @@ const AdminComplaints = () => {
                         </Popover>
                       </div>
                       <div className="flex-1">
-                        <label className="text-sm font-medium mb-2 block">
+                        <label htmlFor="admin-complaints-to-date" className="text-sm font-medium mb-2 block">
                           {t("adminComplaints.toDate", "To date")}
                         </label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between">
+                            <Button id="admin-complaints-to-date" variant="outline" className="w-full justify-between">
                               {dateTo
                                 ? format(dateTo, "dd MMM yyyy")
                                 : t("adminComplaints.selectEndDate", "Select end date")}
@@ -452,9 +454,10 @@ const AdminComplaints = () => {
                           </PopoverContent>
                         </Popover>
                       </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-3 mt-4 pt-4 border-t">
+                  <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
                     <Button onClick={() => setCurrentPage(1)}>
                       {t("adminComplaints.applyFilters", "Apply Filters")}
                     </Button>
@@ -600,7 +603,7 @@ const AdminComplaints = () => {
             </div>
 
             {/* Pagination */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
+            <div className="flex flex-col gap-4 border-t p-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>{t("adminComplaints.showing", "Showing")}</span>
                 <Select value={itemsPerPage.toString()} onValueChange={v => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
@@ -611,12 +614,12 @@ const AdminComplaints = () => {
                 </Select>
                 <span>{t("adminComplaints.of", "of")} {totalComplaints} {t("adminComplaints.complaints", "complaints")}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
                   <ChevronLeft className="h-4 w-4" />
                   {t("adminComplaints.previous", "Previous")}
                 </Button>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
                     return (
@@ -686,3 +689,4 @@ const AdminComplaints = () => {
 };
 
 export default AdminComplaints;
+

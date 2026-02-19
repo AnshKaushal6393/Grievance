@@ -89,46 +89,112 @@ export async function assignComplaint(req, res) {
 
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
+    if (!departmentId && !officerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Provide at least departmentId or officerId",
+      });
+    }
 
-    if (departmentId) complaint.department = departmentId;
-    if (officerId) complaint.assignedOfficer = officerId;
     if (priority) complaint.priority = priority;
 
-    complaint.assignedDate = new Date();
-    complaint.recordStatusChange(
-      "assigned",
-      req.user.id,
-      "Complaint assigned by admin",
-      "admin",
-    );
+    let effectiveDepartmentId = departmentId || complaint.department;
+    if (departmentId) complaint.department = departmentId;
+
+    if (officerId) {
+      const officerDepartment = await Department.findOne({
+        officers: officerId,
+        isActive: true,
+      }).select("_id");
+      if (!officerDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Officer is not mapped to any active department",
+        });
+      }
+      if (
+        departmentId &&
+        String(officerDepartment._id) !== String(departmentId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Selected officer does not belong to selected department",
+        });
+      }
+      if (!departmentId) {
+        complaint.department = officerDepartment._id;
+        effectiveDepartmentId = officerDepartment._id;
+      }
+    } else if (!effectiveDepartmentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Department is required when officerId is not provided",
+      });
+    }
+
+    let statusForNotification = "pending";
+    let citizenMessage = "Your complaint has been routed to the department queue.";
+    let responseMessage = "Complaint routed successfully";
+
+    if (officerId) {
+      complaint.assignedOfficer = officerId;
+      complaint.assignedDate = new Date();
+      complaint.recordStatusChange(
+        "assigned",
+        req.user.id,
+        "Complaint assigned by admin",
+        "admin",
+      );
+      complaint.updates.push({
+        message: "Complaint assigned to officer",
+        updatedBy: req.user.id,
+      });
+      complaint.timeline.unshift({
+        status: "assigned",
+        message: "Complaint assigned by admin",
+        updatedBy: req.user.id,
+        updatedAt: new Date(),
+      });
+      statusForNotification = "assigned";
+      citizenMessage = "Your complaint has been assigned to an officer.";
+      responseMessage = "Complaint assigned successfully";
+    } else {
+      complaint.assignedOfficer = null;
+      complaint.assignedDate = null;
+      complaint.recordStatusChange(
+        "pending",
+        req.user.id,
+        "Complaint routed by admin to department queue",
+        "admin",
+      );
+      complaint.updates.push({
+        message: "Complaint routed to department queue",
+        updatedBy: req.user.id,
+      });
+      complaint.timeline.unshift({
+        status: "pending",
+        message: "Complaint routed by admin to department queue",
+        updatedBy: req.user.id,
+        updatedAt: new Date(),
+      });
+    }
     const est = new Date();
     est.setDate(est.getDate() + estimatedDays);
     complaint.estimatedResolution = est;
-
-    complaint.updates.push({
-      message: `Complaint assigned to department`,
-      updatedBy: req.user.id
-    });
-    complaint.timeline.unshift({
-      status: "assigned",
-      message: "Complaint assigned by admin",
-      updatedBy: req.user.id,
-      updatedAt: new Date(),
-    });
 
     await complaint.save();
     await createStatusNotification({
       userId: complaint.user,
       complaint,
-      status: "assigned",
-      message: "Your complaint has been assigned by admin.",
+      status: statusForNotification,
+      message: citizenMessage,
       source: "admin",
-      metadata: { departmentId, officerId },
+      metadata: { departmentId: effectiveDepartmentId, officerId },
     });
     await complaint.populate('department', 'name');
     await complaint.populate('assignedOfficer', 'name email');
 
-    res.status(200).json({ success: true, message: 'Complaint assigned successfully', data: { complaint } });
+    res.status(200).json({ success: true, message: responseMessage, data: { complaint } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -183,38 +249,97 @@ export async function updateComplaintStatus(req, res) {
 export async function bulkAssign(req, res) {
   try {
     const { complaintIds, departmentId, officerId } = req.body;
+    if (!Array.isArray(complaintIds) || complaintIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "complaintIds is required",
+      });
+    }
+    if (!departmentId && !officerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Provide at least departmentId or officerId",
+      });
+    }
 
-    const update = { status: 'assigned', assignedDate: new Date() };
-    if (departmentId) update.department = departmentId;
-    if (officerId) update.assignedOfficer = officerId;
-
-    await Complaint.updateMany({ _id: { $in: complaintIds } }, update);
+    let effectiveDepartmentId = departmentId || null;
+    if (officerId) {
+      const officerDepartment = await Department.findOne({
+        officers: officerId,
+        isActive: true,
+      }).select("_id");
+      if (!officerDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Officer is not mapped to any active department",
+        });
+      }
+      if (
+        departmentId &&
+        String(officerDepartment._id) !== String(departmentId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Selected officer does not belong to selected department",
+        });
+      }
+      if (!departmentId) effectiveDepartmentId = officerDepartment._id;
+    }
 
     const complaints = await Complaint.find({ _id: { $in: complaintIds } });
     for (const complaint of complaints) {
-      complaint.recordStatusChange(
-        "assigned",
-        req.user.id,
-        "Complaint assigned in bulk by admin",
-        "admin",
-      );
-      complaint.timeline.unshift({
-        status: "assigned",
-        message: "Complaint assigned in bulk by admin",
-        updatedBy: req.user.id,
-        updatedAt: new Date(),
-      });
+      if (effectiveDepartmentId) {
+        complaint.department = effectiveDepartmentId;
+      }
+      if (officerId) {
+        complaint.assignedOfficer = officerId;
+        complaint.assignedDate = new Date();
+        complaint.recordStatusChange(
+          "assigned",
+          req.user.id,
+          "Complaint assigned in bulk by admin",
+          "admin",
+        );
+        complaint.timeline.unshift({
+          status: "assigned",
+          message: "Complaint assigned in bulk by admin",
+          updatedBy: req.user.id,
+          updatedAt: new Date(),
+        });
+      } else {
+        complaint.assignedOfficer = null;
+        complaint.assignedDate = null;
+        complaint.recordStatusChange(
+          "pending",
+          req.user.id,
+          "Complaint routed in bulk to department queue",
+          "admin",
+        );
+        complaint.timeline.unshift({
+          status: "pending",
+          message: "Complaint routed in bulk to department queue",
+          updatedBy: req.user.id,
+          updatedAt: new Date(),
+        });
+      }
       await complaint.save();
       await createStatusNotification({
         userId: complaint.user,
         complaint,
-        status: "assigned",
-        message: "Your complaint was assigned by admin.",
+        status: officerId ? "assigned" : "pending",
+        message: officerId
+          ? "Your complaint was assigned by admin."
+          : "Your complaint was routed by admin to the department queue.",
         source: "admin",
       });
     }
 
-    res.status(200).json({ success: true, message: `${complaintIds.length} complaints assigned successfully` });
+    res.status(200).json({
+      success: true,
+      message: officerId
+        ? `${complaintIds.length} complaints assigned successfully`
+        : `${complaintIds.length} complaints routed successfully`,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

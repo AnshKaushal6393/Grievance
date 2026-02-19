@@ -401,7 +401,7 @@ const AnalyticsDashboard = () => {
         {/* Key Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {keyMetrics.map((metric, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
+            <Card key={index} className="transition-colors hover:border-slate-300">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className={`p-2 rounded-lg ${metric.bgColor}`}><metric.icon className={`h-5 w-5 ${metric.color}`} /></div>
@@ -563,7 +563,7 @@ const AnalyticsDashboard = () => {
         <Card>
           <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />{t("analytics.heatmap", "Complaint Density Heat Map")}</CardTitle></CardHeader>
           <CardContent>
-            <div className="relative bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-lg h-80 overflow-hidden">
+            <div className="relative bg-slate-100 rounded-lg border h-80 overflow-hidden">
               <div className="absolute inset-0 grid grid-cols-4 grid-rows-3 opacity-20">
                 {Array.from({ length: 12 }).map((_, i) => <div key={i} className="border border-slate-400" />)}
               </div>
@@ -586,7 +586,7 @@ const AnalyticsDashboard = () => {
                   {t("analytics.noGeoData", "No geo-density data for selected range")}
                 </div>
               )}
-              <div className="absolute bottom-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 border border-border">
+              <div className="absolute bottom-4 right-4 bg-card rounded-lg p-3 border border-border">
                 <p className="text-xs font-semibold text-foreground mb-2">{t("analytics.density", "Density")}</p>
                 <div className="space-y-1">
                   {[{ color: "bg-red-500", label: t("analytics.high", "High (>50)") }, { color: "bg-yellow-500", label: t("analytics.medium", "Medium (20-50)") }, { color: "bg-green-500", label: t("analytics.low", "Low (<20)") }].map(l => (
@@ -601,7 +601,7 @@ const AnalyticsDashboard = () => {
         </Card>
 
         {/* AI Insights */}
-        <Card className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
+        <Card className="bg-white border-amber-200">
           <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-600" />{t("analytics.aiInsights", "AI-Generated Insights")}</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -611,7 +611,7 @@ const AnalyticsDashboard = () => {
                 </div>
               )}
               {insights.map(insight => (
-                <div key={insight.id} className="flex items-center justify-between p-3 bg-card rounded-lg border border-border hover:shadow-md transition-shadow cursor-pointer group">
+                <div key={insight.id} className="flex items-center justify-between p-3 bg-card rounded-lg border border-border hover:bg-slate-50 transition-colors cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className={getInsightBadgeColor(insight.type)}>{insight.category}</Badge>
                     <span className="text-foreground">{insight.text}</span>
@@ -670,3 +670,5 @@ const AnalyticsDashboard = () => {
 };
 
 export default AnalyticsDashboard;
+
+

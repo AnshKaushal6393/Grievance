@@ -377,7 +377,7 @@ const Dashboard = () => {
   //     label: "Total Complaints",
   //     value: 12,
   //     icon: FileText,
-  //     color: "from-blue-500 to-blue-600",
+  //     color: "from-primary to-primary/80",
   //     bgColor: "bg-primary/10",
   //     textColor: "text-primary"
   //   },
@@ -438,7 +438,7 @@ const Dashboard = () => {
     {
       label: t("dashboard.quick.fileComplaint", "File New Complaint"),
       icon: Plus,
-      href: "/file-complaint",
+      href: "/file-complaint-options",
     },
     {
       label: t("dashboard.quick.fileVoice", "File by Voice"),
@@ -564,7 +564,7 @@ const Dashboard = () => {
                     }`}
                   >
                     <div
-                      className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
+                      className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4 transition-colors`}
                     >
                       <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
                     </div>
@@ -582,8 +582,8 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <Link to="/file-complaint">
-                <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] cursor-pointer group">
+              <Link to="/file-complaint-options">
+                <div className="bg-primary text-primary-foreground rounded-2xl p-6 shadow-md hover:shadow-lg transition-colors cursor-pointer group">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
@@ -593,7 +593,7 @@ const Dashboard = () => {
                         <h3 className="text-xl font-bold">
                           {t("dashboard.hero.title", "File New Complaint")}
                         </h3>
-                        <p className="text-blue-100 text-sm">
+                        <p className="text-primary-foreground/80 text-sm">
                           {t("dashboard.hero.subtitle", "Report an issue in your area")}
                         </p>
                       </div>
@@ -633,7 +633,7 @@ const Dashboard = () => {
                         "No complaints yet. File your first complaint to track updates here.",
                       )}
                     </p>
-                    <Link to="/file-complaint">
+                    <Link to="/file-complaint-options">
                       <Button size="sm">
                         {t("dashboard.recent.fileComplaint", "File a Complaint")}
                       </Button>
@@ -793,7 +793,7 @@ const Dashboard = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="lg:w-80 space-y-6"
+            className="space-y-6 lg:w-[24rem] xl:w-[26rem]"
           >
             {/* Quick Links */}
             <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -848,14 +848,14 @@ const Dashboard = () => {
             </div>
 
             {/* Help & Support */}
-            <div className="bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
+            <div className="bg-primary rounded-2xl p-6 text-white">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
                 <MessageSquare className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold mb-2">
                 {t("dashboard.help.title", "Need Help?")}
               </h3>
-              <p className="text-indigo-100 text-sm mb-4">
+              <p className="text-primary-foreground/80 text-sm mb-4">
                 {t(
                   "dashboard.help.subtitle",
                   "Our support team is available 24/7 to assist you with your queries.",
@@ -870,17 +870,30 @@ const Dashboard = () => {
             </div>
 
             {/* Notifications */}
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-primary" />
-                  {t("dashboard.notifications.title", "Status Notifications")}
-                </h3>
-                <div className="flex items-center gap-2">
+            <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-5">
+              <div className="mb-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-primary" />
+                    {t("dashboard.notifications.title", "Status Notifications")}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-gray-500">
+                      {notificationSummary.unreadCount}{" "}
+                      {t("dashboard.notifications.unread", "unread")}
+                    </span>
+                    <span className="text-orange-600 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      {notificationSummary.highPriorityCount}{" "}
+                      {t("dashboard.notifications.highPriority", "high priority")}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 px-2 text-xs"
+                    className="h-8 px-2 text-xs"
                     onClick={() => {
                       const next = !showNotificationPrefs;
                       setShowNotificationPrefs(next);
@@ -894,7 +907,7 @@ const Dashboard = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 px-2 text-xs"
+                    className="h-8 px-2 text-xs"
                     onClick={handleSeedDemoNotifications}
                     disabled={isSeedingDemoNotifications}
                   >
@@ -902,20 +915,11 @@ const Dashboard = () => {
                       ? t("dashboard.notifications.generating", "Generating...")
                       : t("dashboard.notifications.generateDemo", "Generate Demo")}
                   </Button>
-                  <span className="text-xs text-gray-500">
-                    {notificationSummary.unreadCount}{" "}
-                    {t("dashboard.notifications.unread", "unread")}
-                  </span>
-                  <span className="text-xs text-orange-600 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    {notificationSummary.highPriorityCount}{" "}
-                    {t("dashboard.notifications.highPriority", "high priority")}
-                  </span>
                   {notifications.some((n) => !n.isRead) && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 px-2 text-xs"
+                      className="h-8 px-2 text-xs"
                       onClick={handleMarkAllNotificationsRead}
                     >
                       {t("dashboard.notifications.markAllRead", "Mark all read")}
@@ -936,10 +940,12 @@ const Dashboard = () => {
                       { key: "push", label: "Push" },
                     ].map((channel) => (
                       <label
+                        htmlFor={`notif-channel-${channel.key}`}
                         key={channel.key}
                         className="flex items-center gap-2 rounded-md border px-2 py-1.5"
                       >
                         <input
+                          id={`notif-channel-${channel.key}`}
                           type="checkbox"
                           checked={Boolean(
                             notificationPreferences?.channels?.[channel.key],
@@ -956,10 +962,11 @@ const Dashboard = () => {
                     ))}
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-gray-700 uppercase">
+                    <label htmlFor="notif-digest-frequency" className="text-xs font-semibold text-gray-700 uppercase">
                       {t("dashboard.notifications.digest", "Digest")}
                     </label>
                     <select
+                      id="notif-digest-frequency"
                       className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
                       value={notificationPreferences?.digest?.frequency || "daily"}
                       onChange={(e) =>
@@ -983,7 +990,7 @@ const Dashboard = () => {
                   </Button>
                 </div>
               )}
-              <div className="mb-3 flex items-center gap-2">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 {(["all", "unread", "high"] as const).map((filter) => (
                   <Button
                     key={filter}
@@ -997,7 +1004,7 @@ const Dashboard = () => {
                   </Button>
                 ))}
               </div>
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                 {notifications.length === 0 && (
                   <p className="text-sm text-gray-500">
                     {t("dashboard.notifications.empty", "No recent status updates.")}
@@ -1012,7 +1019,7 @@ const Dashboard = () => {
                         : "border-primary/30 bg-primary/10 hover:border-primary/40"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-col gap-2">
                       <div className="min-w-0">
                         <Link
                           to={`/track-complaint?complaintId=${notification.complaintId}`}
@@ -1039,7 +1046,7 @@ const Dashboard = () => {
                           {new Date(notification.updatedAt).toLocaleString()}
                         </p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="flex shrink-0 items-center justify-end gap-1">
                         {!notification.isRead && (
                           <Button
                             variant="ghost"

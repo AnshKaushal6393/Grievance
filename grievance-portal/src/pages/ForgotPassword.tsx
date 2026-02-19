@@ -295,7 +295,7 @@ const ForgotPassword = () => {
                 className="space-y-8"
               >
                 {/* Back Button */}
-                <button
+                <button type="button"
                   onClick={() => setStep("email")}
                   className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
                 >
@@ -345,7 +345,7 @@ const ForgotPassword = () => {
                       <span className="font-mono font-bold text-primary">{formatTimer(timer)}</span>
                     </p>
                   ) : (
-                    <button
+                    <button type="button"
                       onClick={handleResendOtp}
                       disabled={isLoading}
                       className="text-primary hover:text-primary/80 font-semibold transition-colors inline-flex items-center gap-2"

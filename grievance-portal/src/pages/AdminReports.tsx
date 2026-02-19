@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  BarChart3,
   Building2,
   CalendarDays,
   ChevronRight,
@@ -550,7 +549,7 @@ const AdminReports = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
       <main className="container mx-auto space-y-6 px-4 py-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -577,7 +576,7 @@ const AdminReports = () => {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedType(item.id)}
-                  className={`rounded-xl border p-4 text-left transition-all ${active ? "border-primary bg-primary/10 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                  className={`rounded-lg border p-4 text-left transition-colors ${active ? "border-primary bg-primary/10" : "border-slate-200 bg-white hover:border-slate-300"}`}
                 >
                   <div className="mb-2 flex items-center gap-2">
                     <Icon className={`h-5 w-5 ${active ? "text-primary" : "text-slate-600"}`} />
@@ -755,7 +754,7 @@ const AdminReports = () => {
               {previewLoading ? t("adminReports.loadingPreview", "Loading Preview...") : t("adminReports.previewReport", "Preview Report")}
             </Button>
             {previewReady && previewSnapshot && (
-              <div className="grid grid-cols-1 gap-4 rounded-xl border bg-slate-50 p-4 md:grid-cols-[1.2fr_1fr]">
+              <div className="grid grid-cols-1 gap-4 rounded-lg border bg-white p-4 md:grid-cols-[1.2fr_1fr]">
                 <div>
                   <p className="font-semibold text-slate-900">{buildReportName()}</p>
                   <p className="text-sm text-slate-600">Type: {formatTypeLabel(selectedType)} • Template: {template} • Format: {format.toUpperCase()}</p>
@@ -806,7 +805,7 @@ const AdminReports = () => {
                 {t("adminReports.generateReport", "Generate Report")}
               </Button>
               <Button variant="outline" onClick={handleSaveConfiguration}>{t("adminReports.saveConfiguration", "Save Configuration")}</Button>
-              <Button className="bg-purple-600 hover:bg-purple-700" onClick={handleSchedule}>{t("adminReports.scheduleReport", "Schedule Report")}</Button>
+              <Button variant="outline" onClick={handleSchedule}>{t("adminReports.scheduleReport", "Schedule Report")}</Button>
             </div>
           </CardContent>
         </Card>
@@ -848,7 +847,7 @@ const AdminReports = () => {
           </CardContent>
         </Card>
 
-        <div className="flex items-center justify-between rounded-xl border bg-white p-4">
+        <div className="flex items-center justify-between rounded-lg border bg-white p-4">
           <Button variant="ghost" className="gap-2" onClick={() => navigate("/admin")}>
             <ChevronRight className="h-4 w-4 rotate-180" />
             {t("adminReports.backAdmin", "Back to Admin Dashboard")}
@@ -861,3 +860,4 @@ const AdminReports = () => {
 };
 
 export default AdminReports;
+

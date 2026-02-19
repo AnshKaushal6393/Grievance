@@ -1,6 +1,12 @@
 import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
 import { createStatusNotification } from "../utils/notification.js";
+
+const DEPARTMENT_QUEUE_STATUSES = ["pending", "filed"];
+
+const getOfficerDepartment = async (officerId) =>
+  Department.findOne({ officers: officerId, isActive: true }).select("_id name code");
+
 export const getMyAssignedComplaints = async (req, res) => {
   try {
     const officerId = req.user.id;
@@ -78,6 +84,152 @@ export const getMyAssignedComplaints = async (req, res) => {
     });
   } catch (error) {
     console.error("Get my complaints error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getDepartmentQueueComplaints = async (req, res) => {
+  try {
+    const officerId = req.user._id;
+    const department = await getOfficerDepartment(officerId);
+
+    if (!department) {
+      return res.status(403).json({
+        success: false,
+        message: "Officer is not linked to an active department",
+      });
+    }
+
+    const {
+      search,
+      priority,
+      category,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const query = {
+      department: department._id,
+      assignedOfficer: null,
+      isDraft: false,
+      status: { $in: DEPARTMENT_QUEUE_STATUSES },
+    };
+
+    if (priority && priority !== "all") query.priority = priority;
+    if (category && category !== "all") query.category = category;
+    if (search) {
+      query.$or = [
+        { complaintId: { $regex: search, $options: "i" } },
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const [complaints, total] = await Promise.all([
+      Complaint.find(query)
+        .sort({ priority: -1, createdAt: 1 })
+        .skip(skip)
+        .limit(parsedLimit)
+        .populate("user", "name email phone")
+        .populate("department", "name code"),
+      Complaint.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        complaints,
+        department,
+        pagination: {
+          total,
+          page: parsedPage,
+          pages: Math.ceil(total / parsedLimit),
+          limit: parsedLimit,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get department queue complaints error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const claimDepartmentComplaint = async (req, res) => {
+  try {
+    const officerId = req.user._id;
+    const complaintId = req.params.id;
+    const department = await getOfficerDepartment(officerId);
+
+    if (!department) {
+      return res.status(403).json({
+        success: false,
+        message: "Officer is not linked to an active department",
+      });
+    }
+
+    const complaint = await Complaint.findOne({
+      _id: complaintId,
+      department: department._id,
+      assignedOfficer: null,
+      isDraft: false,
+      status: { $in: DEPARTMENT_QUEUE_STATUSES },
+    });
+
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: "Complaint not found in your department queue",
+      });
+    }
+
+    complaint.assignedOfficer = officerId;
+    complaint.assignedDate = new Date();
+    complaint.recordStatusChange(
+      "assigned",
+      officerId,
+      "Complaint claimed by department officer",
+      "officer",
+    );
+    complaint.timeline.unshift({
+      status: "assigned",
+      message: "Complaint claimed by department officer",
+      updatedBy: officerId,
+      updatedAt: new Date(),
+    });
+
+    await complaint.save();
+
+    await createStatusNotification({
+      userId: complaint.user,
+      complaint,
+      status: "assigned",
+      message: "Your complaint has been assigned to an officer.",
+      source: "officer",
+      metadata: {
+        officerId,
+        claimedFromQueue: true,
+      },
+    });
+
+    await complaint.populate("user", "name email phone");
+    await complaint.populate("department", "name code");
+    await complaint.populate("assignedOfficer", "name email");
+
+    res.status(200).json({
+      success: true,
+      message: "Complaint claimed successfully",
+      data: { complaint },
+    });
+  } catch (error) {
+    console.error("Claim department complaint error:", error);
     res
       .status(500)
       .json({ success: false, message: "Server error", error: error.message });

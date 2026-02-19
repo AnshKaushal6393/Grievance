@@ -1,100 +1,94 @@
-import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { FileText, Search, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
+import { FileText, Search, Mic, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const HeroSection = () => {
   const { t } = useLanguage();
 
-  const stats = [
-    { value: "12K+", label: t("home.hero.statComplaints", "Complaints"), icon: FileText },
-    { value: "89%", label: t("home.hero.statResolution", "Resolution"), icon: CheckCircle2 },
-    { value: "3.5d", label: t("home.hero.statAvgTime", "Avg Time"), icon: Clock },
+  const services = [
+    {
+      title: t("home.hero.fileComplaint", "File a Complaint"),
+      description: t("file.subtitleNew", "Tell us about your issue"),
+      href: "/file-complaint-options",
+      icon: FileText,
+    },
+    {
+      title: t("home.hero.trackComplaint", "Track Complaint"),
+      description: t("track.subtitle", "Enter your complaint ID to check the current status"),
+      href: "/track-complaint",
+      icon: Search,
+    },
+    {
+      title: t("nav.voiceComplaint", "Voice Complaint"),
+      description: t("home.features.voiceDesc", "File complaints using voice input. Perfect for accessibility and ease of use."),
+      href: "/voice-complaint",
+      icon: Mic,
+    },
+    {
+      title: t("dashboard.quick.helpSupport", "Help & Support"),
+      description: t("home.footer.faq", "FAQs"),
+      href: "/about",
+      icon: HelpCircle,
+    },
   ];
 
   return (
-    <section className="relative min-h-screen hero-gradient overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse-glow" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-secondary/20 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: "1s" }} />
-      </div>
+    <section className="border-b border-border bg-white">
+      <div className="mx-auto max-w-7xl px-4 py-10 md:py-12">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.35fr_1fr]">
+          <div className="space-y-5">
+            <p className="inline-block rounded border border-border bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
+              {t("home.hero.badge", "Public Service Delivery")}
+            </p>
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+              {t("home.hero.titlePrefix", "Citizen")}{" "}
+              <span className="text-primary">{t("home.hero.titleHighlight", "Grievance Portal")}</span>
+            </h2>
+            <p className="max-w-3xl text-base text-slate-700">
+              {t(
+                "home.hero.subtitle",
+                "Register civic grievances, track status updates, and receive timely redressal from the concerned department.",
+              )}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link to="/file-complaint-options">
+                <Button className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  {t("home.hero.fileComplaint", "File a Complaint")}
+                </Button>
+              </Link>
+              <Link to="/track-complaint">
+                <Button variant="outline" className="gap-2">
+                  <Search className="h-4 w-4" />
+                  {t("home.hero.trackComplaint", "Track Complaint")}
+                </Button>
+              </Link>
+            </div>
+          </div>
 
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size-64px_64px]" />
-
-      <div className="container relative z-10 mx-auto px-4 pt-32 pb-20">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-sm text-muted-foreground mb-8">
-              <TrendingUp className="w-4 h-4 text-accent" />
-              {t("home.hero.badge", "Empowering Citizens Through Technology")}
-            </span>
-          </motion.div>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl md:text-7xl font-bold mb-6 tracking-tight"
-          >
-            {t("home.hero.titlePrefix", "Your Voice")} <span className="gradient-text">{t("home.hero.titleHighlight", "Matters")}</span>
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-2xl mx-auto"
-          >
-            {t("home.hero.subtitle", "Report civic issues, track progress in real-time, and help build a better community for everyone.")}
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mb-16"
-          >
-            <Link to="/file-complaint">
-              <Button size="lg" className="gradient-bg text-lg px-8 py-6 rounded-xl glow-effect hover:scale-105 transition-transform">
-                <FileText className="w-5 h-5 mr-2" />
-                {t("home.hero.fileComplaint", "File a Complaint")}
-              </Button>
-            </Link>
-            <Link to="/track-complaint">
-              <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-xl glass border-white/20 hover:bg-white/10 transition-all">
-                <Search className="w-5 h-5 mr-2" />
-                {t("home.hero.trackComplaint", "Track Complaint")}
-              </Button>
-            </Link>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="flex flex-wrap justify-center gap-6 md:gap-12"
-          >
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: 0.5 + index * 0.1 }}
-                className="stat-card flex items-center gap-4 px-6 py-4"
-              >
-                <stat.icon className="w-8 h-8 text-primary" />
-                <div className="text-left">
-                  <div className="text-2xl md:text-3xl font-bold">{stat.value}</div>
-                  <div className="text-sm text-muted-foreground">{stat.label}</div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+          <aside className="rounded border border-border bg-slate-50 p-4">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-700">
+              {t("home.features.titlePrefix", "Citizen Services")}
+            </h3>
+            <div className="space-y-2">
+              {services.map((service) => (
+                <Link
+                  key={service.title}
+                  to={service.href}
+                  className="flex items-start gap-3 rounded border border-border bg-white p-3 transition-colors hover:bg-slate-100"
+                >
+                  <service.icon className="mt-0.5 h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{service.title}</p>
+                    <p className="text-xs text-slate-600">{service.description}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </aside>
         </div>
       </div>
-
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent" />
     </section>
   );
 };

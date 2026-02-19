@@ -141,7 +141,7 @@ const TrackComplaint = () => {
       Water: "bg-cyan-100 text-cyan-800",
       Electricity: "bg-amber-100 text-amber-800",
       Sanitation: "bg-emerald-100 text-emerald-800",
-      Other: "bg-purple-100 text-purple-800",
+      Other: "bg-accent/20 text-purple-800",
     };
     return colors[category] || "bg-gray-100 text-gray-800";
   };
@@ -151,13 +151,13 @@ const TrackComplaint = () => {
       filed: "bg-gray-100 text-gray-800",
       assigned: "bg-primary/15 text-primary",
       "in-progress": "bg-yellow-100 text-yellow-800",
-      resolved: "bg-green-100 text-green-800",
+      resolved: "bg-primary/15 text-green-800",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-background via-muted/30 to-background">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -167,12 +167,12 @@ const TrackComplaint = () => {
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-center mb-6"
         >
-          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200">
-            <Shield className="w-4 h-4 text-green-600" />
-            <span className="text-sm text-gray-600">{t("track.publicTracking")}</span>
+          <div className="flex items-center gap-2 bg-card px-4 py-2 rounded border border-border">
+            <Shield className="w-4 h-4 text-primary" />
+            <span className="text-sm text-foreground">{t("track.publicTracking")}</span>
             <span className="text-gray-300">|</span>
-            <Lock className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-500">{t("track.noLoginRequired")}</span>
+            <Lock className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">{t("track.noLoginRequired")}</span>
           </div>
         </motion.div>
 
@@ -182,42 +182,42 @@ const TrackComplaint = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <Card className="rounded-3xl shadow-2xl border-0 overflow-hidden bg-white">
-            <div className="bg-primary text-primary-foreground p-8 text-white text-center">
+          <Card className="rounded border border-border overflow-hidden bg-card">
+            <div className="bg-primary text-primary-foreground p-6 text-center">
               <motion.div
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.2 }}
               >
-                <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-white/20 rounded flex items-center justify-center mx-auto mb-4">
                   <Search className="w-10 h-10 text-white" />
                 </div>
-                <h1 className="text-3xl font-bold mb-2">
+                <h1 className="text-2xl font-semibold mb-2">
                   {t("track.title")}
                 </h1>
-                <p className="text-blue-100">
+                <p className="text-primary-foreground/80">
                   {t("track.subtitle")}
                 </p>
               </motion.div>
             </div>
 
-            <CardContent className="p-8">
+            <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto">
                 <div className="relative flex-1">
-                  <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   <Input
                     type="text"
                     placeholder={t("track.placeholder")}
                     value={complaintId}
                     onChange={(e) => setComplaintId(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    className="pl-12 pr-4 py-6 text-lg rounded-xl border-2 border-gray-200 focus:border-primary transition-colors"
+                    className="pl-12 pr-4 py-3 text-base rounded border border-input focus:border-primary"
                   />
                 </div>
                   <Button
                     onClick={() => handleSearch()}
                     disabled={isSearching || !complaintId.trim()}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 text-base rounded disabled:opacity-50"
                 >
                   {isSearching ? (
                     <>
@@ -232,8 +232,8 @@ const TrackComplaint = () => {
                   )}
                 </Button>
               </div>
-              <p className="text-center text-gray-500 text-sm mt-4">
-                e.g., GR2024001234, GR2024001235, GR2024001236
+              <p className="text-center text-muted-foreground text-sm mt-4">
+                {t("track.example", "Example: GR2024001234")}
               </p>
             </CardContent>
           </Card>
@@ -249,8 +249,8 @@ const TrackComplaint = () => {
               exit={{ opacity: 0, y: -20 }}
               className="mt-8 flex flex-col items-center justify-center py-12"
             >
-              <div className="w-16 h-16 border-4 border-primary/30 border-t-blue-600 rounded-full animate-spin mb-4" />
-              <p className="text-gray-600">{t("track.searchingMsg")}</p>
+              <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
+              <p className="text-foreground">{t("track.searchingMsg")}</p>
             </motion.div>
           )}
 
@@ -262,21 +262,21 @@ const TrackComplaint = () => {
               exit={{ opacity: 0, y: -20 }}
               className="mt-8"
             >
-              <Card className="rounded-2xl shadow-lg border-0 bg-red-50">
-                <CardContent className="p-8 text-center">
+              <Card className="rounded border border-red-200 bg-red-50">
+                <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <AlertCircle className="w-8 h-8 text-red-500" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h3 className="text-xl font-semibold text-foreground mb-2">
                     {t("track.notFoundTitle")}
                   </h3>
-                  <p className="text-gray-600 mb-4">
-                    No complaint found with ID:{" "}
+                  <p className="text-foreground mb-4">
+                    {t("track.notFoundFor", "No complaint found with ID")}:{" "}
                     <span className="font-mono font-semibold">
                       {complaintId}
                     </span>
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     {t("track.notFoundHelp")}
                   </p>
                 </CardContent>
@@ -293,11 +293,11 @@ const TrackComplaint = () => {
               className="mt-8 space-y-6"
             >
               {/* Complaint Details */}
-              <Card className="rounded-2xl shadow-lg border-0 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 border-b">
+              <Card className="rounded border border-border overflow-hidden">
+                <CardHeader className="bg-muted border-b">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">{t("track.complaintId")}</p>
+                      <p className="text-sm text-muted-foreground mb-1">{t("track.complaintId")}</p>
                       <CardTitle className="text-xl font-mono text-primary">
                         {result.id}
                       </CardTitle>
@@ -315,10 +315,10 @@ const TrackComplaint = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
                     {result.title}
                   </h3>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-foreground">
                     <span className="font-medium">{t("track.assignedTo")}</span>{" "}
                     {result.department}
                   </p>
@@ -326,7 +326,7 @@ const TrackComplaint = () => {
               </Card>
 
               {/* Progress Bar */}
-              <Card className="rounded-2xl shadow-lg border-0">
+              <Card className="rounded border border-border">
                 <CardHeader>
                   <CardTitle className="text-lg">{t("track.progress")}</CardTitle>
                 </CardHeader>
@@ -340,7 +340,7 @@ const TrackComplaint = () => {
                           width: `${(getStageIndex(result.status) / (stages.length - 1)) * 100}%`,
                         }}
                         transition={{ duration: 0.8, delay: 0.3 }}
-                        className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full"
+                        className="h-full bg-primary rounded-full"
                       />
                     </div>
 
@@ -365,9 +365,9 @@ const TrackComplaint = () => {
                               className={cn(
                                 "w-12 h-12 rounded-full flex items-center justify-center transition-all z-10",
                                 isCompleted
-                                  ? "bg-gradient-to-br from-blue-500 to-green-500 text-white shadow-lg"
-                                  : "bg-gray-100 text-gray-400",
-                                isCurrent && "ring-4 ring-blue-200 scale-110",
+                                  ? "bg-primary text-white"
+                                  : "bg-muted text-muted-foreground",
+                                isCurrent && "ring-4 ring-ring/30 scale-105",
                               )}
                             >
                               <StageIcon
@@ -382,7 +382,7 @@ const TrackComplaint = () => {
                             <span
                               className={cn(
                                 "mt-3 text-sm font-medium",
-                                isCompleted ? "text-gray-900" : "text-gray-400",
+                                isCompleted ? "text-foreground" : "text-muted-foreground",
                               )}
                             >
                               {stage.label}
@@ -405,7 +405,7 @@ const TrackComplaint = () => {
               </Card>
 
               {/* Timeline */}
-              <Card className="rounded-2xl shadow-lg border-0">
+              <Card className="rounded border border-border">
                 <CardHeader>
                   <CardTitle className="text-lg">{t("track.timeline")}</CardTitle>
                 </CardHeader>
@@ -416,10 +416,10 @@ const TrackComplaint = () => {
                         <FileText className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {t("track.complaintFiled")}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {formatDate(result.filedDate)}
                         </p>
                       </div>
@@ -431,13 +431,13 @@ const TrackComplaint = () => {
                           <User className="w-5 h-5 text-primary" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-foreground">
                             {t("track.assignedDept")}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-muted-foreground">
                             {formatDate(result.assignedDate)}
                           </p>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-foreground mt-1">
                             {result.department}
                           </p>
                         </div>
@@ -445,28 +445,28 @@ const TrackComplaint = () => {
                     )}
 
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <Clock className="w-5 h-5 text-purple-600" />
+                      <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                        <Clock className="w-5 h-5 text-accent-foreground" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {t("track.lastUpdated")}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {formatDate(result.lastUpdate)}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                        <Calendar className="w-5 h-5 text-green-600" />
+                      <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {t("track.estimatedResolution")}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           {formatDate(result.estimatedResolution)}
                         </p>
                       </div>
@@ -476,22 +476,22 @@ const TrackComplaint = () => {
               </Card>
 
               {/* Login for More Details */}
-              <Card className="rounded-2xl shadow-lg border-0 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <Card className="rounded border border-border bg-muted/40">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-3">
                       <Lock className="w-6 h-6 text-primary" />
                       <div>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {t("track.moreDetails")}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-foreground">
                           {t("track.moreDetailsSub")}
                         </p>
                       </div>
                     </div>
                     <Link to="/login">
-                      <Button className="bg-primary text-primary-foreground hover:bg-primary/90 text-white rounded-xl">
+                      <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded">
                         <LogIn className="w-4 h-4 mr-2" />
                         {t("track.loginDetails")}
                         <ArrowRight className="w-4 h-4 ml-2" />
@@ -511,26 +511,26 @@ const TrackComplaint = () => {
           transition={{ delay: 0.5 }}
           className="mt-12"
         >
-          <Card className="rounded-2xl shadow-lg border-0 bg-gradient-to-br from-amber-50 to-orange-50">
+            <Card className="rounded border border-amber-200 bg-amber-50">
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                <div className="w-14 h-14 bg-amber-500 rounded flex items-center justify-center flex-shrink-0">
                   <HelpCircle className="w-8 h-8 text-white" />
                 </div>
                 <div className="flex-1 text-center sm:text-left">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                  <h3 className="text-xl font-semibold text-foreground mb-1">
                     {t("track.needHelp")}
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-foreground">
                     {t("track.needHelpSub")}
                   </p>
                 </div>
                 <div className="flex flex-col items-center sm:items-end gap-2">
                   <div className="flex items-center gap-2 text-2xl font-bold text-orange-600">
                     <Phone className="w-6 h-6" />
-                    <span>1800-XXX-XXXX</span>
+                    <span>1800-000-0000</span>
                   </div>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-muted-foreground">
                     {t("track.tollFree")}
                   </span>
                 </div>
@@ -544,3 +544,4 @@ const TrackComplaint = () => {
 };
 
 export default TrackComplaint;
+

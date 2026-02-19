@@ -251,10 +251,10 @@ const AdminDashboard = () => {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+            <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-primary rounded flex items-center justify-center">
                   <BarChart3 className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -264,7 +264,7 @@ const AdminDashboard = () => {
               </div>
             </div>
             {/* Desktop actions */}
-            <div className="hidden md:flex items-center gap-3">
+            <div className="hidden xl:flex items-center gap-2">
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
@@ -324,7 +324,7 @@ const AdminDashboard = () => {
             </div>
 
             {/* Mobile actions in dropdown */}
-            <div className="md:hidden flex items-center gap-2">
+            <div className="xl:hidden flex items-center gap-2">
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
@@ -384,13 +384,13 @@ const AdminDashboard = () => {
               const AlertIcon = ALERT_ICON_MAP[alert.type] ?? ALERT_ICON_MAP.default;
               return (
                 <motion.div key={alert.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}
-                  className={`p-4 rounded-xl border cursor-pointer hover:shadow-lg transition-all ${
+                  className={`p-4 rounded-lg border cursor-pointer transition-colors hover:border-slate-300 ${
                     alert.type === "critical" ? "bg-red-50 border-red-200 hover:border-red-300" : "bg-orange-50 border-orange-200 hover:border-orange-300"
                   }`}
                   onClick={alert.action}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${alert.type === "critical" ? "bg-red-100" : "bg-orange-100"}`}>
+                    <div className={`p-2 rounded ${alert.type === "critical" ? "bg-red-100" : "bg-orange-100"}`}>
                       <AlertIcon className={`w-5 h-5 ${alert.type === "critical" ? "text-red-600" : "text-orange-600"}`} />
                     </div>
                     <div className="flex-1">
@@ -408,10 +408,10 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {statsData.map((stat, index) => (
             <motion.div key={stat.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}
-              className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-shadow"
+              className="bg-white rounded-lg p-6 border border-gray-200"
             >
               <div className="flex items-start justify-between">
-                <div className={`p-3 rounded-xl ${stat.iconBg}`}><stat.icon className={`w-6 h-6 ${stat.iconColor}`} /></div>
+                <div className={`p-3 rounded ${stat.iconBg}`}><stat.icon className={`w-6 h-6 ${stat.iconColor}`} /></div>
                 {stat.trend && (
                   <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${stat.trendUp ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                     {stat.trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
@@ -428,7 +428,7 @@ const AdminDashboard = () => {
           ))}
         </div>
         {isLoading && (
-          <div className="rounded-xl border border-blue-100 bg-primary/10 px-4 py-3 text-sm text-primary">
+          <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
             Loading latest dashboard data...
           </div>
         )}
@@ -436,7 +436,7 @@ const AdminDashboard = () => {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 min-h-[360px]"
+            className="bg-white rounded-lg p-6 border border-gray-200 min-h-[360px]"
           >
             <div className="flex items-center justify-between mb-6">
               <div><h3 className="text-lg font-semibold text-gray-900">Complaints Trend</h3><p className="text-sm text-gray-500">Last 30 Days</p></div>
@@ -473,7 +473,7 @@ const AdminDashboard = () => {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 min-h-[360px]"
+            className="bg-white rounded-lg p-6 border border-gray-200 min-h-[360px]"
           >
             <div className="flex items-center justify-between mb-6">
               <div><h3 className="text-lg font-semibold text-gray-900">Complaints by Category</h3><p className="text-sm text-gray-500">Distribution Overview</p></div>
@@ -511,7 +511,7 @@ const AdminDashboard = () => {
 
         {/* Department Performance Table */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+          className="bg-white rounded-lg border border-gray-200 overflow-hidden"
         >
           <div className="p-6 border-b border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -519,15 +519,15 @@ const AdminDashboard = () => {
                 <h3 className="text-lg font-semibold text-gray-900">Department Performance</h3>
                 <p className="text-sm text-gray-500">Track and compare department metrics</p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="relative">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-full sm:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input type="text" placeholder="Search departments..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-ring text-sm w-full sm:w-64" />
+                    className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-ring text-sm w-full sm:w-72" />
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
+                    <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
                       <Filter className="w-4 h-4" />
                       Filter
                     </Button>
@@ -620,7 +620,7 @@ const AdminDashboard = () => {
 
         {/* Activity Feed */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100"
+          className="bg-white rounded-lg p-6 border border-gray-200"
         >
           <div className="flex items-center justify-between mb-6">
             <div><h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3><p className="text-sm text-gray-500">Latest updates and actions</p></div>
@@ -634,7 +634,7 @@ const AdminDashboard = () => {
           <div className="space-y-4">
             {activityFeed.map((activity, index) => (
               <motion.div key={activity.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}
-                className="flex items-start gap-4 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex items-start gap-4 p-3 rounded hover:bg-gray-50 transition-colors"
               >
                 <div className="relative">
                   <div className={`w-3 h-3 rounded-full ${activity.color}`} />
@@ -655,3 +655,4 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+

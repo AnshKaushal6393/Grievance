@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,22 +51,36 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// Mock complaint data
-const complaintData = {
-  id: "GR-2024-001234",
-  title: "Water main burst on MG Road causing flooding",
-  description:
-    "There is a major water main burst near the intersection of MG Road and Park Street. Water has been flooding the area for the past 3 hours, causing traffic disruption and potential damage to nearby shops.",
-  currentStatus: "Assigned",
-  priority: "High",
-  category: "Water Supply",
-  citizen: {
-    name: "Ramesh Sharma",
-    phone: "+91 98765 43210",
-    email: "ramesh.sharma@email.com",
-  },
-  filedDate: "January 18, 2024",
-  location: "MG Road, Near Park Street Intersection",
+type OfficerComplaintRecord = {
+  _id: string;
+  complaintId: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  category: string;
+  createdAt: string;
+  user?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
+};
+
+const mapStatusToUiLabel = (status?: string) => {
+  const key = String(status || "").toLowerCase();
+  if (key === "filed" || key === "pending") return "Assigned";
+  if (key === "assigned") return "Assigned";
+  if (key === "in-progress" || key === "in_progress") return "In Progress";
+  if (key === "resolved") return "Resolved";
+  if (key === "rejected") return "Rejected";
+  return "Assigned";
+};
+
+const mapPriorityToUiLabel = (priority?: string) => {
+  const key = String(priority || "").toLowerCase();
+  if (!key) return "Medium";
+  return key.charAt(0).toUpperCase() + key.slice(1);
 };
 
 const statusOptions = [
@@ -92,10 +106,14 @@ const rejectionReasons = [
 
 const UpdateComplaintStatus = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { t } = useLanguage();
+  const complaintId = searchParams.get("complaintId");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resolutionFileInputRef = useRef<HTMLInputElement>(null);
+  const [complaint, setComplaint] = useState<OfficerComplaintRecord | null>(null);
+  const [isLoadingComplaint, setIsLoadingComplaint] = useState(true);
 
   const [newStatus, setNewStatus] = useState("");
   const [actionNotes, setActionNotes] = useState("");
@@ -122,6 +140,55 @@ const UpdateComplaintStatus = () => {
   // UI state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadComplaint = async () => {
+      if (!complaintId) {
+        toast({
+          title: t("updateStatus.error.notFound", "Complaint Not Found"),
+          description: t("updateStatus.error.invalidComplaint", "Invalid complaint selected"),
+          variant: "destructive",
+        });
+        navigate("/officer");
+        return;
+      }
+
+      setIsLoadingComplaint(true);
+      try {
+        const response = await officerService.getComplaintById(complaintId);
+        if (!isMounted) return;
+
+        if (!response?.complaint) {
+          toast({
+            title: t("updateStatus.error.notFound", "Complaint Not Found"),
+            description: t("updateStatus.error.loadComplaint", "Unable to load complaint"),
+            variant: "destructive",
+          });
+          navigate("/officer");
+          return;
+        }
+
+        setComplaint(response.complaint);
+      } catch (error: any) {
+        if (!isMounted) return;
+        toast({
+          title: t("updateStatus.error.loadComplaint", "Unable to load complaint"),
+          description: error?.response?.data?.message || t("common.tryAgain", "Please try again"),
+          variant: "destructive",
+        });
+        navigate("/officer");
+      } finally {
+        if (isMounted) setIsLoadingComplaint(false);
+      }
+    };
+
+    loadComplaint();
+    return () => {
+      isMounted = false;
+    };
+  }, [complaintId, navigate, t, toast]);
 
   const handleFileUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -232,10 +299,11 @@ const UpdateComplaintStatus = () => {
   };
 
   const confirmSubmit = async () => {
+    if (!complaint?._id) return;
     setIsSubmitting(true);
 
     try {
-      await officerService.updateComplaintStatus(complaintData.id, {
+      await officerService.updateComplaintStatus(complaint._id, {
         status: newStatus,
         actionNotes,
         inspectionDate: inspectionDate?.toISOString(),
@@ -251,7 +319,7 @@ const UpdateComplaintStatus = () => {
 
       toast({
         title: "Status Updated Successfully",
-        description: `Complaint ${complaintData.id} has been updated to "${newStatus}".`,
+        description: `Complaint ${complaint.complaintId} has been updated to "${newStatus}".`,
       });
 
       setShowConfirmModal(false);
@@ -285,8 +353,31 @@ const UpdateComplaintStatus = () => {
     return found?.color || "bg-gray-500";
   };
 
+  if (isLoadingComplaint) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6 flex items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>{t("common.loading", "Loading")}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!complaint) return null;
+
+  const currentStatus = mapStatusToUiLabel(complaint.status);
+  const currentPriority = mapPriorityToUiLabel(complaint.priority);
+  const filedDate = complaint.createdAt
+    ? new Date(complaint.createdAt).toLocaleDateString("en-IN", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "-";
+
   return (
-    <div className="min-h-screen bg-muted/30 p-6">
+    <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -298,7 +389,7 @@ const UpdateComplaintStatus = () => {
               {t("updateStatus.title", "Update Complaint Status")}
             </h1>
             <p className="text-muted-foreground">
-              {t("updateStatus.subtitle", "Update status and add notes for complaint")} {complaintData.id}
+              {t("updateStatus.subtitle", "Update status and add notes for complaint")} {complaint.complaintId}
             </p>
           </div>
         </div>
@@ -317,30 +408,30 @@ const UpdateComplaintStatus = () => {
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="font-mono text-lg text-primary font-semibold">
-                    {complaintData.id}
+                    {complaint.complaintId}
                   </span>
                   <Badge
                     className={cn(
                       "text-white text-sm px-3 py-1",
-                      getStatusColor(complaintData.currentStatus)
+                      getStatusColor(currentStatus)
                     )}
                   >
-                    {complaintData.currentStatus}
+                    {currentStatus}
                   </Badge>
                   <Badge
                     variant="outline"
                     className="border-orange-500 text-orange-600"
                   >
-                    {complaintData.priority} {t("updateStatus.priority", "Priority")}
+                    {currentPriority} {t("updateStatus.priority", "Priority")}
                   </Badge>
                 </div>
 
                 <div>
                   <h3 className="font-semibold text-foreground text-lg">
-                    {complaintData.title}
+                    {complaint.title}
                   </h3>
                   <p className="text-muted-foreground mt-1">
-                    {complaintData.description}
+                    {complaint.description}
                   </p>
                 </div>
 
@@ -349,25 +440,25 @@ const UpdateComplaintStatus = () => {
                     <div className="flex items-center gap-2 text-sm">
                       <User className="w-4 h-4 text-muted-foreground" />
                       <span className="font-medium">
-                        {complaintData.citizen.name}
+                        {complaint.user?.name || "-"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span>{complaintData.citizen.phone}</span>
+                      <span>{complaint.user?.phone || "-"}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span>{complaintData.citizen.email}</span>
+                      <span>{complaint.user?.email || "-"}</span>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                      <span>{t("updateStatus.filed", "Filed")}: {complaintData.filedDate}</span>
+                      <span>{t("updateStatus.filed", "Filed")}: {filedDate}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                      <Badge variant="secondary">{complaintData.category}</Badge>
+                      <Badge variant="secondary">{complaint.category}</Badge>
                     </div>
                   </div>
                 </div>
@@ -388,10 +479,10 @@ const UpdateComplaintStatus = () => {
                   <Badge
                     className={cn(
                       "text-white text-sm px-3 py-1",
-                      getStatusColor(complaintData.currentStatus)
+                      getStatusColor(currentStatus)
                     )}
                   >
-                    {complaintData.currentStatus}
+                    {currentStatus}
                   </Badge>
                 </div>
 
@@ -447,7 +538,7 @@ const UpdateComplaintStatus = () => {
                           alt={`Evidence ${index + 1}`}
                           className="w-24 h-24 object-cover rounded-lg border"
                         />
-                        <button
+                        <button type="button"
                           onClick={() => removeImage(index, "evidence")}
                           className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                         >
@@ -456,7 +547,7 @@ const UpdateComplaintStatus = () => {
                       </div>
                     ))}
                     {evidenceImages.length < 3 && (
-                      <button
+                      <button type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
                       >
@@ -480,8 +571,8 @@ const UpdateComplaintStatus = () => {
 
                 {/* Conditional: Inspection Details */}
                 {newStatus === "Inspection Scheduled" && (
-                  <div className="p-4 bg-primary/10 rounded-lg space-y-4 border border-indigo-200">
-                    <h4 className="font-medium text-primary-foreground flex items-center gap-2">
+                  <div className="p-4 bg-slate-50 rounded-lg space-y-4 border border-slate-200">
+                    <h4 className="font-medium text-slate-900 flex items-center gap-2">
                       <CalendarIcon className="w-4 h-4" />
                       Inspection Details
                     </h4>
@@ -582,7 +673,7 @@ const UpdateComplaintStatus = () => {
                               alt={`Resolution ${index + 1}`}
                               className="w-24 h-24 object-cover rounded-lg border"
                             />
-                            <button
+                            <button type="button"
                               onClick={() => removeImage(index, "resolution")}
                               className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                             >
@@ -591,7 +682,7 @@ const UpdateComplaintStatus = () => {
                           </div>
                         ))}
                         {resolutionImages.length < 3 && (
-                          <button
+                          <button type="button"
                             onClick={() =>
                               resolutionFileInputRef.current?.click()
                             }
@@ -707,7 +798,7 @@ const UpdateComplaintStatus = () => {
             <div className="flex flex-wrap gap-3">
               <Button
                 onClick={handleSubmit}
-                className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 gap-2"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
               >
                 <CheckCircle className="w-4 h-4" />
                 {t("updateStatus.updateStatus", "Update Status")}
@@ -819,7 +910,7 @@ const UpdateComplaintStatus = () => {
             </DialogTitle>
             <DialogDescription>
               {t("updateStatus.confirmDesc", "You are about to update the status of complaint")}{" "}
-              <span className="font-mono font-medium">{complaintData.id}</span>
+              <span className="font-mono font-medium">{complaint.complaintId}</span>
             </DialogDescription>
           </DialogHeader>
 
@@ -829,10 +920,10 @@ const UpdateComplaintStatus = () => {
               <Badge
                 className={cn(
                   "text-white",
-                  getStatusColor(complaintData.currentStatus)
+                  getStatusColor(currentStatus)
                 )}
               >
-                {complaintData.currentStatus}
+                {currentStatus}
               </Badge>
             </div>
             <div className="flex items-center gap-3">
@@ -867,7 +958,7 @@ const UpdateComplaintStatus = () => {
             <Button
               onClick={confirmSubmit}
               disabled={isSubmitting}
-              className="bg-gradient-to-r from-green-600 to-green-500 gap-2"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
             >
               {isSubmitting ? (
                 <>
@@ -889,3 +980,4 @@ const UpdateComplaintStatus = () => {
 };
 
 export default UpdateComplaintStatus;
+

@@ -1,4 +1,5 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Ban, Download, Eye, FileSpreadsheet, Plus, RefreshCcw, Search, ShieldAlert, UserPlus } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -256,7 +257,7 @@ const AdminUserManagement = () => {
   const pageEnd = Math.min(page * limit, total);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-background via-muted/30 to-background">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -339,3 +340,4 @@ const AdminUserManagement = () => {
 };
 
 export default AdminUserManagement;
+

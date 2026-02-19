@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { UserPlus, FileText, Brain, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -33,53 +32,33 @@ const HowItWorksSection = () => {
   ];
 
   return (
-    <section className="py-24 relative overflow-hidden">
-      <div className="container mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <span className="text-primary text-sm font-medium tracking-wider uppercase mb-4 block">
+    <section className="border-b border-border bg-slate-50">
+      <div className="mx-auto max-w-7xl px-4 py-10">
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
             {t("home.how.badge", "How It Works")}
-          </span>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            {t("home.how.titlePrefix", "Simple")} <span className="gradient-text">{t("home.how.titleHighlight", "4-Step")}</span> {t("home.how.titleSuffix", "Process")}
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-900">
+            {t("home.how.titlePrefix", "Simple")}{" "}
+            <span className="text-primary">{t("home.how.titleHighlight", "4-Step")}</span>{" "}
+            {t("home.how.titleSuffix", "Process")}
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="mt-1 text-sm text-slate-600">
             {t("home.how.subtitle", "From complaint to resolution, we've made the process as simple as possible")}
           </p>
-        </motion.div>
+        </div>
 
-        <div className="relative">
-          <div className="hidden lg:block absolute top-24 left-[calc(12.5%+24px)] right-[calc(12.5%+24px)] h-0.5 bg-linear-to-r from-primary via-secondary to-primary opacity-30" />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {steps.map((step, index) => (
-              <motion.div
-                key={step.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.15 }}
-                className="relative text-center"
-              >
-                <div className="relative inline-block mb-6">
-                  <div className="step-number relative z-10">{step.number}</div>
-                  <div className="absolute inset-0 step-number blur-xl opacity-50" />
-                </div>
-
-                <div className="w-16 h-16 mx-auto rounded-xl glass flex items-center justify-center mb-4">
-                  <step.icon className="w-8 h-8 text-primary" />
-                </div>
-
-                <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mx-auto">{step.description}</p>
-              </motion.div>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+          {steps.map((step) => (
+            <article key={step.title} className="rounded border border-border bg-white p-4">
+              <p className="mb-2 text-xs font-semibold text-primary">{step.number}</p>
+              <div className="mb-2 flex items-center gap-2">
+                <step.icon className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-slate-900">{step.title}</h3>
+              </div>
+              <p className="text-sm text-slate-600">{step.description}</p>
+            </article>
+          ))}
         </div>
       </div>
     </section>

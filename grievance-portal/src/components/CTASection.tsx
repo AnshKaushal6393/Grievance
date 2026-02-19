@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -7,45 +7,33 @@ const CTASection = () => {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 relative">
-      <div className="container mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="cta-section rounded-3xl px-8 py-16 md:py-20 text-center relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-white/5 rounded-full blur-2xl" />
-
-          <div className="relative z-10">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-sm mb-6"
-            >
-              <Sparkles className="w-4 h-4" />
-              {t("home.cta.badge", "Join 8,000+ Active Citizens")}
-            </motion.div>
-
-            <h2 className="text-3xl md:text-5xl font-bold mb-6 max-w-2xl mx-auto">
-              {t("home.cta.title", "Ready to Make a Difference?")}
-            </h2>
-            <p className="text-lg md:text-xl opacity-90 mb-10 max-w-xl mx-auto">
-              {t("home.cta.subtitle", "Your community needs your voice. Start reporting issues today and help create a better tomorrow.")}
-            </p>
-
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button size="lg" className="bg-white text-primary hover:bg-white/90 text-lg px-8 py-6 rounded-xl font-semibold shadow-xl">
-                {t("home.cta.button", "Get Started Now")}
-                <ArrowRight className="w-5 h-5 ml-2" />
+    <section className="bg-white">
+      <div className="mx-auto max-w-7xl px-4 py-10">
+        <div className="rounded border border-border bg-slate-100 p-5 md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                {t("home.cta.badge", "Citizen Action")}
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900 md:text-2xl">
+                {t("home.cta.title", "Need to report a public issue?")}
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {t("home.cta.subtitle", "Use the grievance form and keep your complaint ID for tracking.")}
+              </p>
+              <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                <Phone className="h-4 w-4 text-primary" />
+                {t("nav.helpline", "Helpline: 1800-000-0000")}
+              </p>
+            </div>
+            <Link to="/file-complaint-options">
+              <Button className="gap-2">
+                {t("home.cta.button", "Proceed to Filing")}
+                <ArrowRight className="h-4 w-4" />
               </Button>
-            </motion.div>
+            </Link>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

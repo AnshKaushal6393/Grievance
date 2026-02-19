@@ -770,10 +770,10 @@ const MyComplaints = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="flex flex-col items-center justify-center py-16 bg-white rounded-3xl shadow-lg"
+              className="flex flex-col items-center justify-center py-14 bg-card rounded-2xl border border-border shadow-sm"
             >
               <div className="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                <FileX2 className="w-16 h-16 text-blue-400" />
+                <FileX2 className="w-16 h-16 text-primary/70" />
               </div>
               <h3 className="text-2xl font-semibold text-gray-900 mb-2">
                 {t("myComplaints.emptyTitle", "No complaints found")}
@@ -791,7 +791,7 @@ const MyComplaints = () => {
                       "You haven't filed any complaints yet. Start by filing your first complaint.",
                     )}
               </p>
-              <Link to="/file-complaint">
+              <Link to="/file-complaint-options">
                 <Button className="bg-primary text-primary-foreground hover:bg-primary/90 text-white rounded-xl px-8 py-3 shadow-lg hover:shadow-xl transition-all">
                   <Plus className="w-5 h-5 mr-2" />
                   {t("myComplaints.fileFirst", "File Your First Complaint")}

@@ -65,6 +65,36 @@ const officerService = {
   },
 
   /**
+   * Get complaints waiting in officer's department queue (unassigned).
+   */
+  async getDepartmentQueue(filters?: {
+    search?: string;
+    priority?: string;
+    category?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const params = new URLSearchParams();
+
+    if (filters?.search) params.append("search", filters.search);
+    if (filters?.priority) params.append("priority", filters.priority);
+    if (filters?.category) params.append("category", filters.category);
+    if (filters?.page) params.append("page", filters.page.toString());
+    if (filters?.limit) params.append("limit", filters.limit.toString());
+
+    const response = await api.get(`/officer/queue?${params.toString()}`);
+    return response.data;
+  },
+
+  /**
+   * Claim a complaint from department queue.
+   */
+  async claimComplaint(complaintId: string) {
+    const response = await api.post(`/officer/complaints/${complaintId}/claim`);
+    return response.data;
+  },
+
+  /**
    * Get single complaint details by ID
    * @param complaintId - Complaint _id
    * @returns Full complaint details with timeline

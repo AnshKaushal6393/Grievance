@@ -119,7 +119,7 @@ const AadhaarVerification = () => {
 
           <div className="flex items-center justify-between">
             <Link to="/verify-otp" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"><ArrowLeft className="w-4 h-4" /><span className="text-sm">{t("common.back", "Back")}</span></Link>
-            <button onClick={handleSkip} className="text-muted-foreground hover:text-foreground text-sm transition-colors">{t("aadhaar.skipNow", "Skip for now")}</button>
+            <button type="button" onClick={handleSkip} className="text-muted-foreground hover:text-foreground text-sm transition-colors">{t("aadhaar.skipNow", "Skip for now")}</button>
           </div>
 
           <div className="text-center space-y-4">

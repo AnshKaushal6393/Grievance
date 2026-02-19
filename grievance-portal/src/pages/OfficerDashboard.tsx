@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ClipboardList, Clock, CheckCircle, Timer, AlertTriangle, TrendingUp,
-  TrendingDown, Eye, MessageSquare, RefreshCw, FileText, Users, Bell,
+  TrendingDown, Eye, MessageSquare, RefreshCw, FileText, Users, Bell, Loader2,
   Building2, ArrowRight, AlertCircle, User, Activity,
 } from "lucide-react";
 import officerService from "@/services/officerService";
@@ -23,8 +23,10 @@ const OfficerDashboard = () => {
   const [statsData, setStatsData] = useState<any[]>([]);
   const [highPriorityComplaints, setHighPriorityComplaints] = useState<any[]>([]);
   const [allComplaints, setAllComplaints] = useState<any[]>([]);
+  const [departmentQueueComplaints, setDepartmentQueueComplaints] = useState<any[]>([]);
   const [teamActivity, setTeamActivity] = useState<any[]>([]);
   const [officerInfo, setOfficerInfo] = useState<{ department?: { name?: string; code?: string } } | null>(null);
+  const [claimingComplaintId, setClaimingComplaintId] = useState<string | null>(null);
   
   // User data (from localStorage or context)
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -124,6 +126,19 @@ const OfficerDashboard = () => {
         }))
       );
 
+      const queueRes = await officerService.getDepartmentQueue({ limit: 20 });
+      setDepartmentQueueComplaints(
+        (queueRes?.data?.complaints || []).map((c: any) => ({
+          id: c.complaintId,
+          _id: c._id,
+          title: c.title,
+          category: c.category,
+          priority: capitalizeFirst(c.priority || "medium"),
+          status: capitalizeStatus(c.status),
+          date: new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        })),
+      );
+
       // Map recent activity
       setTeamActivity(
         (recentActivity || []).map((a: any) => ({
@@ -148,6 +163,7 @@ const OfficerDashboard = () => {
       pending: t("officer.status.pending", "Pending"),
       assigned: t("officer.status.assigned", "Assigned"),
       "in-progress": t("officer.status.inProgress", "In Progress"),
+      in_progress: t("officer.status.inProgress", "In Progress"),
       resolved: t("officer.status.resolved", "Resolved"),
       rejected: t("officer.status.rejected", "Rejected"),
     };
@@ -236,25 +252,41 @@ const OfficerDashboard = () => {
   const inProgressComplaints = allComplaints.filter(c => c.status === "In Progress");
   const needReviewComplaints = allComplaints.filter(c => c.status === "Need Review");
 
+  const handleClaimComplaint = async (complaintId: string) => {
+    try {
+      setClaimingComplaintId(complaintId);
+      await officerService.claimComplaint(complaintId);
+      toast.success(t("officer.claim.success", "Complaint claimed successfully"));
+      await fetchDashboardData();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.message ||
+          t("officer.claim.error", "Failed to claim complaint"),
+      );
+    } finally {
+      setClaimingComplaintId(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-muted/30 p-6">
+    <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-primary to-primary/80 rounded-xl p-6 text-primary-foreground">
+        <div className="bg-white rounded-lg border p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                 <User className="w-8 h-8" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">
+                <h1 className="text-2xl font-bold text-slate-900">
                   {t("officer.welcome", "Welcome")}, {officerData.name}
                 </h1>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-0">
+                  <Badge variant="secondary" className="bg-primary/10 text-primary border border-primary/20">
                     <Building2 className="w-3 h-3 mr-1" />{officerData.department}
                   </Badge>
-                  <Badge variant="outline" className="border-primary-foreground/30 text-primary-foreground">
+                  <Badge variant="outline" className="border-border text-foreground">
                     {officerData.departmentCode}
                   </Badge>
                 </div>
@@ -264,23 +296,23 @@ const OfficerDashboard = () => {
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
-                className="h-9 rounded-lg border border-primary-foreground/30 bg-primary-foreground/10 px-2 text-sm text-primary-foreground"
+                className="h-9 rounded border border-input bg-background px-2 text-sm text-foreground"
                 aria-label={t("nav.language")}
               >
-                <option value="en" className="text-foreground">{getLanguageLabel("en")}</option>
-                <option value="hi" className="text-foreground">{getLanguageLabel("hi")}</option>
-                <option value="ur" className="text-foreground">{getLanguageLabel("ur")}</option>
+                <option value="en">{getLanguageLabel("en")}</option>
+                <option value="hi">{getLanguageLabel("hi")}</option>
+                <option value="ur">{getLanguageLabel("ur")}</option>
               </select>
               <div className="text-right">
-                <p className="text-primary-foreground/80 text-sm">{formatDate(currentTime)}</p>
-                <p className="text-2xl font-mono font-bold">{formatTime(currentTime)}</p>
+                <p className="text-slate-600 text-sm">{formatDate(currentTime)}</p>
+                <p className="text-2xl font-mono font-bold text-slate-900">{formatTime(currentTime)}</p>
               </div>
               <div className="relative">
-                <Button variant="secondary" size="icon" className="bg-primary-foreground/20 hover:bg-primary-foreground/30 border-0">
-                  <Bell className="w-5 h-5 text-primary-foreground" />
+                <Button variant="outline" size="icon" className="border-border">
+                  <Bell className="w-5 h-5" />
                 </Button>
                 {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                     {notificationCount}
                   </span>
                 )}
@@ -291,8 +323,15 @@ const OfficerDashboard = () => {
 
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" className="gap-2" onClick={() => navigate('/officer/complaints')}>
-            <Eye className="w-4 h-4" />{t("officer.quick.viewAssigned", "View All Assigned")}
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              const el = document.getElementById("department-queue");
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
+            <Eye className="w-4 h-4" />{t("officer.queue.title", "Department Queue")}
           </Button>
           <Button variant="outline" className="gap-2"><FileText className="w-4 h-4" />{t("officer.quick.report", "Generate My Report")}</Button>
           <Button variant="outline" className="gap-2"><Users className="w-4 h-4" />{t("officer.quick.team", "Team Performance")}</Button>
@@ -332,13 +371,21 @@ const OfficerDashboard = () => {
                   <CardTitle className="text-lg">{t("officer.highPriority", "High Priority Complaints")}</CardTitle>
                   <Badge variant="destructive">{highPriorityComplaints.length}</Badge>
                 </div>
-                <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate('/officer/complaints?priority=high,critical')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => {
+                    const el = document.getElementById("assigned-complaints");
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
                   {t("common.viewAll", "View All")} <ArrowRight className="w-4 h-4" />
                 </Button>
               </CardHeader>
               <CardContent className="space-y-3">
                 {highPriorityComplaints.map(complaint => (
-                  <div key={complaint._id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/officer/complaints/${complaint._id}`)}>
+                  <div key={complaint._id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/officer/update-status?complaintId=${complaint._id}`)}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -375,7 +422,58 @@ const OfficerDashboard = () => {
             </Card>
 
             {/* My Assigned Complaints */}
-            <Card>
+            <Card id="department-queue">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5" />
+                  {t("officer.queue.title", "Department Queue")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {departmentQueueComplaints.map((complaint) => (
+                  <div
+                    key={complaint._id}
+                    className="p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm text-primary">{complaint.id}</span>
+                          <Badge variant="outline">{complaint.category}</Badge>
+                          <Badge className={getStatusColor(complaint.status)} variant="secondary">
+                            {complaint.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-foreground mt-1">{complaint.title}</p>
+                        <p className="text-xs text-muted-foreground">{complaint.date}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleClaimComplaint(complaint._id)}
+                        disabled={claimingComplaintId === complaint._id}
+                      >
+                        {claimingComplaintId === complaint._id ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            {t("common.loading", "Loading")}
+                          </span>
+                        ) : (
+                          t("officer.queue.claim", "Claim")
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {departmentQueueComplaints.length === 0 && (
+                  <p className="text-center py-6 text-muted-foreground">
+                    {t("officer.queue.empty", "No complaints waiting in your department queue")}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* My Assigned Complaints */}
+            <Card id="assigned-complaints">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <ClipboardList className="w-5 h-5" />{t("officer.myAssigned", "My Assigned Complaints")}
@@ -458,7 +556,7 @@ const OfficerDashboard = () => {
 // Complaint Card Component
 const ComplaintCard = ({ complaint, navigate, getStatusColor, getPriorityColor }: any) => {
   return (
-    <div className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/officer/complaints/${complaint._id}`)}>
+    <div className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/officer/update-status?complaintId=${complaint._id}`)}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${getPriorityColor(complaint.priority)}`} />
@@ -472,7 +570,7 @@ const ComplaintCard = ({ complaint, navigate, getStatusColor, getPriorityColor }
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); navigate(`/officer/complaints/${complaint._id}`); }}><Eye className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); navigate(`/officer/update-status?complaintId=${complaint._id}`); }}><Eye className="w-4 h-4" /></Button>
           <Button variant="ghost" size="icon" className="h-8 w-8"><RefreshCw className="w-4 h-4" /></Button>
           <Button variant="ghost" size="icon" className="h-8 w-8"><MessageSquare className="w-4 h-4" /></Button>
         </div>
@@ -482,3 +580,4 @@ const ComplaintCard = ({ complaint, navigate, getStatusColor, getPriorityColor }
 };
 
 export default OfficerDashboard;
+

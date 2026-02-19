@@ -17,7 +17,12 @@ const ProtectedRoute = ({ children, roles }: ProtectedRouteProps) => {
   }
 
   if (roles && !roles.includes(user.role)) {
-    const fallback = user.role === "admin" ? "/admin" : "/dashboard";
+    const fallback =
+      user.role === "admin"
+        ? "/admin"
+        : user.role === "officer"
+          ? "/officer"
+          : "/dashboard";
     return <Navigate to={fallback} replace />;
   }
 

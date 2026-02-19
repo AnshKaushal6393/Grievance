@@ -1652,9 +1652,11 @@ const dictionaries: Record<LanguageCode, Record<string, string>> = {
 
 const labels: Record<LanguageCode, string> = {
   en: "English",
-  hi: "हिन्दी",
-  ur: "اردو",
+  hi: "\u0939\u093f\u0928\u094d\u0926\u0940",
+  ur: "\u0627\u0631\u062f\u0648",
 };
+
+const hasRomanChars = (value: string) => /[A-Za-z]/.test(value);
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
@@ -1677,8 +1679,14 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     () => ({
       language,
       setLanguage,
-      t: (key, fallback) =>
-        dictionaries[language][key] || dictionaries.en[key] || fallback || key,
+      t: (key, fallback) => {
+        const localized = dictionaries[language][key];
+        const english = dictionaries.en[key];
+        if (language !== "en" && localized && hasRomanChars(localized)) {
+          return english || fallback || key;
+        }
+        return localized || english || fallback || key;
+      },
       getLanguageLabel: (code) => labels[code] || labels.en,
     }),
     [language],
@@ -1694,3 +1702,4 @@ export const useLanguage = () => {
   }
   return context;
 };
+

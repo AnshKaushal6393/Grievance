@@ -120,15 +120,15 @@ const VerifyOTP = () => {
     <div className="min-h-screen bg-linear-to-br from-background via-muted/40 to-background flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-125">
         <div className="bg-white rounded-3xl shadow-2xl p-10 space-y-8">
-          <Link to="/register" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"><ArrowLeft className="w-4 h-4" /><span className="text-sm">{t("common.back", "Back")}</span></Link>
+          <Link to="/register" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"><ArrowLeft className="w-4 h-4" /><span className="text-sm">{t("common.back", "Back")}</span></Link>
 
           <div className="text-center space-y-4">
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", delay: 0.2 }} className="w-20 h-20 bg-linear-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg"><ShieldCheck className="w-10 h-10 text-white" /></motion.div>
             <div className="space-y-2">
               <h1 className="text-3xl font-bold text-gray-900">{t("verifyOtp.title", "Verify Your Account")}</h1>
-              <p className="text-gray-500">{t("verifyOtp.subtitle", "Enter the 6-digit OTP sent to your email/phone")}</p>
-              <div className="flex items-center justify-center gap-2 text-gray-600"><Mail className="w-4 h-4" /><span className="font-medium">{maskedEmail}</span></div>
-              <p className="text-sm text-gray-400">& {maskedPhone}</p>
+              <p className="text-muted-foreground">{t("verifyOtp.subtitle", "Enter the 6-digit OTP sent to your email/phone")}</p>
+              <div className="flex items-center justify-center gap-2 text-foreground"><Mail className="w-4 h-4" /><span className="font-medium">{maskedEmail}</span></div>
+              <p className="text-sm text-muted-foreground">& {maskedPhone}</p>
             </div>
           </div>
 
@@ -137,22 +137,22 @@ const VerifyOTP = () => {
               <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-white/95 rounded-3xl flex flex-col items-center justify-center z-10">
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", delay: 0.2 }} className="w-24 h-24 bg-linear-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg"><CheckCircle2 className="w-12 h-12 text-white" /></motion.div>
                 <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mt-6 text-2xl font-bold text-gray-900">{t("verifyOtp.verifiedTitle", "Verified Successfully!")}</motion.p>
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-gray-500 mt-2">{t("verifyOtp.redirecting", "Redirecting to next step...")}</motion.p>
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-muted-foreground mt-2">{t("verifyOtp.redirecting", "Redirecting to next step...")}</motion.p>
               </motion.div>
             )}
           </AnimatePresence>
 
           <div className="flex justify-center gap-3" onPaste={handlePaste}>
             {otp.map((digit, index) => (
-              <motion.input key={index} ref={(el) => { inputRefs.current[index] = el; }} type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => handleInputChange(index, e.target.value)} onKeyDown={(e) => handleKeyDown(index, e)} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} className={`w-14 h-14 sm:w-15 sm:h-15 text-center text-2xl font-bold rounded-xl border-2 transition-all outline-none ${digit ? "border-primary bg-primary/10 text-primary" : "border-gray-200 bg-gray-50 hover:border-gray-300"} focus:border-primary focus:ring-4 focus:ring-ring/20`} />
+              <motion.input key={index} ref={(el) => { inputRefs.current[index] = el; }} type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => handleInputChange(index, e.target.value)} onKeyDown={(e) => handleKeyDown(index, e)} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} className={`w-14 h-14 sm:w-15 sm:h-15 text-center text-2xl font-bold rounded-xl border-2 transition-all ${digit ? "border-primary bg-primary/10 text-primary" : "border-gray-300 bg-gray-50 hover:border-gray-400"} focus:border-primary focus:ring-4 focus:ring-ring/20`} />
             ))}
           </div>
 
           <div className="text-center">
             {timer > 0 ? (
-              <p className="text-gray-500">{t("verifyOtp.resendIn", "Resend OTP in")} <span className="font-mono font-bold text-primary">{formatTimer(timer)}</span></p>
+              <p className="text-muted-foreground">{t("verifyOtp.resendIn", "Resend OTP in")} <span className="font-mono font-bold text-primary">{formatTimer(timer)}</span></p>
             ) : (
-              <button onClick={handleResend} disabled={isResending} className="text-primary hover:text-primary/80 font-semibold transition-colors inline-flex items-center gap-2">
+              <button type="button" onClick={handleResend} disabled={isResending} className="text-primary hover:text-primary/80 font-semibold transition-colors inline-flex items-center gap-2">
                 {isResending ? <><Loader2 className="w-4 h-4 animate-spin" />{t("common.sending", "Sending...")}</> : t("verifyOtp.resend", "Resend OTP")}
               </button>
             )}
@@ -163,8 +163,8 @@ const VerifyOTP = () => {
           </Button>
 
           <div className="text-center space-y-3 pt-4 border-t border-gray-100">
-            <p className="text-gray-500">{t("verifyOtp.didntReceive", "Didn't receive the code?")} {timer === 0 && (<button onClick={handleResend} disabled={isResending} className="text-primary hover:text-primary/80 font-semibold transition-colors">{t("verifyOtp.resend", "Resend OTP")}</button>)}</p>
-            <Link to="/register" className="block text-gray-500 hover:text-gray-700 text-sm transition-colors">{t("verifyOtp.changeEmailPhone", "Change email/phone")}</Link>
+            <p className="text-muted-foreground">{t("verifyOtp.didntReceive", "Didn't receive the code?")} {timer === 0 && (<button type="button" onClick={handleResend} disabled={isResending} className="text-primary hover:text-primary/80 font-semibold transition-colors">{t("verifyOtp.resend", "Resend OTP")}</button>)}</p>
+            <Link to="/register" className="block text-muted-foreground hover:text-foreground text-sm transition-colors">{t("verifyOtp.changeEmailPhone", "Change email/phone")}</Link>
           </div>
         </div>
       </motion.div>

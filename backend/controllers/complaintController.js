@@ -5,14 +5,100 @@ import NotificationPreference from "../models/NotificationPreference.js";
 import { getFileType } from "../config/cloudinary.js";
 import { createStatusNotification } from "../utils/notification.js";
 
-const ACTIVE_COMPLAINT_STATUSES = ["filed", "assigned", "pending", "in-progress", "in_progress"];
-
 const CATEGORY_ALIASES = {
   "Sanitation & Garbage": ["Sanitation", "Waste Collection", "sanitation"],
   "Drainage & Sewage": ["Sewage", "drainage"],
   "Street Lights": ["Streetlights", "streetlights"],
   "Parks & Gardens": ["Parks & Recreation", "parks"],
   Other: ["others"],
+};
+
+const CATEGORY_KEYWORDS = {
+  "Roads & Infrastructure": [
+    "road",
+    "pothole",
+    "footpath",
+    "sidewalk",
+    "bridge",
+    "asphalt",
+    "street damage",
+  ],
+  "Water Supply": [
+    "water",
+    "pipeline",
+    "pipe leak",
+    "no water",
+    "drinking water",
+    "tap",
+    "seepage",
+  ],
+  Electricity: [
+    "electricity",
+    "power",
+    "voltage",
+    "transformer",
+    "power cut",
+    "outage",
+  ],
+  "Sanitation & Garbage": [
+    "garbage",
+    "trash",
+    "waste",
+    "cleaning",
+    "dirty",
+    "dump",
+    "sanitation",
+  ],
+  "Drainage & Sewage": [
+    "drain",
+    "drainage",
+    "sewage",
+    "sewer",
+    "manhole",
+    "waterlogging",
+    "stagnant water",
+  ],
+  "Street Lights": [
+    "street light",
+    "streetlight",
+    "light pole",
+    "lamp",
+    "dark road",
+  ],
+  "Parks & Gardens": [
+    "park",
+    "garden",
+    "playground",
+    "tree",
+    "grass",
+  ],
+  Pollution: [
+    "pollution",
+    "smoke",
+    "air quality",
+    "noise",
+    "contamination",
+  ],
+  Encroachment: [
+    "encroachment",
+    "illegal construction",
+    "occupation",
+    "blocked road",
+    "blocked footpath",
+  ],
+};
+
+const DEPARTMENT_CATEGORY_MAP = {
+  "Roads & Infrastructure": ["Roads & Infrastructure", "roads", "Bridges"],
+  "Water Supply": ["Water Supply", "water", "Pipelines", "Water Quality"],
+  Electricity: ["Electricity", "electricity", "Power Outages"],
+  "Sanitation & Garbage": ["Sanitation", "Waste Collection", "sanitation"],
+  "Drainage & Sewage": ["Sewage", "drainage"],
+  "Street Lights": ["Streetlights", "streetlights"],
+  "Parks & Gardens": ["Parks & Recreation", "parks"],
+  Pollution: ["Pollution", "pollution", "Environment"],
+  Encroachment: ["encroachment"],
+  Other: ["others", "Municipal"],
 };
 
 const parseBoolean = (value) => {
@@ -26,73 +112,84 @@ const parseBoolean = (value) => {
   return false;
 };
 
+const normalizeCategoryInput = (category) => {
+  if (!category) return "";
+  const trimmed = String(category).trim();
+  if (!trimmed) return "";
+
+  const directMatch = Object.keys(CATEGORY_ALIASES).find(
+    (key) => key.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (directMatch) return directMatch;
+
+  const aliasMatch = Object.entries(CATEGORY_ALIASES).find(([, aliases]) =>
+    aliases.some((alias) => alias.toLowerCase() === trimmed.toLowerCase()),
+  );
+  if (aliasMatch) return aliasMatch[0];
+
+  return "";
+};
+
+const inferCategoryFromText = ({ title = "", description = "" }) => {
+  const text = `${title} ${description}`.toLowerCase();
+  if (!text.trim()) return "Other";
+
+  let bestMatch = { category: "Other", score: 0 };
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    const score = keywords.reduce(
+      (total, keyword) => (text.includes(keyword.toLowerCase()) ? total + 1 : total),
+      0,
+    );
+    if (score > bestMatch.score) {
+      bestMatch = { category, score };
+    }
+  }
+  return bestMatch.category;
+};
+
+const resolveComplaintCategory = ({ category, title, description }) => {
+  const normalized = normalizeCategoryInput(category);
+  if (normalized) return normalized;
+  return inferCategoryFromText({ title, description });
+};
+
 const findDepartmentForCategory = async (category) => {
-  const aliases = CATEGORY_ALIASES[category] || [];
+  const aliases = DEPARTMENT_CATEGORY_MAP[category] || CATEGORY_ALIASES[category] || [];
   return await Department.findOne({
     isActive: true,
     categories: { $in: [category, ...aliases] },
-  }).select("_id slaTargets officers");
-};
-
-const pickLeastLoadedOfficer = async (department) => {
-  if (!department?.officers?.length) return null;
-
-  const workload = await Complaint.aggregate([
-    {
-      $match: {
-        department: department._id,
-        assignedOfficer: { $in: department.officers },
-        status: { $in: ACTIVE_COMPLAINT_STATUSES },
-      },
-    },
-    { $group: { _id: "$assignedOfficer", activeCount: { $sum: 1 } } },
-  ]);
-
-  const loadMap = new Map(workload.map((w) => [String(w._id), w.activeCount]));
-
-  return [...department.officers]
-    .sort((a, b) => {
-      const loadA = loadMap.get(String(a)) || 0;
-      const loadB = loadMap.get(String(b)) || 0;
-      if (loadA !== loadB) return loadA - loadB;
-      return String(a).localeCompare(String(b));
-    })[0];
+  }).select("_id slaTargets");
 };
 
 const assignComplaintWorkflow = async (complaint) => {
   const department = await findDepartmentForCategory(complaint.category);
   if (department) {
     complaint.department = department._id;
+    complaint.status = "pending";
+    complaint.recordStatusChange(
+      "pending",
+      null,
+      "Complaint routed to department queue for review",
+      "system",
+    );
+    complaint.timeline.unshift({
+      status: "pending",
+      message: "Complaint routed to department queue for review",
+      updatedBy: null,
+      updatedAt: new Date(),
+    });
+    await createStatusNotification({
+      userId: complaint.user,
+      complaint,
+      status: "pending",
+      message: "Your complaint has been routed to the relevant department.",
+      source: "system",
+    });
 
-    const selectedOfficer = await pickLeastLoadedOfficer(department);
-    if (selectedOfficer) {
-      complaint.assignedOfficer = selectedOfficer;
-      complaint.assignedDate = new Date();
-      complaint.recordStatusChange(
-        "assigned",
-        selectedOfficer,
-        "Complaint assigned to department officer",
-        "system",
-      );
-      complaint.timeline.unshift({
-        status: "assigned",
-        message: "Complaint assigned to department officer",
-        updatedBy: selectedOfficer,
-        updatedAt: new Date(),
-      });
-      await createStatusNotification({
-        userId: complaint.user,
-        complaint,
-        status: "assigned",
-        message: "Your complaint has been assigned to an officer.",
-        source: "system",
-      });
-
-      const slaHours = department.slaTargets?.[complaint.priority] || 72;
-      complaint.estimatedResolution = new Date(
-        Date.now() + slaHours * 60 * 60 * 1000,
-      );
-    }
+    const slaHours = department.slaTargets?.[complaint.priority] || 72;
+    complaint.estimatedResolution = new Date(
+      Date.now() + slaHours * 60 * 60 * 1000,
+    );
   }
 
   await complaint.save();
@@ -116,10 +213,10 @@ export const fileComplaint = async (req, res) => {
     } = req.body;
     const draftMode = parseBoolean(isDraft);
     if (!draftMode) {
-      if (!title || !category || !description || !address) {
+      if (!title || !description || !address) {
         return res.status(400).json({
           success: false,
-          message: "Please provide all required fields",
+          message: "Please provide title, description and address",
         });
       }
     }
@@ -149,7 +246,7 @@ export const fileComplaint = async (req, res) => {
     const complaint = await Complaint.create({
       user: req.user.id,
       title,
-      category,
+      category: resolveComplaintCategory({ category, title, description }),
       description,
       location: {
         address,
@@ -548,17 +645,21 @@ export const submitDraft = async (req, res) => {
 
     if (
       !complaint.title ||
-      !complaint.category ||
       !complaint.description ||
       !complaint.location?.address
     ) {
       return res.status(400).json({
         success: false,
-        message: "Please complete title, category, description and address",
+        message: "Please complete title, description and address",
       });
     }
 
     complaint.isDraft = false;
+    complaint.category = resolveComplaintCategory({
+      category: complaint.category,
+      title: complaint.title,
+      description: complaint.description,
+    });
     complaint.recordStatusChange(
       "filed",
       req.user.id,

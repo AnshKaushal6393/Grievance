@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Government emblem">
+  <rect width="64" height="64" rx="10" fill="#0b1f4d" />
+  <circle cx="32" cy="24" r="10" fill="#f4c430" />
+  <circle cx="32" cy="24" r="6.5" fill="#0b1f4d" />
+  <circle cx="32" cy="24" r="4" fill="#f4c430" />
+  <rect x="29" y="33" width="6" height="12" rx="2" fill="#f4c430" />
+  <rect x="20" y="45" width="24" height="4" rx="2" fill="#f4c430" />
+  <path d="M16 52h32" stroke="#f4c430" stroke-width="3" stroke-linecap="round" />
+</svg>

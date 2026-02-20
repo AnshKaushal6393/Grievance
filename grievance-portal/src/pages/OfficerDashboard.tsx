@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,11 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   ClipboardList, Clock, CheckCircle, Timer, AlertTriangle, TrendingUp,
   TrendingDown, Eye, MessageSquare, RefreshCw, FileText, Users, Bell, Loader2,
-  Building2, ArrowRight, AlertCircle, User, Activity,
+  Building2, ArrowRight, AlertCircle, User, Activity, LogOut,
 } from "lucide-react";
 import officerService from "@/services/officerService";
+import authService from "@/services/authService";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import GovernmentTopStrip from "@/components/GovernmentTopStrip";
 
 const OfficerDashboard = () => {
   const { t, language, setLanguage, getLanguageLabel } = useLanguage();
@@ -27,9 +29,6 @@ const OfficerDashboard = () => {
   const [teamActivity, setTeamActivity] = useState<any[]>([]);
   const [officerInfo, setOfficerInfo] = useState<{ department?: { name?: string; code?: string } } | null>(null);
   const [claimingComplaintId, setClaimingComplaintId] = useState<string | null>(null);
-  const [demoQueueEnabled, setDemoQueueEnabled] = useState(false);
-  const demoActionsEnabled =
-    import.meta.env.DEV && import.meta.env.VITE_ENABLE_OFFICER_DEMO === "true";
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -88,7 +87,7 @@ const OfficerDashboard = () => {
           icon: CheckCircle,
           trend: stats.resolvedTrend || "+0",
           trendUp: stats.resolvedTrendUp ?? true,
-          subtitle: t("officer.stats.resolvedSub", "Great progress!"),
+          subtitle: t("officer.stats.resolvedSub", "Resolved cases"),
           color: "text-green-600",
           bgColor: "bg-green-50",
         },
@@ -337,43 +336,6 @@ const OfficerDashboard = () => {
     return { breached, near };
   }, [allComplaints, currentTime]);
 
-  const createDemoQueueComplaints = () => {
-    const today = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    return [
-      {
-        id: "DEMO-GR-001",
-        _id: "demo-queue-1",
-        title: "Pothole near bus stop causing traffic slowdown",
-        category: "Roads & Infrastructure",
-        priority: "High",
-        status: "Pending",
-        date: today,
-      },
-      {
-        id: "DEMO-GR-002",
-        _id: "demo-queue-2",
-        title: "Streetlight not working in residential lane",
-        category: "Electricity",
-        priority: "Medium",
-        status: "Pending",
-        date: today,
-      },
-      {
-        id: "DEMO-GR-003",
-        _id: "demo-queue-3",
-        title: "Garbage collection missed for two days",
-        category: "Sanitation",
-        priority: "High",
-        status: "Pending",
-        date: today,
-      },
-    ];
-  };
-
   const handleBellClick = () => {
     const alertsEl = document.getElementById("sla-alerts");
     if (alertsEl) {
@@ -386,19 +348,6 @@ const OfficerDashboard = () => {
       return;
     }
     toast.info(t("officer.noRecentActivity", "No recent activity"));
-  };
-
-  const handleToggleQueueDemo = () => {
-    if (!demoActionsEnabled) return;
-    if (demoQueueEnabled) {
-      setDemoQueueEnabled(false);
-      void fetchDashboardData();
-      toast.info(t("officer.toast.demoQueueDisabled", "Queue demo disabled"));
-      return;
-    }
-    setDepartmentQueueComplaints(createDemoQueueComplaints());
-    setDemoQueueEnabled(true);
-    toast.success(t("officer.toast.demoQueueLoaded", "Queue demo loaded"));
   };
 
   const handleGenerateMyReport = () => {
@@ -460,7 +409,7 @@ const OfficerDashboard = () => {
         item.id === publicComplaintId || item.complaintId === publicComplaintId,
     );
 
-    if (matched?._id && !String(matched._id).startsWith("demo-queue-")) {
+    if (matched?._id) {
       navigate(`/officer/update-status?complaintId=${matched._id}`);
       return;
     }
@@ -482,6 +431,18 @@ const OfficerDashboard = () => {
     setIsAlertsModalOpen(true);
   };
 
+  const handleOpenProfile = () => {
+    navigate("/profile");
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      navigate("/login");
+    }
+  };
+
   const handleOpenAlertComplaint = (complaint: any) => {
     if (!complaint?._id) return;
     navigate(`/officer/update-status?complaintId=${complaint._id}`);
@@ -489,26 +450,6 @@ const OfficerDashboard = () => {
   };
 
   const handleClaimComplaint = async (complaintId: string) => {
-    if (complaintId.startsWith("demo-queue-")) {
-      const selected = departmentQueueComplaints.find((c) => c._id === complaintId);
-      if (!selected) return;
-      setDepartmentQueueComplaints((prev) => prev.filter((c) => c._id !== complaintId));
-      setAllComplaints((prev) => [
-        {
-          id: selected.id,
-          _id: selected._id,
-          title: selected.title,
-          status: t("officer.status.assigned", "Assigned"),
-          priority: selected.priority,
-          date: selected.date,
-          isDemo: true,
-        },
-        ...prev,
-      ]);
-      toast.success(t("officer.claim.success", "Complaint claimed successfully"));
-      return;
-    }
-
     try {
       setClaimingComplaintId(complaintId);
       await officerService.claimComplaint(complaintId);
@@ -527,6 +468,24 @@ const OfficerDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        <div className="rounded-lg overflow-hidden border border-slate-300">
+          <GovernmentTopStrip
+            rightLabel={t("officer.officialWorkspace", "Official Officer Workspace")}
+          />
+        </div>
+
+        <div className="rounded-lg border border-slate-300 bg-white p-4">
+          <p className="text-sm font-semibold text-slate-800">
+            {t("officer.officialWorkspace", "Official Officer Workspace")}
+          </p>
+          <p className="mt-1 text-xs text-slate-600">
+            {t(
+              "officer.officialWorkspaceNote",
+              "All actions are recorded for audit and departmental review. Use factual and complete remarks in every update.",
+            )}
+          </p>
+        </div>
+
         {/* Welcome Header */}
         <div className="bg-white rounded-lg border p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -536,8 +495,9 @@ const OfficerDashboard = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">
-                  {t("officer.welcome", "Welcome")}, {officerData.name}
+                  {t("officer.dashboardTitle", "Officer Grievance Dashboard")}
                 </h1>
+                <p className="mt-1 text-sm text-slate-600">{officerData.name}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="secondary" className="bg-primary/10 text-primary border border-primary/20">
                     <Building2 className="w-3 h-3 mr-1" />{officerData.department}
@@ -548,7 +508,7 @@ const OfficerDashboard = () => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-end gap-3 md:max-w-[58%]">
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
@@ -559,10 +519,22 @@ const OfficerDashboard = () => {
                 <option value="hi">{getLanguageLabel("hi")}</option>
                 <option value="ur">{getLanguageLabel("ur")}</option>
               </select>
-              <div className="text-right">
-                <p className="text-slate-600 text-sm">{formatDate(currentTime)}</p>
-                <p className="text-2xl font-mono font-bold text-slate-900">{formatTime(currentTime)}</p>
-              </div>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleOpenProfile}
+              >
+                <User className="w-4 h-4" />
+                {t("nav.profile", "Profile")}
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2 text-red-700 border-red-200 hover:bg-red-50"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4" />
+                {t("nav.logout", "Logout")}
+              </Button>
               <div className="relative">
                 <Button
                   variant="outline"
@@ -578,6 +550,10 @@ const OfficerDashboard = () => {
                     {notificationCount}
                   </span>
                 )}
+              </div>
+              <div className="order-last w-full text-right sm:w-auto sm:ml-auto">
+                <p className="text-slate-600 text-sm">{formatDate(currentTime)}</p>
+                <p className="text-2xl font-mono font-bold text-slate-900">{formatTime(currentTime)}</p>
               </div>
             </div>
           </div>
@@ -595,14 +571,8 @@ const OfficerDashboard = () => {
           >
             <Eye className="w-4 h-4" />{t("officer.queue.title", "Department Queue")}
           </Button>
-          {demoActionsEnabled && (
-            <Button variant="outline" className="gap-2" onClick={handleToggleQueueDemo}>
-              <ClipboardList className="w-4 h-4" />
-              {demoQueueEnabled ? "Disable Queue Demo" : "Generate Queue Demo"}
-            </Button>
-          )}
-          <Button variant="outline" className="gap-2" onClick={handleGenerateMyReport}><FileText className="w-4 h-4" />{t("officer.quick.report", "Generate My Report")}</Button>
-          <Button variant="outline" className="gap-2" onClick={handleTeamPerformanceClick}><Users className="w-4 h-4" />{t("officer.quick.team", "Team Performance")}</Button>
+          <Button variant="outline" className="gap-2" onClick={handleGenerateMyReport}><FileText className="w-4 h-4" />{t("officer.quick.report", "Generate Official Report")}</Button>
+          <Button variant="outline" className="gap-2" onClick={handleTeamPerformanceClick}><Users className="w-4 h-4" />{t("officer.quick.team", "Department Performance")}</Button>
         </div>
 
         {/* Stats Cards */}
@@ -913,6 +883,13 @@ const OfficerDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <div className="mx-auto mt-4 max-w-7xl text-xs text-slate-600">
+        {t(
+          "officer.auditNotice",
+          "Official use only. Unauthorized disclosure of complaint data is prohibited under departmental policy.",
+        )}
+      </div>
     </div>
   );
 };
@@ -920,12 +897,7 @@ const OfficerDashboard = () => {
 // Complaint Card Component
 const ComplaintCard = ({ complaint, navigate, getStatusColor, getPriorityColor }: any) => {
   const { t } = useLanguage();
-  const isDemoComplaint = Boolean(complaint?.isDemo) || String(complaint?._id || "").startsWith("demo-queue-");
   const openComplaint = () => {
-    if (isDemoComplaint) {
-      toast.info(t("officer.toast.demoDetailUnavailable", "Demo complaint: backend detail page is not available for demo IDs."));
-      return;
-    }
     navigate(`/officer/update-status?complaintId=${complaint._id}`);
   };
   const refreshComplaint = () => {
@@ -933,7 +905,7 @@ const ComplaintCard = ({ complaint, navigate, getStatusColor, getPriorityColor }
     openComplaint();
   };
   const openComplaintNotes = () => {
-    toast.info(t("officer.toast.notesInDetail", "Notes panel will be available in complaint detail view."));
+    openComplaint();
   };
 
   return (

@@ -19,6 +19,7 @@ import authService from "@/services/authService";
 import complaintService from "@/services/complaintService";
 import adminService from "@/services/adminService";
 import { useLanguage } from "@/contexts/LanguageContext";
+import GovernmentTopStrip from "@/components/GovernmentTopStrip";
 
 type NavbarProps = {
   branding?: {
@@ -153,8 +154,9 @@ const Navbar = ({ branding }: NavbarProps) => {
       : currentUser?.role === "officer"
         ? [
             { label: t("nav.dashboard", "Dashboard"), href: "/officer" },
-            { label: t("nav.myComplaints", "My Complaints"), href: "/officer" },
-            { label: t("nav.about", "Help"), href: "/about" },
+            { label: t("nav.departmentQueue", "Department Queue"), href: "/officer#department-queue" },
+            { label: t("nav.assignedCases", "Assigned Cases"), href: "/officer#assigned-complaints" },
+            { label: t("nav.slaAlerts", "SLA Alerts"), href: "/officer#sla-alerts" },
           ]
         : [
             { label: t("nav.home", "Home"), href: "/" },
@@ -248,17 +250,16 @@ const Navbar = ({ branding }: NavbarProps) => {
           {t("nav.skipContent", "Skip to main content")}
         </a>
 
-        <div className="border-b border-slate-700 bg-slate-900 text-white">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1 text-xs">
-            <p className="font-semibold">{t("nav.goi", "Government of India")}</p>
+        <GovernmentTopStrip
+          rightContent={
             <div className="flex items-center gap-2">
               <span>{t("nav.textSize", "Text Size")}</span>
               <button type="button" className="rounded border border-slate-500 px-1" onClick={() => setFontScale("sm")} aria-label={t("nav.textSizeSmall", "Decrease text size")}>A-</button>
               <button type="button" className="rounded border border-slate-500 px-1" onClick={() => setFontScale("md")} aria-label={t("nav.textSizeDefault", "Default text size")}>A</button>
               <button type="button" className="rounded border border-slate-500 px-1" onClick={() => setFontScale("lg")} aria-label={t("nav.textSizeLarge", "Increase text size")}>A+</button>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className="border-b border-border bg-white">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">

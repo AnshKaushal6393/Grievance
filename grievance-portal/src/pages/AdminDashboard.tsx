@@ -130,19 +130,19 @@ const AdminDashboard = () => {
       setAlerts([
         {
           id: 1,
-          title: `${stats.pendingReview} complaints pending review`,
+          title: `${stats.pendingReview} grievances pending administrative review`,
           type: "critical",
           action: () => navigate("/admin/complaints"),
         },
         {
           id: 2,
-          title: "Check department workloads",
+          title: "Review department workload distribution",
           type: "warning",
           action: () => navigate("/admin/departments"),
         },
         {
           id: 3,
-          title: "SLA targets need review",
+          title: "Review SLA compliance performance",
           type: "warning",
           action: () => navigate("/admin/departments"),
         },
@@ -150,19 +150,19 @@ const AdminDashboard = () => {
 
       setStatsData([
         {
-          title: "Total Complaints", value: stats.totalComplaints, subtitle: "All time",
+          title: "Total Grievances", value: stats.totalComplaints, subtitle: "Cumulative",
           trend: null, trendUp: true, icon: FileText, iconBg: "bg-primary/15", iconColor: "text-primary",
         },
         {
-          title: "Today's Complaints", value: stats.todayComplaints, subtitle: "Since midnight",
+          title: "Grievances Received Today", value: stats.todayComplaints, subtitle: "Since 00:00 hrs",
           trend: todayTrend.trend, trendUp: todayTrend.trendUp, icon: TrendingUp, iconBg: "bg-green-100", iconColor: "text-green-600",
         },
         {
-          title: "Pending Review", value: stats.pendingReview, subtitle: "Awaiting action",
+          title: "Pending Administrative Review", value: stats.pendingReview, subtitle: "Awaiting action",
           trend: null, trendUp: false, icon: Clock, iconBg: "bg-orange-100", iconColor: "text-orange-600",
         },
         {
-          title: "Resolution Rate", value: stats.resolutionRate, subtitle: "Last 30 days",
+          title: "Resolution Rate", value: stats.resolutionRate, subtitle: "Previous 30 days",
           trend: null, trendUp: true, icon: CheckCircle2, iconBg: "bg-purple-100", iconColor: "text-purple-600",
         },
       ]);
@@ -210,7 +210,7 @@ const AdminDashboard = () => {
       );
     } catch (error: any) {
       // Fallback data so UI doesn't break when admin APIs aren't ready
-      toast.error(error.response?.data?.message || "Failed to load dashboard (showing sample data)");
+      toast.error(error.response?.data?.message || "Unable to load dashboard data. Displaying fallback summary.");
       const sampleStats = {
         totalComplaints: 1280,
         todayComplaints: 12,
@@ -218,13 +218,13 @@ const AdminDashboard = () => {
         resolutionRate: "82%",
       };
       setAlerts([
-        { id: 1, title: `${sampleStats.pendingReview} complaints pending review`, type: "critical" },
+        { id: 1, title: `${sampleStats.pendingReview} grievances pending administrative review`, type: "critical" },
       ]);
       setStatsData([
-        { title: "Total Complaints", value: sampleStats.totalComplaints, subtitle: "All time", trend: null, trendUp: true, icon: FileText, iconBg: "bg-primary/15", iconColor: "text-primary" },
-        { title: "Today's Complaints", value: sampleStats.todayComplaints, subtitle: "Since midnight", trend: null, trendUp: true, icon: TrendingUp, iconBg: "bg-green-100", iconColor: "text-green-600" },
-        { title: "Pending Review", value: sampleStats.pendingReview, subtitle: "Awaiting action", trend: null, trendUp: false, icon: Clock, iconBg: "bg-orange-100", iconColor: "text-orange-600" },
-        { title: "Resolution Rate", value: sampleStats.resolutionRate, subtitle: "Last 30 days", trend: null, trendUp: true, icon: CheckCircle2, iconBg: "bg-purple-100", iconColor: "text-purple-600" },
+        { title: "Total Grievances", value: sampleStats.totalComplaints, subtitle: "Cumulative", trend: null, trendUp: true, icon: FileText, iconBg: "bg-primary/15", iconColor: "text-primary" },
+        { title: "Grievances Received Today", value: sampleStats.todayComplaints, subtitle: "Since 00:00 hrs", trend: null, trendUp: true, icon: TrendingUp, iconBg: "bg-green-100", iconColor: "text-green-600" },
+        { title: "Pending Administrative Review", value: sampleStats.pendingReview, subtitle: "Awaiting action", trend: null, trendUp: false, icon: Clock, iconBg: "bg-orange-100", iconColor: "text-orange-600" },
+        { title: "Resolution Rate", value: sampleStats.resolutionRate, subtitle: "Previous 30 days", trend: null, trendUp: true, icon: CheckCircle2, iconBg: "bg-purple-100", iconColor: "text-purple-600" },
       ]);
       setTrendChartData([
         { date: "2026-02-05", filed: 12, resolved: 9 },
@@ -429,7 +429,7 @@ const AdminDashboard = () => {
         </div>
         {isLoading && (
           <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
-            Loading latest dashboard data...
+            Loading latest administrative dashboard data...
           </div>
         )}
 
@@ -450,7 +450,7 @@ const AdminDashboard = () => {
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => fetchStats()}>Refresh data</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>Export CSV (soon)</DropdownMenuItem>
+                  <DropdownMenuItem disabled>Export CSV (coming soon)</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -468,7 +468,7 @@ const AdminDashboard = () => {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No trend data yet.</p>
+              <p className="text-sm text-gray-500">Trend data is not available.</p>
             )}
           </motion.div>
 
@@ -487,7 +487,7 @@ const AdminDashboard = () => {
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => fetchStats()}>Refresh data</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>Export CSV (soon)</DropdownMenuItem>
+                  <DropdownMenuItem disabled>Export CSV (coming soon)</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -504,7 +504,7 @@ const AdminDashboard = () => {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No category data yet.</p>
+              <p className="text-sm text-gray-500">Category data is not available.</p>
             )}
           </motion.div>
         </div>
@@ -517,12 +517,12 @@ const AdminDashboard = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Department Performance</h3>
-                <p className="text-sm text-gray-500">Track and compare department metrics</p>
+                <p className="text-sm text-gray-500">Track and compare departmental performance metrics</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative w-full sm:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input type="text" placeholder="Search departments..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                  <input type="text" placeholder="Search departments" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-ring text-sm w-full sm:w-72" />
                 </div>
                 <DropdownMenu>
@@ -609,7 +609,7 @@ const AdminDashboard = () => {
                 {sortedDepartments.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
-                      No departments match the current filters.
+                      No departments match the selected filters.
                     </td>
                   </tr>
                 )}
@@ -623,10 +623,10 @@ const AdminDashboard = () => {
           className="bg-white rounded-lg p-6 border border-gray-200"
         >
           <div className="flex items-center justify-between mb-6">
-            <div><h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3><p className="text-sm text-gray-500">Latest updates and actions</p></div>
+            <div><h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3><p className="text-sm text-gray-500">Latest administrative updates and actions</p></div>
             <Link to="/admin/complaints">
               <Button variant="ghost" size="sm" className="gap-2 text-primary">
-                View All
+                View All Activity
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </Link>
@@ -646,7 +646,7 @@ const AdminDashboard = () => {
                 </div>
               </motion.div>
             ))}
-            {activityFeed.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No recent activity</p>}
+            {activityFeed.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No recent administrative activity</p>}
           </div>
         </motion.div>
       </main>
@@ -655,4 +655,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
 

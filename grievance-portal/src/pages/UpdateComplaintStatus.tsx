@@ -45,7 +45,6 @@ import {
   Loader2,
   ClipboardList,
   Eye,
-  Save,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -68,6 +67,15 @@ type OfficerComplaintRecord = {
       longitude?: number | null;
     };
   };
+  timeline?: Array<{
+    status?: string;
+    message?: string;
+    updatedAt?: string;
+    updatedBy?: {
+      name?: string;
+      role?: string;
+    } | null;
+  }>;
   user?: {
     name?: string;
     phone?: string;
@@ -314,9 +322,11 @@ const UpdateComplaintStatus = () => {
     if (newStatus === "Inspection Scheduled") {
       if (!inspectionDate || !inspectionTime || !inspectorName.trim()) {
         toast({
-          title: "Inspection Details Required",
-          description:
+          title: t("updateStatus.error.inspectionRequiredTitle", "Inspection Details Required"),
+          description: t(
+            "updateStatus.error.inspectionRequired",
             "Please fill in all inspection details (date, time, inspector name).",
+          ),
           variant: "destructive",
         });
         return false;
@@ -326,8 +336,8 @@ const UpdateComplaintStatus = () => {
     if (newStatus === "Resolved") {
       if (!resolutionSummary.trim()) {
         toast({
-          title: "Resolution Summary Required",
-          description: "Please provide a resolution summary.",
+          title: t("updateStatus.error.resolutionRequiredTitle", "Resolution Summary Required"),
+          description: t("updateStatus.error.resolutionRequired", "Please provide a resolution summary."),
           variant: "destructive",
         });
         return false;
@@ -337,8 +347,8 @@ const UpdateComplaintStatus = () => {
     if (newStatus === "Rejected") {
       if (!rejectionReason || !rejectionExplanation.trim()) {
         toast({
-          title: "Rejection Details Required",
-          description: "Please select a reason and provide an explanation.",
+          title: t("updateStatus.error.rejectionRequiredTitle", "Rejection Details Required"),
+          description: t("updateStatus.error.rejectionRequired", "Please select a reason and provide an explanation."),
           variant: "destructive",
         });
         return false;
@@ -385,16 +395,19 @@ const UpdateComplaintStatus = () => {
       });
 
       toast({
-        title: "Status Updated Successfully",
-        description: `Complaint ${complaint.complaintId} has been updated to "${newStatus}".`,
+        title: t("updateStatus.success.title", "Status Updated Successfully"),
+        description: t(
+          "updateStatus.success.description",
+          `Complaint ${complaint.complaintId} has been updated to "${newStatus}".`,
+        ),
       });
 
       setShowConfirmModal(false);
       navigate("/officer");
     } catch (error: any) {
       toast({
-        title: "Failed to Update Status",
-        description: error?.response?.data?.message || "Please try again.",
+        title: t("updateStatus.error.updateFailedTitle", "Failed to Update Status"),
+        description: error?.response?.data?.message || t("common.tryAgain", "Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -452,6 +465,18 @@ const UpdateComplaintStatus = () => {
   const mapsUrl = hasCoordinates
     ? `https://www.google.com/maps?q=${lat},${lng}`
     : null;
+  const timelineEntries = (complaint.timeline || [])
+    .map((entry) => ({
+      status: entry.status || currentStatus,
+      message: entry.message || t("updateStatus.timelineUpdated", "Complaint updated"),
+      updatedAt: entry.updatedAt ? new Date(entry.updatedAt) : null,
+      actor: entry.updatedBy?.name || t("updateStatus.system", "System"),
+    }))
+    .sort((a, b) => {
+      const aTime = a.updatedAt ? a.updatedAt.getTime() : 0;
+      const bTime = b.updatedAt ? b.updatedAt.getTime() : 0;
+      return bTime - aTime;
+    });
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -466,9 +491,21 @@ const UpdateComplaintStatus = () => {
               {t("updateStatus.title", "Update Complaint Status")}
             </h1>
             <p className="text-muted-foreground">
-              {t("updateStatus.subtitle", "Update status and add notes for complaint")} {complaint.complaintId}
+              {t("updateStatus.subtitle", "Official processing form for complaint")} {complaint.complaintId}
             </p>
           </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-300 bg-white p-4">
+          <p className="text-sm font-semibold text-slate-800">
+            {t("updateStatus.officialRecord", "Official Action Record")}
+          </p>
+          <p className="mt-1 text-xs text-slate-600">
+            {t(
+              "updateStatus.officialRecordNote",
+              "Status updates, notes, and attachments are part of the official grievance file and may be reviewed in audits.",
+            )}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -575,7 +612,7 @@ const UpdateComplaintStatus = () => {
                 {/* Current Status */}
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">
-                    Current Status
+                    {t("updateStatus.currentStatus", "Current Status")}
                   </p>
                   <Badge
                     className={cn(
@@ -597,14 +634,14 @@ const UpdateComplaintStatus = () => {
 
                 {/* New Status */}
                 <div className="space-y-2">
-                  <Label htmlFor="newStatus">New Status *</Label>
+                  <Label htmlFor="newStatus">{t("updateStatus.newStatus", "New Status")} *</Label>
                   <Select
                     value={newStatus}
                     onValueChange={setNewStatus}
                     disabled={isResolvedComplaint}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select new status" />
+                      <SelectValue placeholder={t("updateStatus.selectNewStatus", "Select new status")} />
                     </SelectTrigger>
                     <SelectContent>
                       {statusOptions.map((status) => (
@@ -624,14 +661,14 @@ const UpdateComplaintStatus = () => {
                 {/* Action Notes */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="actionNotes">Action Notes *</Label>
+                    <Label htmlFor="actionNotes">{t("updateStatus.actionNotes", "Action Notes")} *</Label>
                     <span className="text-xs text-muted-foreground">
                       {actionNotes.length}/500
                     </span>
                   </div>
                   <Textarea
                     id="actionNotes"
-                    placeholder="Describe the action taken..."
+                    placeholder={t("updateStatus.actionNotesPlaceholder", "Describe the action taken...")}
                     value={actionNotes}
                     onChange={(e) =>
                       setActionNotes(e.target.value.slice(0, 500))
@@ -642,7 +679,7 @@ const UpdateComplaintStatus = () => {
 
                 {/* Evidence Upload */}
                 <div className="space-y-2">
-                  <Label>Upload Evidence (Optional)</Label>
+                  <Label>{t("updateStatus.uploadEvidence", "Upload Evidence (Optional)")}</Label>
                   <div className="flex flex-wrap gap-3">
                     {evidencePreviews.map((preview, index) => (
                       <div key={index} className="relative group">
@@ -665,7 +702,7 @@ const UpdateComplaintStatus = () => {
                         className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
                       >
                         <Upload className="w-5 h-5" />
-                        <span className="text-xs">Add Photo</span>
+                        <span className="text-xs">{t("updateStatus.addPhoto", "Add Photo")}</span>
                       </button>
                     )}
                   </div>
@@ -678,7 +715,7 @@ const UpdateComplaintStatus = () => {
                     onChange={(e) => handleFileUpload(e, "evidence")}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Max 3 images. Supported: JPG, PNG, WEBP
+                    {t("updateStatus.imagesHint", "Max 3 images. Supported: JPG, PNG, WEBP")}
                   </p>
                 </div>
 
@@ -687,12 +724,12 @@ const UpdateComplaintStatus = () => {
                   <div className="p-4 bg-slate-50 rounded-lg space-y-4 border border-slate-200">
                     <h4 className="font-medium text-slate-900 flex items-center gap-2">
                       <CalendarIcon className="w-4 h-4" />
-                      Inspection Details
+                      {t("updateStatus.inspectionDetails", "Inspection Details")}
                     </h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Scheduled Date *</Label>
+                        <Label>{t("updateStatus.scheduledDate", "Scheduled Date")} *</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
@@ -705,7 +742,7 @@ const UpdateComplaintStatus = () => {
                               <CalendarIcon className="mr-2 h-4 w-4" />
                               {inspectionDate
                                 ? format(inspectionDate, "PPP")
-                                : "Pick a date"}
+                                : t("updateStatus.pickDate", "Pick a date")}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
@@ -722,7 +759,7 @@ const UpdateComplaintStatus = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="inspectionTime">Scheduled Time *</Label>
+                        <Label htmlFor="inspectionTime">{t("updateStatus.scheduledTime", "Scheduled Time")} *</Label>
                         <Input
                           id="inspectionTime"
                           type="time"
@@ -733,20 +770,20 @@ const UpdateComplaintStatus = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="inspectorName">Inspector Name *</Label>
+                      <Label htmlFor="inspectorName">{t("updateStatus.inspectorName", "Inspector Name")} *</Label>
                       <Input
                         id="inspectorName"
-                        placeholder="Enter inspector's name"
+                        placeholder={t("updateStatus.inspectorPlaceholder", "Enter inspector's name")}
                         value={inspectorName}
                         onChange={(e) => setInspectorName(e.target.value)}
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="inspectionNotes">Additional Notes</Label>
+                      <Label htmlFor="inspectionNotes">{t("updateStatus.additionalNotes", "Additional Notes")}</Label>
                       <Textarea
                         id="inspectionNotes"
-                        placeholder="Any additional inspection notes..."
+                        placeholder={t("updateStatus.additionalNotesPlaceholder", "Any additional inspection notes...")}
                         value={inspectionNotes}
                         onChange={(e) => setInspectionNotes(e.target.value)}
                         rows={2}
@@ -760,16 +797,16 @@ const UpdateComplaintStatus = () => {
                   <div className="p-4 bg-green-50 rounded-lg space-y-4 border border-green-200">
                     <h4 className="font-medium text-green-900 flex items-center gap-2">
                       <CheckCircle className="w-4 h-4" />
-                      Resolution Details
+                      {t("updateStatus.resolutionDetails", "Resolution Details")}
                     </h4>
 
                     <div className="space-y-2">
                       <Label htmlFor="resolutionSummary">
-                        Resolution Summary *
+                        {t("updateStatus.resolutionSummary", "Resolution Summary")} *
                       </Label>
                       <Textarea
                         id="resolutionSummary"
-                        placeholder="Describe how the issue was resolved..."
+                        placeholder={t("updateStatus.resolutionPlaceholder", "Describe how the issue was resolved...")}
                         value={resolutionSummary}
                         onChange={(e) => setResolutionSummary(e.target.value)}
                         rows={3}
@@ -777,7 +814,7 @@ const UpdateComplaintStatus = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Resolution Images</Label>
+                      <Label>{t("updateStatus.resolutionImages", "Resolution Images")}</Label>
                       <div className="flex flex-wrap gap-3">
                         {resolutionPreviews.map((preview, index) => (
                           <div key={index} className="relative group">
@@ -802,7 +839,7 @@ const UpdateComplaintStatus = () => {
                             className="w-24 h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-green-500 hover:text-green-600 transition-colors"
                           >
                             <Image className="w-5 h-5" />
-                            <span className="text-xs">Add Photo</span>
+                            <span className="text-xs">{t("updateStatus.addPhoto", "Add Photo")}</span>
                           </button>
                         )}
                       </div>
@@ -817,7 +854,7 @@ const UpdateComplaintStatus = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Completion Date</Label>
+                      <Label>{t("updateStatus.completionDate", "Completion Date")}</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -830,7 +867,7 @@ const UpdateComplaintStatus = () => {
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {completionDate
                               ? format(completionDate, "PPP")
-                              : "Select completion date"}
+                              : t("updateStatus.selectCompletionDate", "Select completion date")}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
@@ -857,7 +894,7 @@ const UpdateComplaintStatus = () => {
                         htmlFor="readyForFeedback"
                         className="text-sm cursor-pointer"
                       >
-                        Mark as "Ready for Citizen Feedback"
+                        {t("updateStatus.readyForFeedback", "Mark as \"Ready for Citizen Feedback\"")}
                       </Label>
                     </div>
                   </div>
@@ -868,17 +905,17 @@ const UpdateComplaintStatus = () => {
                   <div className="p-4 bg-red-50 rounded-lg space-y-4 border border-red-200">
                     <h4 className="font-medium text-red-900 flex items-center gap-2">
                       <XCircle className="w-4 h-4" />
-                      Rejection Details
+                      {t("updateStatus.rejectionDetails", "Rejection Details")}
                     </h4>
 
                     <div className="space-y-2">
-                      <Label>Rejection Reason *</Label>
+                      <Label>{t("updateStatus.rejectionReason", "Rejection Reason")} *</Label>
                       <Select
                         value={rejectionReason}
                         onValueChange={setRejectionReason}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select reason" />
+                          <SelectValue placeholder={t("updateStatus.selectReason", "Select reason")} />
                         </SelectTrigger>
                         <SelectContent>
                           {rejectionReasons.map((reason) => (
@@ -892,11 +929,11 @@ const UpdateComplaintStatus = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="rejectionExplanation">
-                        Detailed Explanation *
+                        {t("updateStatus.detailedExplanation", "Detailed Explanation")} *
                       </Label>
                       <Textarea
                         id="rejectionExplanation"
-                        placeholder="Provide a detailed explanation for the rejection..."
+                        placeholder={t("updateStatus.rejectionPlaceholder", "Provide a detailed explanation for the rejection...")}
                         value={rejectionExplanation}
                         onChange={(e) => setRejectionExplanation(e.target.value)}
                         rows={4}
@@ -916,10 +953,6 @@ const UpdateComplaintStatus = () => {
               >
                 <CheckCircle className="w-4 h-4" />
                 {t("updateStatus.updateStatus", "Update Status")}
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <Save className="w-4 h-4" />
-                {t("updateStatus.saveDraft", "Save as Draft")}
               </Button>
               <Button variant="ghost" onClick={() => navigate(-1)}>
                 {t("common.cancel", "Cancel")}
@@ -957,7 +990,7 @@ const UpdateComplaintStatus = () => {
                           </Badge>
                         </div>
                         <p className="text-sm font-medium text-foreground">
-                          Status updated to {newStatus}
+                          {t("updateStatus.statusUpdatedTo", "Status updated to")} {newStatus}
                         </p>
                         {actionNotes && (
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -965,48 +998,29 @@ const UpdateComplaintStatus = () => {
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
-                          Just now • Officer Kumar
+                          {t("updateStatus.pendingConfirmation", "Pending confirmation")}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  {/* Previous entries */}
-                  <div className="relative pl-6 pb-4 border-l-2 border-muted">
-                    <div className="absolute left-0 top-0 w-4 h-4 rounded-full bg-primary/100 -translate-x-1/2" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Assigned to PWD
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Jan 18, 2024 • System
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="relative pl-6 pb-4 border-l-2 border-muted">
-                    <div className="absolute left-0 top-0 w-4 h-4 rounded-full bg-green-500 -translate-x-1/2" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Complaint Registered
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Jan 18, 2024 • Citizen
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="relative pl-6">
-                    <div className="absolute left-0 top-0 w-4 h-4 rounded-full bg-gray-400 -translate-x-1/2" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Complaint Filed
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Jan 18, 2024
-                      </p>
-                    </div>
-                  </div>
+                  {timelineEntries.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t("updateStatus.noTimeline", "No timeline entries available.")}
+                    </p>
+                  ) : (
+                    timelineEntries.slice(0, 8).map((entry, index) => (
+                      <div key={`${entry.status}-${index}`} className="relative pl-6 pb-4 border-l-2 border-muted">
+                        <div className="absolute left-0 top-0 w-4 h-4 rounded-full bg-primary/100 -translate-x-1/2" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{entry.message}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {entry.updatedAt ? entry.updatedAt.toLocaleString() : "-"}{" - "}{entry.actor}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

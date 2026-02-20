@@ -127,7 +127,7 @@ const TrackComplaint = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    return new Date(dateString).toLocaleDateString("en-IN", {
       weekday: "short",
       year: "numeric",
       month: "short",
@@ -233,7 +233,7 @@ const TrackComplaint = () => {
                 </Button>
               </div>
               <p className="text-center text-muted-foreground text-sm mt-4">
-                {t("track.example", "Example: GR2024001234")}
+                {t("track.example", "Reference: GR2024001234")}
               </p>
             </CardContent>
           </Card>
@@ -271,7 +271,7 @@ const TrackComplaint = () => {
                     {t("track.notFoundTitle")}
                   </h3>
                   <p className="text-foreground mb-4">
-                    {t("track.notFoundFor", "No complaint found with ID")}:{" "}
+                    {t("track.notFoundFor", "No grievance record found for ID")}:{" "}
                     <span className="font-mono font-semibold">
                       {complaintId}
                     </span>
@@ -544,4 +544,5 @@ const TrackComplaint = () => {
 };
 
 export default TrackComplaint;
+
 

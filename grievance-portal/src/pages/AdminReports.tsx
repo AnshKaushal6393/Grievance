@@ -86,13 +86,13 @@ interface ReportSnapshot {
 const STORAGE_KEY = "admin_recent_reports_v1";
 
 const reportTypes: ReportCardOption[] = [
-  { id: "summary", title: "Complaints Summary Report", description: "High-level complaint volume, resolution and trend summary.", icon: FileText },
-  { id: "department-performance", title: "Department Performance Report", description: "Compare departments by workload and closure efficiency.", icon: Building2 },
-  { id: "category-analysis", title: "Category-wise Analysis", description: "Breakdown by complaint categories and pattern changes.", icon: Layers3 },
-  { id: "geo-distribution", title: "Geographic Distribution Report", description: "Regional spread and heat zones for complaint concentration.", icon: MapPinned },
-  { id: "sla-compliance", title: "SLA Compliance Report", description: "Track SLA adherence, breaches and delay trend.", icon: Gauge },
-  { id: "citizen-satisfaction", title: "Citizen Satisfaction Report", description: "Ratings and sentiment insights from citizens.", icon: SmilePlus },
-  { id: "custom-builder", title: "Custom Report Builder", description: "Build a report with custom filters and sections.", icon: WandSparkles },
+  { id: "summary", title: "Grievance Summary Report", description: "Administrative summary of grievance volume, disposal, and trends.", icon: FileText },
+  { id: "department-performance", title: "Department Performance Report", description: "Compare departmental workload, disposal rate, and service efficiency.", icon: Building2 },
+  { id: "category-analysis", title: "Category-wise Analysis", description: "Analyze grievance categories and pattern variation over time.", icon: Layers3 },
+  { id: "geo-distribution", title: "Geographic Distribution Report", description: "Review regional distribution and high-incidence grievance zones.", icon: MapPinned },
+  { id: "sla-compliance", title: "SLA Compliance Report", description: "Track SLA adherence, breaches, and delay trends.", icon: Gauge },
+  { id: "citizen-satisfaction", title: "Citizen Satisfaction Report", description: "Review citizen feedback ratings and satisfaction indicators.", icon: SmilePlus },
+  { id: "custom-builder", title: "Custom Report Builder", description: "Create a report with configurable filters and sections.", icon: WandSparkles },
 ];
 
 const allCategories = ["Roads & Infrastructure", "Water Supply", "Electricity", "Sanitation & Garbage", "Other"];
@@ -358,7 +358,7 @@ const AdminReports = () => {
       const snapshot = await fetchLiveSnapshot();
       setPreviewSnapshot(snapshot);
       setPreviewReady(true);
-      toast.success(t("adminReports.previewSuccess", "Preview generated using live backend data"));
+      toast.success(t("adminReports.previewSuccess", "Preview generated from live backend data"));
     } catch {
       toast.error(t("adminReports.previewFailed", "Failed to fetch live report data"));
     } finally {
@@ -537,7 +537,7 @@ const AdminReports = () => {
   };
 
   const handleSaveConfiguration = () => {
-    toast.success(t("adminReports.configSaved", "Configuration saved"));
+    toast.success(t("adminReports.configSaved", "Report configuration saved"));
   };
 
   const handleSchedule = () => {
@@ -545,7 +545,7 @@ const AdminReports = () => {
       toast.error(t("adminReports.enableRecurringFirst", "Enable recurring schedule checkbox first"));
       return;
     }
-    toast.success(t("adminReports.scheduleSaved", "Report schedule saved"));
+    toast.success(t("adminReports.scheduleSaved", "Report schedule has been saved"));
   };
 
   return (
@@ -554,8 +554,8 @@ const AdminReports = () => {
       <main className="container mx-auto space-y-6 px-4 py-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">{t("adminReports.title", "Generate Reports")}</h1>
-            <p className="text-sm text-muted-foreground">{t("adminReports.subtitle", "Build, preview, and export governance reports")}</p>
+            <h1 className="text-3xl font-bold text-slate-900">{t("adminReports.title", "Generate Administrative Reports")}</h1>
+            <p className="text-sm text-muted-foreground">{t("adminReports.subtitle", "Configure, preview, and export official grievance reports")}</p>
           </div>
           <Button variant="outline" className="gap-2" onClick={() => document.getElementById("recent-reports")?.scrollIntoView({ behavior: "smooth" })}>
             <FileSpreadsheet className="h-4 w-4" />
@@ -757,7 +757,7 @@ const AdminReports = () => {
               <div className="grid grid-cols-1 gap-4 rounded-lg border bg-white p-4 md:grid-cols-[1.2fr_1fr]">
                 <div>
                   <p className="font-semibold text-slate-900">{buildReportName()}</p>
-                  <p className="text-sm text-slate-600">Type: {formatTypeLabel(selectedType)} • Template: {template} • Format: {format.toUpperCase()}</p>
+                  <p className="text-sm text-slate-600">Type: {formatTypeLabel(selectedType)} | Template: {template} | Format: {format.toUpperCase()}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Badge variant="secondary">Group By: {groupBy}</Badge>
                     <Badge variant="secondary">{departments.length || "All"} departments</Badge>
@@ -767,18 +767,18 @@ const AdminReports = () => {
                   <div className="mt-4 space-y-2">
                     <p className="text-xs text-slate-600">Total Complaints: {previewSnapshot.metrics.totalComplaints}</p>
                     <div className="h-2 w-full rounded bg-primary/15"><div className="h-2 rounded bg-primary/100" style={{ width: `${previewSnapshot.metrics.totalComplaints === 0 ? 0 : Math.max((previewSnapshot.metrics.resolved / previewSnapshot.metrics.totalComplaints) * 100, 4)}%` }} /></div>
-                    <p className="text-xs text-slate-600">Resolved: {previewSnapshot.metrics.resolved} • Pending: {previewSnapshot.metrics.pending}</p>
+                    <p className="text-xs text-slate-600">Resolved: {previewSnapshot.metrics.resolved} | Pending: {previewSnapshot.metrics.pending}</p>
                     <div className="h-2 w-full rounded bg-emerald-100"><div className="h-2 rounded bg-emerald-500" style={{ width: `${previewSnapshot.metrics.slaCompliance}` }} /></div>
                     <p className="text-xs text-slate-600">SLA Compliance: {previewSnapshot.metrics.slaCompliance}</p>
                   </div>
                 </div>
                 <div className="rounded-lg border bg-white p-4">
-                  <p className="mb-3 text-sm font-semibold text-slate-700">Thumbnail Preview</p>
+                  <p className="mb-3 text-sm font-semibold text-slate-700">Report Snapshot</p>
                   <div className="space-y-2">
                     {previewSnapshot.rows.slice(0, 4).map((row) => (
                       <div key={row.label} className="rounded bg-slate-100 p-2 text-xs text-slate-700">
                         <p className="font-medium">{row.label}</p>
-                        <p>Total: {row.total} • Resolved: {row.resolved}</p>
+                        <p>Total: {row.total} | Resolved: {row.resolved}</p>
                       </div>
                     ))}
                   </div>
@@ -860,4 +860,5 @@ const AdminReports = () => {
 };
 
 export default AdminReports;
+
 

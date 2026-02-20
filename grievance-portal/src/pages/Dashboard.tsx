@@ -279,14 +279,14 @@ const Dashboard = () => {
       toast.success(
         t(
           "dashboard.demoNotificationsGenerated",
-          "Demo notifications generated",
+          "Sample notifications generated",
         ),
       );
     } catch {
       toast.error(
         t(
           "dashboard.errorGenerateDemoNotifications",
-          "Failed to generate demo notifications",
+          "Failed to generate sample notifications",
         ),
       );
     } finally {
@@ -404,7 +404,7 @@ const Dashboard = () => {
 
   const quickLinks = [
     {
-      label: t("dashboard.quick.fileComplaint", "File New Complaint"),
+      label: t("dashboard.quick.fileComplaint", "Submit New Grievance"),
       icon: Plus,
       href: "/file-complaint-options",
     },
@@ -414,12 +414,12 @@ const Dashboard = () => {
       href: "/voice-complaint",
     },
     {
-      label: t("dashboard.quick.trackComplaint", "Track Complaint"),
+      label: t("dashboard.quick.trackComplaint", "Track Grievance Status"),
       icon: FileText,
       href: "/track-complaint",
     },
     {
-      label: t("dashboard.quick.helpSupport", "Help & Support"),
+      label: t("dashboard.quick.helpSupport", "Citizen Assistance"),
       icon: HelpCircle,
       href: "/help",
     },
@@ -500,7 +500,7 @@ const Dashboard = () => {
             >
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                  {t("dashboard.welcomeBack", "Welcome back")},{" "}
+                  {t("dashboard.welcomeBack", "Citizen Dashboard")},{" "}
                   <span className="text-primary">{userName}!</span>
                 </h1>
                 <div className="flex items-center gap-2 text-gray-500 mt-1">
@@ -563,12 +563,12 @@ const Dashboard = () => {
                       </div>
                       <div>
                         <h3 className="text-xl font-bold">
-                          {t("dashboard.hero.title", "File New Complaint")}
+                          {t("dashboard.hero.title", "Submit New Grievance")}
                         </h3>
                         <p className="text-primary-foreground/80 text-sm">
                           {t(
                             "dashboard.hero.subtitle",
-                            "Report an issue in your area",
+                            "Submit a grievance for civic services",
                           )}
                         </p>
                       </div>
@@ -605,14 +605,14 @@ const Dashboard = () => {
                     <p className="text-sm text-gray-600 mb-3">
                       {t(
                         "dashboard.recent.empty",
-                        "No complaints yet. File your first complaint to track updates here.",
+                        "No grievances have been filed yet. Submit your first grievance to view updates here.",
                       )}
                     </p>
                     <Link to="/file-complaint-options">
                       <Button size="sm">
                         {t(
                           "dashboard.recent.fileComplaint",
-                          "File a Complaint",
+                          "Submit a Grievance",
                         )}
                       </Button>
                     </Link>
@@ -745,7 +745,7 @@ const Dashboard = () => {
                           {draft.title}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {draft.category} Â· Updated{" "}
+                          {draft.category} · Updated{" "}
                           {new Date(draft.updatedAt).toLocaleString()}
                         </p>
                       </div>
@@ -837,19 +837,19 @@ const Dashboard = () => {
                 <MessageSquare className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold mb-2">
-                {t("dashboard.help.title", "Need Help?")}
+                {t("dashboard.help.title", "Need Assistance?")}
               </h3>
               <p className="text-primary-foreground/80 text-sm mb-4">
                 {t(
                   "dashboard.help.subtitle",
-                  "Our support team is available 24/7 to assist you with your queries.",
+                  "For assistance, please contact the grievance helpdesk.",
                 )}
               </p>
               <Button
                 variant="secondary"
                 className="w-full bg-white text-primary hover:bg-primary/10"
               >
-                {t("dashboard.help.contact", "Contact Support")}
+                {t("dashboard.help.contact", "Contact Helpdesk")}
               </Button>
             </div>
 
@@ -902,7 +902,7 @@ const Dashboard = () => {
                       ? t("dashboard.notifications.generating", "Generating...")
                       : t(
                           "dashboard.notifications.generateDemo",
-                          "Generate Demo",
+                          "Generate Sample Updates",
                         )}
                   </Button>
                   {notifications.some((n) => !n.isRead) && (
@@ -1110,3 +1110,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

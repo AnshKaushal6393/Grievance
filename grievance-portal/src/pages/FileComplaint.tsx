@@ -157,13 +157,13 @@ const FileComplaint = () => {
         } else {
           setLatitude(null);
           setLongitude(null);
-          setGeocodeError("No location found for this address.");
+          setGeocodeError("No matching location was found for the provided address.");
         }
       } catch (error: any) {
         if (error?.name !== "AbortError") {
           setLatitude(null);
           setLongitude(null);
-          setGeocodeError("Failed to geocode address.");
+          setGeocodeError("Unable to verify the address location.");
         }
       } finally {
         setIsGeocoding(false);
@@ -296,7 +296,7 @@ const FileComplaint = () => {
         response = await complaintService.fileComplaint(formData);
       }
 
-      toast.success(`Complaint filed: ${response.data.complaint.complaintId || response.data.complaint._id}`);
+      toast.success(`Grievance submitted. Reference ID: ${response.data.complaint.complaintId || response.data.complaint._id}`);
       navigate("/my-complaints");
     } catch (error: any) {
       toast.error(t("file.fileFailed"));
@@ -516,7 +516,7 @@ const FileComplaint = () => {
               {mapEmbedUrl ? (
                 <div className="w-full h-48 rounded overflow-hidden border border-input bg-muted">
                   <iframe
-                    title="Interactive map"
+                    title="Location map preview"
                     src={mapEmbedUrl}
                     className="w-full h-full border-0"
                     loading="lazy"
@@ -672,3 +672,4 @@ const FileComplaint = () => {
 };
 
 export default FileComplaint;
+

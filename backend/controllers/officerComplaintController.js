@@ -516,6 +516,14 @@ export const updateComplaintStatus = async (req, res) => {
       });
     }
 
+    // Prevent reopening or changing status once complaint is resolved.
+    if (String(complaint.status || "").toLowerCase() === "resolved") {
+      return res.status(400).json({
+        success: false,
+        message: "Resolved complaints cannot be updated",
+      });
+    }
+
     // Normalize status to match DB schema
     const statusMap = {
       Assigned: "assigned",

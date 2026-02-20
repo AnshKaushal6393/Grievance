@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ClipboardList, Clock, CheckCircle, Timer, AlertTriangle, TrendingUp,
   TrendingDown, Eye, MessageSquare, RefreshCw, FileText, Users, Bell, Loader2,
@@ -17,7 +18,6 @@ const OfficerDashboard = () => {
   const { t, language, setLanguage, getLanguageLabel } = useLanguage();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [notificationCount] = useState(3);
   
   // API data states
   const [statsData, setStatsData] = useState<any[]>([]);
@@ -27,6 +27,12 @@ const OfficerDashboard = () => {
   const [teamActivity, setTeamActivity] = useState<any[]>([]);
   const [officerInfo, setOfficerInfo] = useState<{ department?: { name?: string; code?: string } } | null>(null);
   const [claimingComplaintId, setClaimingComplaintId] = useState<string | null>(null);
+  const [demoQueueEnabled, setDemoQueueEnabled] = useState(false);
+  const demoActionsEnabled =
+    import.meta.env.DEV && import.meta.env.VITE_ENABLE_OFFICER_DEMO === "true";
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // User data (from localStorage or context)
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -100,17 +106,28 @@ const OfficerDashboard = () => {
 
       // Map high priority complaints
       setHighPriorityComplaints(
-        (hpComplaints || []).map((c: any) => ({
-          id: c.complaintId,
-          _id: c._id,
-          title: c.title,
-          priority: c.priority === 'critical'
-            ? t("officer.priority.critical", "Critical")
-            : t("officer.priority.high", "High"),
-          filedDate: new Date(c.createdAt).toLocaleDateString(),
-          slaHoursRemaining: Math.max(1, Math.floor(Math.random() * 12)), // Calculate from SLA
-          category: c.category || t("officer.general", "General"),
-        }))
+        (hpComplaints || []).map((c: any) => {
+          const mapped = {
+            id: c.complaintId,
+            _id: c._id,
+            title: c.title,
+            priority: c.priority === "critical"
+              ? t("officer.priority.critical", "Critical")
+              : t("officer.priority.high", "High"),
+            rawPriority: c.priority,
+            createdAt: c.createdAt,
+            estimatedResolution: c.estimatedResolution,
+            filedDate: new Date(c.createdAt).toLocaleDateString(),
+            category: c.category || t("officer.general", "General"),
+          };
+          const dueDate = getDueDate(mapped);
+          const hours = dueDate ? getHoursRemaining(dueDate) : 0;
+          const roundedHours = hours >= 0 ? Math.ceil(hours) : -Math.ceil(Math.abs(hours));
+          return {
+            ...mapped,
+            slaHoursRemaining: roundedHours,
+          };
+        })
       );
 
       // Fetch full complaint list
@@ -121,23 +138,35 @@ const OfficerDashboard = () => {
           _id: c._id,
           title: c.title,
           status: capitalizeStatus(c.status),
+          rawStatus: c.status,
           priority: capitalizeFirst(c.priority),
+          rawPriority: c.priority,
+          createdAt: c.createdAt,
+          estimatedResolution: c.estimatedResolution,
           date: new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         }))
       );
 
       const queueRes = await officerService.getDepartmentQueue({ limit: 20 });
-      setDepartmentQueueComplaints(
-        (queueRes?.data?.complaints || []).map((c: any) => ({
-          id: c.complaintId,
-          _id: c._id,
-          title: c.title,
-          category: c.category,
-          priority: capitalizeFirst(c.priority || "medium"),
-          status: capitalizeStatus(c.status),
-          date: new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        })),
-      );
+      const officerDepartmentName =
+        (officer?.department?.name || user.department?.name || "").toLowerCase();
+      const queueMapped = (queueRes?.data?.complaints || []).map((c: any) => ({
+        id: c.complaintId,
+        _id: c._id,
+        title: c.title,
+        category: c.category,
+        priority: capitalizeFirst(c.priority || "medium"),
+        status: capitalizeStatus(c.status),
+        departmentName: c.department?.name || c.departmentName || "",
+        date: new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      }));
+      const queueFiltered = officerDepartmentName
+        ? queueMapped.filter((c: any) => {
+            const dept = String(c.departmentName || "").toLowerCase();
+            return !dept || dept === officerDepartmentName;
+          })
+        : queueMapped;
+      setDepartmentQueueComplaints(queueFiltered);
 
       // Map recent activity
       setTeamActivity(
@@ -225,6 +254,7 @@ const OfficerDashboard = () => {
   };
 
   const getSLAUrgency = (hours: number) => {
+    if (hours <= 0) return t("officer.sla.breached", "BREACHED");
     if (hours <= 4) return t("officer.sla.urgent", "URGENT");
     if (hours <= 12) return t("officer.sla.warning", "Warning");
     return t("officer.sla.onTrack", "On Track");
@@ -233,6 +263,7 @@ const OfficerDashboard = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Pending": return "bg-yellow-100 text-yellow-800";
+      case "Assigned": return "bg-blue-100 text-blue-800";
       case "In Progress": return "bg-primary/15 text-primary";
       case "Need Review": return "bg-purple-100 text-purple-800";
       default: return "bg-gray-100 text-gray-800";
@@ -250,9 +281,234 @@ const OfficerDashboard = () => {
 
   const pendingComplaints = allComplaints.filter(c => c.status === "Pending");
   const inProgressComplaints = allComplaints.filter(c => c.status === "In Progress");
-  const needReviewComplaints = allComplaints.filter(c => c.status === "Need Review");
+  const reviewComplaints = allComplaints.filter(
+    (c) => c.status === "Assigned" || c.status === "Need Review",
+  );
+  const notificationCount = highPriorityComplaints.length;
+
+  const getSlaHoursByPriority = (priority?: string) => {
+    const p = String(priority || "").toLowerCase();
+    if (p === "critical") return 4;
+    if (p === "high") return 24;
+    if (p === "medium") return 72;
+    return 168;
+  };
+
+  const getDueDate = (complaint: any) => {
+    if (complaint?.estimatedResolution) {
+      const byEstimate = new Date(complaint.estimatedResolution);
+      if (!Number.isNaN(byEstimate.getTime())) return byEstimate;
+    }
+    if (complaint?.createdAt) {
+      const created = new Date(complaint.createdAt);
+      if (!Number.isNaN(created.getTime())) {
+        return new Date(created.getTime() + getSlaHoursByPriority(complaint.rawPriority || complaint.priority) * 60 * 60 * 1000);
+      }
+    }
+    return null;
+  };
+
+  const getHoursRemaining = (dueDate: Date) => {
+    return (dueDate.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
+  };
+
+  const slaAlerts = useMemo(() => {
+    const activeComplaints = allComplaints.filter((c: any) => {
+      const s = String(c.rawStatus || c.status || "").toLowerCase();
+      return s !== "resolved" && s !== "rejected";
+    });
+
+    const evaluated = activeComplaints
+      .map((c: any) => {
+        const dueDate = getDueDate(c);
+        if (!dueDate) return null;
+        const hoursRemaining = getHoursRemaining(dueDate);
+        return { ...c, dueDate, hoursRemaining };
+      })
+      .filter(Boolean) as Array<any>;
+
+    const breached = evaluated
+      .filter((c) => c.hoursRemaining <= 0)
+      .sort((a, b) => a.hoursRemaining - b.hoursRemaining);
+    const near = evaluated
+      .filter((c) => c.hoursRemaining > 0 && c.hoursRemaining <= 4)
+      .sort((a, b) => a.hoursRemaining - b.hoursRemaining);
+
+    return { breached, near };
+  }, [allComplaints, currentTime]);
+
+  const createDemoQueueComplaints = () => {
+    const today = new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    return [
+      {
+        id: "DEMO-GR-001",
+        _id: "demo-queue-1",
+        title: "Pothole near bus stop causing traffic slowdown",
+        category: "Roads & Infrastructure",
+        priority: "High",
+        status: "Pending",
+        date: today,
+      },
+      {
+        id: "DEMO-GR-002",
+        _id: "demo-queue-2",
+        title: "Streetlight not working in residential lane",
+        category: "Electricity",
+        priority: "Medium",
+        status: "Pending",
+        date: today,
+      },
+      {
+        id: "DEMO-GR-003",
+        _id: "demo-queue-3",
+        title: "Garbage collection missed for two days",
+        category: "Sanitation",
+        priority: "High",
+        status: "Pending",
+        date: today,
+      },
+    ];
+  };
+
+  const handleBellClick = () => {
+    const alertsEl = document.getElementById("sla-alerts");
+    if (alertsEl) {
+      alertsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    const activityEl = document.getElementById("department-activity");
+    if (activityEl) {
+      activityEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    toast.info(t("officer.noRecentActivity", "No recent activity"));
+  };
+
+  const handleToggleQueueDemo = () => {
+    if (!demoActionsEnabled) return;
+    if (demoQueueEnabled) {
+      setDemoQueueEnabled(false);
+      void fetchDashboardData();
+      toast.info(t("officer.toast.demoQueueDisabled", "Queue demo disabled"));
+      return;
+    }
+    setDepartmentQueueComplaints(createDemoQueueComplaints());
+    setDemoQueueEnabled(true);
+    toast.success(t("officer.toast.demoQueueLoaded", "Queue demo loaded"));
+  };
+
+  const handleGenerateMyReport = () => {
+    const rows = allComplaints.map((c) => ({
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      priority: c.priority,
+      date: c.date,
+    }));
+
+    if (rows.length === 0) {
+      toast.info(t("officer.toast.noAssignedForReport", "No assigned complaints available to generate report."));
+      return;
+    }
+
+    const headers = ["Complaint ID", "Title", "Status", "Priority", "Date"];
+    const csv = [
+      headers.join(","),
+      ...rows.map((row) =>
+        [row.id, row.title, row.status, row.priority, row.date]
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `officer-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(t("officer.toast.reportGenerated", "Officer report generated"));
+  };
+
+  const handleTeamPerformanceClick = () => {
+    const el = document.getElementById("department-activity");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    toast.info(t("officer.toast.teamSectionUnavailable", "Team performance section not available."));
+  };
+
+  const handleViewAllActivity = () => {
+    setIsActivityModalOpen(true);
+  };
+
+  const handleOpenActivityComplaint = (publicComplaintId?: string) => {
+    if (!publicComplaintId) return;
+    const merged = [
+      ...allComplaints,
+      ...highPriorityComplaints,
+      ...departmentQueueComplaints,
+    ];
+    const matched = merged.find(
+      (item: any) =>
+        item.id === publicComplaintId || item.complaintId === publicComplaintId,
+    );
+
+    if (matched?._id && !String(matched._id).startsWith("demo-queue-")) {
+      navigate(`/officer/update-status?complaintId=${matched._id}`);
+      return;
+    }
+
+    navigate(`/track-complaint?complaintId=${publicComplaintId}`);
+  };
+
+  const handleRefreshDashboard = async () => {
+    try {
+      setIsRefreshing(true);
+      await fetchDashboardData();
+      toast.success(t("officer.toast.activityRefreshed", "Activity refreshed"));
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleViewAllAlerts = () => {
+    setIsAlertsModalOpen(true);
+  };
+
+  const handleOpenAlertComplaint = (complaint: any) => {
+    if (!complaint?._id) return;
+    navigate(`/officer/update-status?complaintId=${complaint._id}`);
+    setIsAlertsModalOpen(false);
+  };
 
   const handleClaimComplaint = async (complaintId: string) => {
+    if (complaintId.startsWith("demo-queue-")) {
+      const selected = departmentQueueComplaints.find((c) => c._id === complaintId);
+      if (!selected) return;
+      setDepartmentQueueComplaints((prev) => prev.filter((c) => c._id !== complaintId));
+      setAllComplaints((prev) => [
+        {
+          id: selected.id,
+          _id: selected._id,
+          title: selected.title,
+          status: t("officer.status.assigned", "Assigned"),
+          priority: selected.priority,
+          date: selected.date,
+          isDemo: true,
+        },
+        ...prev,
+      ]);
+      toast.success(t("officer.claim.success", "Complaint claimed successfully"));
+      return;
+    }
+
     try {
       setClaimingComplaintId(complaintId);
       await officerService.claimComplaint(complaintId);
@@ -308,7 +564,13 @@ const OfficerDashboard = () => {
                 <p className="text-2xl font-mono font-bold text-slate-900">{formatTime(currentTime)}</p>
               </div>
               <div className="relative">
-                <Button variant="outline" size="icon" className="border-border">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-border"
+                  onClick={handleBellClick}
+                  aria-label={t("officer.aria.openAlerts", "Open alerts")}
+                >
                   <Bell className="w-5 h-5" />
                 </Button>
                 {notificationCount > 0 && (
@@ -333,8 +595,14 @@ const OfficerDashboard = () => {
           >
             <Eye className="w-4 h-4" />{t("officer.queue.title", "Department Queue")}
           </Button>
-          <Button variant="outline" className="gap-2"><FileText className="w-4 h-4" />{t("officer.quick.report", "Generate My Report")}</Button>
-          <Button variant="outline" className="gap-2"><Users className="w-4 h-4" />{t("officer.quick.team", "Team Performance")}</Button>
+          {demoActionsEnabled && (
+            <Button variant="outline" className="gap-2" onClick={handleToggleQueueDemo}>
+              <ClipboardList className="w-4 h-4" />
+              {demoQueueEnabled ? "Disable Queue Demo" : "Generate Queue Demo"}
+            </Button>
+          )}
+          <Button variant="outline" className="gap-2" onClick={handleGenerateMyReport}><FileText className="w-4 h-4" />{t("officer.quick.report", "Generate My Report")}</Button>
+          <Button variant="outline" className="gap-2" onClick={handleTeamPerformanceClick}><Users className="w-4 h-4" />{t("officer.quick.team", "Team Performance")}</Button>
         </div>
 
         {/* Stats Cards */}
@@ -404,7 +672,12 @@ const OfficerDashboard = () => {
                         <div className={`px-3 py-1 rounded-full text-sm font-medium ${getSLAColor(complaint.slaHoursRemaining)}`}>
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
-                            <span>{complaint.slaHoursRemaining}h {t("officer.left", "left")}</span>
+                            <span>
+                              {Math.abs(complaint.slaHoursRemaining)}h{" "}
+                              {complaint.slaHoursRemaining <= 0
+                                ? t("officer.overdue", "overdue")
+                                : t("officer.left", "left")}
+                            </span>
                           </div>
                           <p className="text-xs text-center">{getSLAUrgency(complaint.slaHoursRemaining)}</p>
                         </div>
@@ -481,16 +754,16 @@ const OfficerDashboard = () => {
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="all" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="all" className="gap-1">{t("common.all", "All")}<Badge variant="secondary" className="ml-1">{allComplaints.length}</Badge></TabsTrigger>
-                    <TabsTrigger value="pending" className="gap-1">{t("officer.status.pending", "Pending")}<Badge variant="secondary" className="ml-1">{pendingComplaints.length}</Badge></TabsTrigger>
-                    <TabsTrigger value="progress" className="gap-1">{t("officer.status.inProgress", "In Progress")}<Badge variant="secondary" className="ml-1">{inProgressComplaints.length}</Badge></TabsTrigger>
-                    <TabsTrigger value="review" className="gap-1">{t("officer.review", "Review")}<Badge variant="secondary" className="ml-1">{needReviewComplaints.length}</Badge></TabsTrigger>
+                  <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-md bg-slate-100 p-1 sm:grid-cols-4">
+                    <TabsTrigger value="all" className="h-9 gap-1 rounded text-sm whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-none">{t("common.all", "All")}<Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-[11px]">{allComplaints.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="pending" className="h-9 gap-1 rounded text-sm whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-none">{t("officer.status.pending", "Pending")}<Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-[11px]">{pendingComplaints.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="progress" className="h-9 gap-1 rounded text-sm whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-none">{t("officer.status.inProgress", "In Progress")}<Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-[11px]">{inProgressComplaints.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="review" className="h-9 gap-1 rounded text-sm whitespace-nowrap data-[state=active]:bg-white data-[state=active]:shadow-none">{t("officer.review", "Review")}<Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-[11px]">{reviewComplaints.length}</Badge></TabsTrigger>
                   </TabsList>
                   <TabsContent value="all" className="mt-4 space-y-3">{allComplaints.map(c => <ComplaintCard key={c._id} complaint={c} navigate={navigate} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />)}</TabsContent>
                   <TabsContent value="pending" className="mt-4 space-y-3">{pendingComplaints.map(c => <ComplaintCard key={c._id} complaint={c} navigate={navigate} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />)}</TabsContent>
                   <TabsContent value="progress" className="mt-4 space-y-3">{inProgressComplaints.map(c => <ComplaintCard key={c._id} complaint={c} navigate={navigate} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />)}</TabsContent>
-                  <TabsContent value="review" className="mt-4 space-y-3">{needReviewComplaints.map(c => <ComplaintCard key={c._id} complaint={c} navigate={navigate} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />)}</TabsContent>
+                  <TabsContent value="review" className="mt-4 space-y-3">{reviewComplaints.map(c => <ComplaintCard key={c._id} complaint={c} navigate={navigate} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />)}</TabsContent>
                 </Tabs>
               </CardContent>
             </Card>
@@ -498,10 +771,12 @@ const OfficerDashboard = () => {
 
           {/* Department Activity */}
           <div className="space-y-6">
-            <Card>
+            <Card id="department-activity">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg flex items-center gap-2"><Activity className="w-5 h-5" />{t("officer.departmentActivity", "Department Activity")}</CardTitle>
-                <Button variant="ghost" size="icon" onClick={fetchDashboardData}><RefreshCw className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={handleRefreshDashboard} disabled={isRefreshing} aria-label={t("officer.aria.refreshActivity", "Refresh department activity")}>
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -512,19 +787,19 @@ const OfficerDashboard = () => {
                         {index < teamActivity.length - 1 && <div className="absolute left-1.5 top-4 bottom-0 w-px bg-border -translate-x-1/2 h-full" />}
                       </div>
                       <div className="flex-1 pb-4">
-                        <p className="text-sm"><span className="font-medium">{activity.officer}</span> <span className="text-muted-foreground">{activity.action}</span> <Link to="#" className="text-primary hover:underline font-mono text-xs">#{activity.complaintId?.split("-").pop()}</Link></p>
+                        <p className="text-sm"><span className="font-medium">{activity.officer}</span> <span className="text-muted-foreground">{activity.action}</span> <button type="button" className="text-primary hover:underline font-mono text-xs" onClick={() => handleOpenActivityComplaint(activity.complaintId)} aria-label={t("officer.aria.openComplaint", "Open complaint details")}>#{activity.complaintId?.split("-").pop()}</button></p>
                         <p className="text-xs text-muted-foreground mt-0.5">{activity.time}</p>
                       </div>
                     </div>
                   ))}
                   {teamActivity.length === 0 && <p className="text-center py-4 text-muted-foreground">{t("officer.noRecentActivity", "No recent activity")}</p>}
                 </div>
-                <Button variant="outline" className="w-full mt-4" size="sm">{t("officer.viewAllActivity", "View All Activity")}</Button>
+                <Button variant="outline" className="w-full mt-4" size="sm" onClick={handleViewAllActivity}>{t("officer.viewAllActivity", "View All Activity")}</Button>
               </CardContent>
             </Card>
 
             {/* SLA Alerts */}
-            <Card className="border-red-200 bg-red-50/50">
+            <Card id="sla-alerts" className="border-red-200 bg-red-50/50">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2 text-red-700"><AlertCircle className="w-5 h-5" />{t("officer.slaAlerts", "SLA Alerts")}</CardTitle>
               </CardHeader>
@@ -532,31 +807,137 @@ const OfficerDashboard = () => {
                 <div className="p-3 bg-red-100 rounded-lg border border-red-200">
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-700">{t("officer.slaBreached", "2 complaints breaching SLA")}</span>
+                    <span className="text-sm font-medium text-red-700">
+                      {t("officer.sla.breachedCount", "{count} complaints breaching SLA").replace("{count}", String(slaAlerts.breached.length))}
+                    </span>
                   </div>
-                  <p className="text-xs text-red-600 mt-1">{t("officer.immediateAction", "Immediate action required")}</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {slaAlerts.breached.length > 0
+                      ? t("officer.sla.oldestOverdue", "Immediate action required. Oldest overdue: {hours}h.").replace("{hours}", String(Math.abs(Math.round(slaAlerts.breached[0].hoursRemaining))))
+                      : t("officer.sla.noneBreached", "No breached complaints right now.")}
+                  </p>
                 </div>
                 <div className="p-3 bg-orange-100 rounded-lg border border-orange-200">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-700">{t("officer.slaNear", "3 complaints near SLA")}</span>
+                    <span className="text-sm font-medium text-orange-700">
+                      {t("officer.sla.nearCount", "{count} complaints near SLA").replace("{count}", String(slaAlerts.near.length))}
+                    </span>
                   </div>
-                  <p className="text-xs text-orange-600 mt-1">{t("officer.dueSoon", "Due within 4 hours")}</p>
+                  <p className="text-xs text-orange-600 mt-1">
+                    {slaAlerts.near.length > 0
+                      ? t("officer.sla.nextDue", "Next due in {hours}h.").replace("{hours}", String(Math.max(1, Math.ceil(slaAlerts.near[0].hoursRemaining))))
+                      : t("officer.sla.noneNear", "No near-SLA complaints right now.")}
+                  </p>
                 </div>
-                <Button variant="outline" className="w-full border-red-300 text-red-700 hover:bg-red-100" size="sm">{t("officer.viewAllAlerts", "View All Alerts")}</Button>
+                <Button variant="outline" className="w-full border-red-300 text-red-700 hover:bg-red-100" size="sm" onClick={handleViewAllAlerts}>{t("officer.viewAllAlerts", "View All Alerts")}</Button>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+
+      <Dialog open={isActivityModalOpen} onOpenChange={setIsActivityModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("officer.departmentActivity", "Department Activity")}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+            {teamActivity.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("officer.noRecentActivity", "No recent activity")}</p>
+            ) : (
+              teamActivity.map((activity, index) => (
+                <div key={`${activity.complaintId}-${index}`} className="rounded border p-3">
+                  <p className="text-sm">
+                    <span className="font-medium">{activity.officer}</span>{" "}
+                    <span className="text-muted-foreground">{activity.action}</span>{" "}
+                    <span className="font-mono text-xs text-primary">#{activity.complaintId?.split("-").pop()}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{activity.time}</p>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="mt-2 flex justify-end">
+            <Button variant="outline" onClick={handleRefreshDashboard} disabled={isRefreshing}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              {t("common.refresh", "Refresh")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAlertsModalOpen} onOpenChange={setIsAlertsModalOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{t("officer.slaAlerts", "SLA Alerts")}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-background">
+                <tr className="border-b text-left">
+                  <th className="px-2 py-2">{t("officer.alert.table.id", "Complaint ID")}</th>
+                  <th className="px-2 py-2">{t("officer.alert.table.title", "Title")}</th>
+                  <th className="px-2 py-2">{t("officer.alert.table.priority", "Priority")}</th>
+                  <th className="px-2 py-2">{t("officer.alert.table.status", "Status")}</th>
+                  <th className="px-2 py-2">{t("officer.alert.table.sla", "SLA")}</th>
+                  <th className="px-2 py-2">{t("officer.alert.table.action", "Action")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...slaAlerts.breached, ...slaAlerts.near].map((c: any) => (
+                  <tr key={`${c._id}-${c.id}`} className="border-b">
+                    <td className="px-2 py-2 font-mono text-xs text-primary">{c.id}</td>
+                    <td className="px-2 py-2">{c.title}</td>
+                    <td className="px-2 py-2">{c.priority}</td>
+                    <td className="px-2 py-2">{c.status}</td>
+                    <td className="px-2 py-2">
+                      {c.hoursRemaining <= 0
+                        ? t("officer.alert.overdueHours", "{hours}h overdue").replace("{hours}", String(Math.abs(Math.round(c.hoursRemaining))))
+                        : t("officer.alert.leftHours", "{hours}h left").replace("{hours}", String(Math.ceil(c.hoursRemaining)))}
+                    </td>
+                    <td className="px-2 py-2">
+                      <Button size="sm" variant="outline" onClick={() => handleOpenAlertComplaint(c)}>
+                        {t("officer.takeAction", "Take Action")}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {slaAlerts.breached.length + slaAlerts.near.length === 0 && (
+              <p className="py-6 text-center text-muted-foreground">
+                {t("officer.alert.none", "No active SLA alerts at the moment.")}
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
 // Complaint Card Component
 const ComplaintCard = ({ complaint, navigate, getStatusColor, getPriorityColor }: any) => {
+  const { t } = useLanguage();
+  const isDemoComplaint = Boolean(complaint?.isDemo) || String(complaint?._id || "").startsWith("demo-queue-");
+  const openComplaint = () => {
+    if (isDemoComplaint) {
+      toast.info(t("officer.toast.demoDetailUnavailable", "Demo complaint: backend detail page is not available for demo IDs."));
+      return;
+    }
+    navigate(`/officer/update-status?complaintId=${complaint._id}`);
+  };
+  const refreshComplaint = () => {
+    toast.info(t("officer.toast.refreshingComplaint", "Refreshing complaint details..."));
+    openComplaint();
+  };
+  const openComplaintNotes = () => {
+    toast.info(t("officer.toast.notesInDetail", "Notes panel will be available in complaint detail view."));
+  };
+
   return (
-    <div className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/officer/update-status?complaintId=${complaint._id}`)}>
+    <div className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={openComplaint}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${getPriorityColor(complaint.priority)}`} />
@@ -570,9 +951,9 @@ const ComplaintCard = ({ complaint, navigate, getStatusColor, getPriorityColor }
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => { e.stopPropagation(); navigate(`/officer/update-status?complaintId=${complaint._id}`); }}><Eye className="w-4 h-4" /></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8"><RefreshCw className="w-4 h-4" /></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8"><MessageSquare className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t("officer.aria.openComplaint", "Open complaint details")} onClick={e => { e.stopPropagation(); openComplaint(); }}><Eye className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t("officer.aria.refreshComplaint", "Refresh complaint")} onClick={e => { e.stopPropagation(); refreshComplaint(); }}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t("officer.aria.openNotes", "Open complaint notes")} onClick={e => { e.stopPropagation(); openComplaintNotes(); }}><MessageSquare className="w-4 h-4" /></Button>
         </div>
       </div>
     </div>

@@ -33,6 +33,7 @@ import {
   User,
   Phone,
   Mail,
+  MapPin,
   CalendarIcon,
   Upload,
   X,
@@ -60,6 +61,13 @@ type OfficerComplaintRecord = {
   priority: string;
   category: string;
   createdAt: string;
+  location?: {
+    address?: string;
+    coordinates?: {
+      latitude?: number | null;
+      longitude?: number | null;
+    };
+  };
   user?: {
     name?: string;
     phone?: string;
@@ -140,6 +148,7 @@ const UpdateComplaintStatus = () => {
   // UI state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [derivedAddress, setDerivedAddress] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -190,6 +199,41 @@ const UpdateComplaintStatus = () => {
     };
   }, [complaintId, navigate, t, toast]);
 
+  useEffect(() => {
+    const rawAddress = complaint?.location?.address?.trim() || "";
+    const lat = complaint?.location?.coordinates?.latitude;
+    const lng = complaint?.location?.coordinates?.longitude;
+    const hasCoords = typeof lat === "number" && typeof lng === "number";
+    const looksLikeCoordinates = /^[\d\.\-\s,]+$/.test(rawAddress);
+
+    if (!hasCoords || (rawAddress && !looksLikeCoordinates)) {
+      setDerivedAddress("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadReverseAddress = async () => {
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const label = data?.display_name;
+        if (label && typeof label === "string") {
+          setDerivedAddress(label);
+        }
+      } catch {
+        // Keep fallback address if reverse geocoding fails.
+      }
+    };
+
+    void loadReverseAddress();
+    return () => controller.abort();
+  }, [complaint]);
+
   const handleFileUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "evidence" | "resolution"
@@ -237,6 +281,18 @@ const UpdateComplaintStatus = () => {
   };
 
   const validateForm = () => {
+    if (String(complaint?.status || "").toLowerCase() === "resolved") {
+      toast({
+        title: t("updateStatus.error.resolvedLockedTitle", "Update Not Allowed"),
+        description: t(
+          "updateStatus.error.resolvedLocked",
+          "This complaint is already resolved and cannot be updated.",
+        ),
+        variant: "destructive",
+      });
+      return false;
+    }
+
     if (!newStatus) {
       toast({
         title: t("updateStatus.error.statusRequired", "Status Required"),
@@ -300,6 +356,17 @@ const UpdateComplaintStatus = () => {
 
   const confirmSubmit = async () => {
     if (!complaint?._id) return;
+    if (String(complaint.status || "").toLowerCase() === "resolved") {
+      toast({
+        title: t("updateStatus.error.resolvedLockedTitle", "Update Not Allowed"),
+        description: t(
+          "updateStatus.error.resolvedLocked",
+          "This complaint is already resolved and cannot be updated.",
+        ),
+        variant: "destructive",
+      });
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -367,6 +434,8 @@ const UpdateComplaintStatus = () => {
   if (!complaint) return null;
 
   const currentStatus = mapStatusToUiLabel(complaint.status);
+  const isResolvedComplaint =
+    String(complaint.status || "").toLowerCase() === "resolved";
   const currentPriority = mapPriorityToUiLabel(complaint.priority);
   const filedDate = complaint.createdAt
     ? new Date(complaint.createdAt).toLocaleDateString("en-IN", {
@@ -375,6 +444,14 @@ const UpdateComplaintStatus = () => {
         day: "numeric",
       })
     : "-";
+  const locationAddress =
+    derivedAddress || complaint.location?.address?.trim() || "-";
+  const lat = complaint.location?.coordinates?.latitude;
+  const lng = complaint.location?.coordinates?.longitude;
+  const hasCoordinates = typeof lat === "number" && typeof lng === "number";
+  const mapsUrl = hasCoordinates
+    ? `https://www.google.com/maps?q=${lat},${lng}`
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -457,6 +534,30 @@ const UpdateComplaintStatus = () => {
                       <CalendarIcon className="w-4 h-4 text-muted-foreground" />
                       <span>{t("updateStatus.filed", "Filed")}: {filedDate}</span>
                     </div>
+                    <div className="flex items-start gap-2 text-sm">
+                      <MapPin className="mt-0.5 w-4 h-4 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">
+                          {t("updateStatus.location", "Location")}
+                        </p>
+                        <p className="text-muted-foreground break-words">{locationAddress}</p>
+                        {hasCoordinates && (
+                          <div className="mt-1">
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {lat?.toFixed(6)}, {lng?.toFixed(6)}
+                            </p>
+                            <a
+                              href={mapsUrl || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-primary hover:underline"
+                            >
+                              {t("updateStatus.openInMaps", "Open in maps")}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Badge variant="secondary">{complaint.category}</Badge>
                     </div>
@@ -484,12 +585,24 @@ const UpdateComplaintStatus = () => {
                   >
                     {currentStatus}
                   </Badge>
+                  {isResolvedComplaint && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {t(
+                        "updateStatus.resolvedLocked",
+                        "This complaint is resolved. Status can no longer be changed.",
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 {/* New Status */}
                 <div className="space-y-2">
                   <Label htmlFor="newStatus">New Status *</Label>
-                  <Select value={newStatus} onValueChange={setNewStatus}>
+                  <Select
+                    value={newStatus}
+                    onValueChange={setNewStatus}
+                    disabled={isResolvedComplaint}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select new status" />
                     </SelectTrigger>
@@ -799,6 +912,7 @@ const UpdateComplaintStatus = () => {
               <Button
                 onClick={handleSubmit}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+                disabled={isResolvedComplaint}
               >
                 <CheckCircle className="w-4 h-4" />
                 {t("updateStatus.updateStatus", "Update Status")}

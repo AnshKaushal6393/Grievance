@@ -243,7 +243,7 @@ const Navbar = ({ branding }: NavbarProps) => {
       <header className="sticky top-0 z-50 border-b border-border bg-background">
         <a
           href="#main-content"
-          className="skip-link absolute left-2 top-2 z-[60] -translate-y-16 rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus:translate-y-0"
+          className="skip-link absolute left-2 top-2 z-60translate-y-16 rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus:translate-y-0"
         >
           {t("nav.skipContent", "Skip to main content")}
         </a>

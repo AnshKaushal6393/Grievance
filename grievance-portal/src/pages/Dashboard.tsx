@@ -87,7 +87,9 @@ const Dashboard = () => {
     [],
   );
   const [categories, setCategories] = useState<CategoryBreakdownItem[]>([]);
-  const [analytics, setAnalytics] = useState<CitizenAnalyticsSummary | null>(null);
+  const [analytics, setAnalytics] = useState<CitizenAnalyticsSummary | null>(
+    null,
+  );
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [drafts, setDrafts] = useState<DraftComplaint[]>([]);
   const [notificationFilter, setNotificationFilter] = useState<
@@ -101,7 +103,8 @@ const Dashboard = () => {
   });
   const [showNotificationPrefs, setShowNotificationPrefs] = useState(false);
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
-  const [notificationPreferences, setNotificationPreferences] = useState<any>(null);
+  const [notificationPreferences, setNotificationPreferences] =
+    useState<any>(null);
   const [isSeedingDemoNotifications, setIsSeedingDemoNotifications] =
     useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,11 +130,12 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const [dashboardResponse, analyticsResponse, draftsResponse] = await Promise.all([
-        complaintService.getDashboardStats(),
-        complaintService.getCitizenAnalytics(),
-        complaintService.getDrafts(),
-      ]);
+      const [dashboardResponse, analyticsResponse, draftsResponse] =
+        await Promise.all([
+          complaintService.getDashboardStats(),
+          complaintService.getCitizenAnalytics(),
+          complaintService.getDrafts(),
+        ]);
 
       const dashboardData = dashboardResponse?.data || {};
       const analyticsData = analyticsResponse?.data || {};
@@ -166,7 +170,9 @@ const Dashboard = () => {
         })),
       );
     } catch (error) {
-      toast.error(t("dashboard.errorLoadData", "Failed to load dashboard data"));
+      toast.error(
+        t("dashboard.errorLoadData", "Failed to load dashboard data"),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -205,7 +211,9 @@ const Dashboard = () => {
   useEffect(() => {
     setNotificationPage(1);
     fetchNotifications(true).catch(() => {
-      toast.error(t("dashboard.errorLoadNotifications", "Failed to load notifications"));
+      toast.error(
+        t("dashboard.errorLoadNotifications", "Failed to load notifications"),
+      );
     });
   }, [notificationFilter]);
 
@@ -241,9 +249,14 @@ const Dashboard = () => {
   const saveNotificationPreferences = async () => {
     try {
       setIsSavingPrefs(true);
-      await complaintService.updateNotificationPreferences(notificationPreferences || {});
+      await complaintService.updateNotificationPreferences(
+        notificationPreferences || {},
+      );
       toast.success(
-        t("dashboard.notificationPrefsUpdated", "Notification preferences updated"),
+        t(
+          "dashboard.notificationPrefsUpdated",
+          "Notification preferences updated",
+        ),
       );
     } catch {
       toast.error(
@@ -264,11 +277,17 @@ const Dashboard = () => {
       setNotificationPage(1);
       await fetchNotifications(true);
       toast.success(
-        t("dashboard.demoNotificationsGenerated", "Demo notifications generated"),
+        t(
+          "dashboard.demoNotificationsGenerated",
+          "Demo notifications generated",
+        ),
       );
     } catch {
       toast.error(
-        t("dashboard.errorGenerateDemoNotifications", "Failed to generate demo notifications"),
+        t(
+          "dashboard.errorGenerateDemoNotifications",
+          "Failed to generate demo notifications",
+        ),
       );
     } finally {
       setIsSeedingDemoNotifications(false);
@@ -281,11 +300,16 @@ const Dashboard = () => {
         onlyUnread: true,
         includeArchived: false,
       });
-      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      setNotifications((prev) =>
+        prev.map((item) => ({ ...item, isRead: true })),
+      );
       setNotificationSummary((prev) => ({ ...prev, unreadCount: 0 }));
     } catch {
       toast.error(
-        t("dashboard.errorMarkNotificationsRead", "Failed to mark notifications as read"),
+        t(
+          "dashboard.errorMarkNotificationsRead",
+          "Failed to mark notifications as read",
+        ),
       );
     }
   };
@@ -303,22 +327,28 @@ const Dashboard = () => {
       );
       setNotificationSummary((prev) => ({
         ...prev,
-        unreadCount: Math.max(
-          0,
-          prev.unreadCount + (isRead ? -1 : 1),
-        ),
+        unreadCount: Math.max(0, prev.unreadCount + (isRead ? -1 : 1)),
       }));
     } catch {
-      toast.error(t("dashboard.errorUpdateNotification", "Failed to update notification"));
+      toast.error(
+        t("dashboard.errorUpdateNotification", "Failed to update notification"),
+      );
     }
   };
 
   const handleArchiveNotification = async (notificationId: string) => {
     try {
       await complaintService.archiveNotification(notificationId);
-      setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
+      setNotifications((prev) =>
+        prev.filter((item) => item.id !== notificationId),
+      );
     } catch {
-      toast.error(t("dashboard.errorArchiveNotification", "Failed to archive notification"));
+      toast.error(
+        t(
+          "dashboard.errorArchiveNotification",
+          "Failed to archive notification",
+        ),
+      );
     }
   };
 
@@ -372,68 +402,6 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // const stats = [
-  //   {
-  //     label: "Total Complaints",
-  //     value: 12,
-  //     icon: FileText,
-  //     color: "from-primary to-primary/80",
-  //     bgColor: "bg-primary/10",
-  //     textColor: "text-primary"
-  //   },
-  //   {
-  //     label: "Pending",
-  //     value: 4,
-  //     icon: Clock,
-  //     color: "from-yellow-500 to-orange-500",
-  //     bgColor: "bg-yellow-50",
-  //     textColor: "text-yellow-600"
-  //   },
-  //   {
-  //     label: "Resolved",
-  //     value: 7,
-  //     icon: CheckCircle,
-  //     color: "from-green-500 to-emerald-500",
-  //     bgColor: "bg-green-50",
-  //     textColor: "text-green-600"
-  //   },
-  //   {
-  //     label: "Rejected",
-  //     value: 1,
-  //     icon: XCircle,
-  //     color: "from-red-500 to-rose-500",
-  //     bgColor: "bg-red-50",
-  //     textColor: "text-red-600"
-  //   },
-  // ];
-
-  // const recentComplaints = [
-  //   {
-  //     id: "GR2024001234",
-  //     title: "Street Light Not Working on Main Road",
-  //     category: "Infrastructure",
-  //     status: "Pending",
-  //     statusColor: "bg-yellow-100 text-yellow-700",
-  //     date: "15 Jan 2024"
-  //   },
-  //   {
-  //     id: "GR2024001198",
-  //     title: "Garbage Not Collected for 3 Days",
-  //     category: "Sanitation",
-  //     status: "In Progress",
-  //     statusColor: "bg-primary/15 text-primary",
-  //     date: "12 Jan 2024"
-  //   },
-  //   {
-  //     id: "GR2024001156",
-  //     title: "Water Supply Issue in Block C",
-  //     category: "Water",
-  //     status: "Resolved",
-  //     statusColor: "bg-green-100 text-green-700",
-  //     date: "08 Jan 2024"
-  //   },
-  // ];
-
   const quickLinks = [
     {
       label: t("dashboard.quick.fileComplaint", "File New Complaint"),
@@ -455,7 +423,11 @@ const Dashboard = () => {
       icon: HelpCircle,
       href: "/help",
     },
-    { label: t("dashboard.quick.contact", "Contact Us"), icon: Phone, href: "/contact" },
+    {
+      label: t("dashboard.quick.contact", "Contact Us"),
+      icon: Phone,
+      href: "/contact",
+    },
   ];
 
   const formatDate = (date: Date) => {
@@ -554,26 +526,26 @@ const Dashboard = () => {
             {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {statCards.map((stat, index) => (
-                  <motion.div
-                    key={stat.label}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className={`bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group ${
-                      isLoading && !stats ? "animate-pulse" : ""
-                    }`}
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer group ${
+                    isLoading && !stats ? "animate-pulse" : ""
+                  }`}
+                >
+                  <div
+                    className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4 transition-colors`}
                   >
-                    <div
-                      className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4 transition-colors`}
-                    >
-                      <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {stat.value}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-                  </motion.div>
-                ))}
+                    <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {stat.value}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
+                </motion.div>
+              ))}
             </div>
 
             {/* Quick Action Button */}
@@ -594,7 +566,10 @@ const Dashboard = () => {
                           {t("dashboard.hero.title", "File New Complaint")}
                         </h3>
                         <p className="text-primary-foreground/80 text-sm">
-                          {t("dashboard.hero.subtitle", "Report an issue in your area")}
+                          {t(
+                            "dashboard.hero.subtitle",
+                            "Report an issue in your area",
+                          )}
                         </p>
                       </div>
                     </div>
@@ -635,7 +610,10 @@ const Dashboard = () => {
                     </p>
                     <Link to="/file-complaint-options">
                       <Button size="sm">
-                        {t("dashboard.recent.fileComplaint", "File a Complaint")}
+                        {t(
+                          "dashboard.recent.fileComplaint",
+                          "File a Complaint",
+                        )}
                       </Button>
                     </Link>
                   </div>
@@ -712,10 +690,14 @@ const Dashboard = () => {
                 </div>
                 <div className="rounded-xl bg-emerald-50 p-4">
                   <p className="text-sm text-emerald-700">
-                    {t("dashboard.analytics.avgResolutionTime", "Avg Resolution Time")}
+                    {t(
+                      "dashboard.analytics.avgResolutionTime",
+                      "Avg Resolution Time",
+                    )}
                   </p>
                   <p className="text-2xl font-bold text-emerald-900">
-                    {analytics?.avgResolutionDays || t("dashboard.analytics.zeroDays", "0 days")}
+                    {analytics?.avgResolutionDays ||
+                      t("dashboard.analytics.zeroDays", "0 days")}
                   </p>
                 </div>
                 <div className="rounded-xl bg-amber-50 p-4">
@@ -759,7 +741,9 @@ const Dashboard = () => {
                       className="rounded-xl border border-gray-200 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                     >
                       <div>
-                        <p className="font-medium text-gray-900">{draft.title}</p>
+                        <p className="font-medium text-gray-900">
+                          {draft.title}
+                        </p>
                         <p className="text-xs text-gray-500">
                           {draft.category} · Updated{" "}
                           {new Date(draft.updatedAt).toLocaleString()}
@@ -885,7 +869,10 @@ const Dashboard = () => {
                     <span className="text-orange-600 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
                       {notificationSummary.highPriorityCount}{" "}
-                      {t("dashboard.notifications.highPriority", "high priority")}
+                      {t(
+                        "dashboard.notifications.highPriority",
+                        "high priority",
+                      )}
                     </span>
                   </div>
                 </div>
@@ -913,7 +900,10 @@ const Dashboard = () => {
                   >
                     {isSeedingDemoNotifications
                       ? t("dashboard.notifications.generating", "Generating...")
-                      : t("dashboard.notifications.generateDemo", "Generate Demo")}
+                      : t(
+                          "dashboard.notifications.generateDemo",
+                          "Generate Demo",
+                        )}
                   </Button>
                   {notifications.some((n) => !n.isRead) && (
                     <Button
@@ -922,7 +912,10 @@ const Dashboard = () => {
                       className="h-8 px-2 text-xs"
                       onClick={handleMarkAllNotificationsRead}
                     >
-                      {t("dashboard.notifications.markAllRead", "Mark all read")}
+                      {t(
+                        "dashboard.notifications.markAllRead",
+                        "Mark all read",
+                      )}
                     </Button>
                   )}
                 </div>
@@ -930,7 +923,10 @@ const Dashboard = () => {
               {showNotificationPrefs && (
                 <div className="mb-3 rounded-lg border border-gray-200 p-3 space-y-3">
                   <p className="text-xs font-semibold text-gray-700 uppercase">
-                    {t("dashboard.notifications.deliveryChannels", "Delivery Channels")}
+                    {t(
+                      "dashboard.notifications.deliveryChannels",
+                      "Delivery Channels",
+                    )}
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
                     {[
@@ -962,20 +958,31 @@ const Dashboard = () => {
                     ))}
                   </div>
                   <div>
-                    <label htmlFor="notif-digest-frequency" className="text-xs font-semibold text-gray-700 uppercase">
+                    <label
+                      htmlFor="notif-digest-frequency"
+                      className="text-xs font-semibold text-gray-700 uppercase"
+                    >
                       {t("dashboard.notifications.digest", "Digest")}
                     </label>
                     <select
                       id="notif-digest-frequency"
                       className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
-                      value={notificationPreferences?.digest?.frequency || "daily"}
+                      value={
+                        notificationPreferences?.digest?.frequency || "daily"
+                      }
                       onChange={(e) =>
                         updatePreference("digest.frequency", e.target.value)
                       }
                     >
-                      <option value="none">{t("dashboard.none", "None")}</option>
-                      <option value="daily">{t("dashboard.daily", "Daily")}</option>
-                      <option value="weekly">{t("dashboard.weekly", "Weekly")}</option>
+                      <option value="none">
+                        {t("dashboard.none", "None")}
+                      </option>
+                      <option value="daily">
+                        {t("dashboard.daily", "Daily")}
+                      </option>
+                      <option value="weekly">
+                        {t("dashboard.weekly", "Weekly")}
+                      </option>
                     </select>
                   </div>
                   <Button
@@ -986,7 +993,10 @@ const Dashboard = () => {
                   >
                     {isSavingPrefs
                       ? t("dashboard.saving", "Saving...")
-                      : t("dashboard.notifications.savePreferences", "Save Preferences")}
+                      : t(
+                          "dashboard.notifications.savePreferences",
+                          "Save Preferences",
+                        )}
                   </Button>
                 </div>
               )}
@@ -996,7 +1006,9 @@ const Dashboard = () => {
                     key={filter}
                     type="button"
                     size="sm"
-                    variant={notificationFilter === filter ? "default" : "outline"}
+                    variant={
+                      notificationFilter === filter ? "default" : "outline"
+                    }
                     className="h-7 px-2 text-xs capitalize"
                     onClick={() => setNotificationFilter(filter)}
                   >
@@ -1007,7 +1019,10 @@ const Dashboard = () => {
               <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                 {notifications.length === 0 && (
                   <p className="text-sm text-gray-500">
-                    {t("dashboard.notifications.empty", "No recent status updates.")}
+                    {t(
+                      "dashboard.notifications.empty",
+                      "No recent status updates.",
+                    )}
                   </p>
                 )}
                 {notifications.map((notification) => (
@@ -1023,7 +1038,9 @@ const Dashboard = () => {
                       <div className="min-w-0">
                         <Link
                           to={`/track-complaint?complaintId=${notification.complaintId}`}
-                          onClick={() => handleMarkNotificationRead(notification.id, true)}
+                          onClick={() =>
+                            handleMarkNotificationRead(notification.id, true)
+                          }
                         >
                           <p className="text-xs text-primary font-semibold">
                             {notification.complaintId}
@@ -1063,7 +1080,9 @@ const Dashboard = () => {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7"
-                          onClick={() => handleArchiveNotification(notification.id)}
+                          onClick={() =>
+                            handleArchiveNotification(notification.id)
+                          }
                         >
                           <Archive className="w-3 h-3 text-gray-500" />
                         </Button>

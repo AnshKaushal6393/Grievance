@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
+import ComplianceInfoBlock from "@/components/ComplianceInfoBlock";
 import complaintService from "@/services/complaintService";
 import authService from "@/services/authService";
 import { toast } from "sonner";
@@ -488,7 +489,14 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <ComplianceInfoBlock
+          className="mb-6"
+          source={t("compliance.citizen.source", "Citizen complaint profile and status feed")}
+          lastSync={new Date().toLocaleString("en-IN")}
+          auditReference={t("compliance.citizen.auditRef", "CIT-DASHBOARD")}
+          retentionNotice={t("compliance.citizen.retention", "Citizen data is processed and retained under platform privacy and grievance retention policy.")}
+        />
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Main Content */}
           <div className="flex-1 space-y-8">
@@ -745,7 +753,7 @@ const Dashboard = () => {
                           {draft.title}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {draft.category} · Updated{" "}
+                          {draft.category} Â· Updated{" "}
                           {new Date(draft.updatedAt).toLocaleString()}
                         </p>
                       </div>
@@ -1110,4 +1118,7 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
 

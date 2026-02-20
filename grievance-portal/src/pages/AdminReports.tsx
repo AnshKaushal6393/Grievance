@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ComplianceInfoBlock from "@/components/ComplianceInfoBlock";
 import adminService from "@/services/adminService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,8 +46,8 @@ type GroupByType = "department" | "category" | "date" | "status";
 
 interface ReportCardOption {
   id: ReportType;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   icon: React.ElementType;
 }
 
@@ -85,13 +86,13 @@ interface ReportSnapshot {
 }
 
 const reportTypes: ReportCardOption[] = [
-  { id: "summary", title: "Grievance Summary Report", description: "Administrative summary of grievance volume, disposal, and trends.", icon: FileText },
-  { id: "department-performance", title: "Department Performance Report", description: "Compare departmental workload, disposal rate, and service efficiency.", icon: Building2 },
-  { id: "category-analysis", title: "Category-wise Analysis", description: "Analyze grievance categories and pattern variation over time.", icon: Layers3 },
-  { id: "geo-distribution", title: "Geographic Distribution Report", description: "Review regional distribution and high-incidence grievance zones.", icon: MapPinned },
-  { id: "sla-compliance", title: "SLA Compliance Report", description: "Track SLA adherence, breaches, and delay trends.", icon: Gauge },
-  { id: "citizen-satisfaction", title: "Citizen Satisfaction Report", description: "Review citizen feedback ratings and satisfaction indicators.", icon: SmilePlus },
-  { id: "custom-builder", title: "Custom Report Builder", description: "Create a report with configurable filters and sections.", icon: WandSparkles },
+  { id: "summary", titleKey: "adminReports.types.summary.title", descriptionKey: "adminReports.types.summary.desc", icon: FileText },
+  { id: "department-performance", titleKey: "adminReports.types.department.title", descriptionKey: "adminReports.types.department.desc", icon: Building2 },
+  { id: "category-analysis", titleKey: "adminReports.types.category.title", descriptionKey: "adminReports.types.category.desc", icon: Layers3 },
+  { id: "geo-distribution", titleKey: "adminReports.types.geo.title", descriptionKey: "adminReports.types.geo.desc", icon: MapPinned },
+  { id: "sla-compliance", titleKey: "adminReports.types.sla.title", descriptionKey: "adminReports.types.sla.desc", icon: Gauge },
+  { id: "citizen-satisfaction", titleKey: "adminReports.types.satisfaction.title", descriptionKey: "adminReports.types.satisfaction.desc", icon: SmilePlus },
+  { id: "custom-builder", titleKey: "adminReports.types.custom.title", descriptionKey: "adminReports.types.custom.desc", icon: WandSparkles },
 ];
 
 const allCategories = ["Roads & Infrastructure", "Water Supply", "Electricity", "Sanitation & Garbage", "Other"];
@@ -99,9 +100,9 @@ const allStatuses = ["filed", "assigned", "in-progress", "resolved", "rejected"]
 const allPriorities = ["low", "medium", "high", "critical"];
 
 const quickRanges = [
-  { label: "This Week", key: "this-week" },
-  { label: "This Month", key: "this-month" },
-  { label: "Last Quarter", key: "last-quarter" },
+  { labelKey: "adminReports.quick.thisWeek", fallback: "This Week", key: "this-week" },
+  { labelKey: "adminReports.quick.thisMonth", fallback: "This Month", key: "this-month" },
+  { labelKey: "adminReports.quick.lastQuarter", fallback: "Last Quarter", key: "last-quarter" },
 ] as const;
 
 const includeDefaults = {
@@ -111,8 +112,6 @@ const includeDefaults = {
   recommendations: true,
   rawData: false,
 };
-
-const formatTypeLabel = (id: ReportType) => reportTypes.find((item) => item.id === id)?.title || id;
 
 const AdminReports = () => {
   const navigate = useNavigate();
@@ -140,6 +139,12 @@ const AdminReports = () => {
   const [progress, setProgress] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+
+  const reportTypeLabel = (id: ReportType) => {
+    const item = reportTypes.find((entry) => entry.id === id);
+    if (!item) return id;
+    return t(item.titleKey, id);
+  };
 
   const visibleReports = useMemo(
     () => [...savedReports].sort((a, b) => +new Date(b.generatedDate) - +new Date(a.generatedDate)).slice(0, 5),
@@ -208,7 +213,7 @@ const AdminReports = () => {
     setEndDate(end.toISOString().slice(0, 10));
   };
 
-  const buildReportName = () => `${formatTypeLabel(selectedType)} (${startDate} to ${endDate})`;
+  const buildReportName = () => `${reportTypeLabel(selectedType)} (${startDate} ${t("adminReports.to", "to")} ${endDate})`;
 
   const buildConfigPayload = () => ({
     startDate,
@@ -229,7 +234,7 @@ const AdminReports = () => {
       const response = await adminService.getGeneratedReports(20);
       const reports = (response?.data?.reports || []).map((report: any) => ({
         id: String(report.id || report._id),
-        name: report.name || "Report",
+        name: report.name || t("adminReports.reportNameFallback", "Report"),
         type: report.type || report.reportType || "summary",
         generatedDate: report.generatedDate || new Date().toISOString(),
         format: (report.format || "pdf") as OutputFormat,
@@ -305,7 +310,7 @@ const AdminReports = () => {
   const handleSaveConfiguration = async () => {
     try {
       await adminService.saveReportConfiguration({
-        name: `${formatTypeLabel(selectedType)} Configuration`,
+        name: `${reportTypeLabel(selectedType)} ${t("adminReports.configuration", "Configuration")}`,
         reportType: selectedType,
         config: buildConfigPayload(),
       });
@@ -322,7 +327,7 @@ const AdminReports = () => {
     }
     try {
       await adminService.scheduleReport({
-        name: `${formatTypeLabel(selectedType)} Schedule`,
+        name: `${reportTypeLabel(selectedType)} ${t("adminReports.schedule", "Schedule")}`,
         reportType: selectedType,
         format,
         config: buildConfigPayload(),
@@ -344,6 +349,12 @@ const AdminReports = () => {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <main id="main-content" className="container mx-auto space-y-6 px-4 py-8">
+        <ComplianceInfoBlock
+          source={t("compliance.adminReports.source", "Administrative report service (live records)")}
+          lastSync={new Date().toLocaleString("en-IN")}
+          auditReference={t("compliance.adminReports.auditRef", "ADM-REPORTS")}
+          retentionNotice={t("compliance.adminReports.retention", "Generated reports are retained according to departmental archival and audit policy.")}
+        />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">{t("adminReports.title", "Administrative Report Generation")}</h1>
@@ -372,9 +383,9 @@ const AdminReports = () => {
                 >
                   <div className="mb-2 flex items-center gap-2">
                     <Icon className={`h-5 w-5 ${active ? "text-primary" : "text-slate-600"}`} />
-                    <span className="font-semibold text-slate-900">{item.title}</span>
+                    <span className="font-semibold text-slate-900">{t(item.titleKey, "Report Type")}</span>
                   </div>
-                  <p className="text-xs text-slate-600">{item.description}</p>
+                  <p className="text-xs text-slate-600">{t(item.descriptionKey, "Report description")}</p>
                 </button>
               );
             })}
@@ -402,7 +413,7 @@ const AdminReports = () => {
                 {quickRanges.map((item) => (
                   <Button key={item.key} variant="outline" size="sm" className="gap-2" onClick={() => setQuickRange(item.key)}>
                     <CalendarDays className="h-4 w-4" />
-                    {item.label}
+                    {t(item.labelKey, item.fallback)}
                   </Button>
                 ))}
               </div>
@@ -467,33 +478,33 @@ const AdminReports = () => {
                     <Select value={groupBy} onValueChange={(value: GroupByType) => setGroupBy(value)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="department">Department</SelectItem>
-                        <SelectItem value="category">Category</SelectItem>
-                        <SelectItem value="date">Date</SelectItem>
-                        <SelectItem value="status">Status</SelectItem>
+                        <SelectItem value="department">{t("adminReports.group.department", "Department")}</SelectItem>
+                        <SelectItem value="category">{t("adminReports.group.category", "Category")}</SelectItem>
+                        <SelectItem value="date">{t("adminReports.group.date", "Date")}</SelectItem>
+                        <SelectItem value="status">{t("adminReports.group.status", "Status")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2 rounded-lg border p-3">
                     <div className="flex items-center gap-2">
                       <Checkbox checked={include.charts} onCheckedChange={(v) => setInclude((p) => ({ ...p, charts: Boolean(v) }))} />
-                      <span className="text-sm">Charts and Graphs</span>
+                      <span className="text-sm">{t("adminReports.include.charts", "Charts and Graphs")}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Checkbox checked={include.detailedList} onCheckedChange={(v) => setInclude((p) => ({ ...p, detailedList: Boolean(v) }))} />
-                      <span className="text-sm">Detailed Complaint List</span>
+                      <span className="text-sm">{t("adminReports.include.detailed", "Detailed Complaint List")}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Checkbox checked={include.executiveSummary} onCheckedChange={(v) => setInclude((p) => ({ ...p, executiveSummary: Boolean(v) }))} />
-                      <span className="text-sm">Executive Summary</span>
+                      <span className="text-sm">{t("adminReports.include.executive", "Executive Summary")}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Checkbox checked={include.recommendations} onCheckedChange={(v) => setInclude((p) => ({ ...p, recommendations: Boolean(v) }))} />
-                      <span className="text-sm">Recommendations</span>
+                      <span className="text-sm">{t("adminReports.include.recommendations", "Recommendations")}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Checkbox checked={include.rawData} onCheckedChange={(v) => setInclude((p) => ({ ...p, rawData: Boolean(v) }))} />
-                      <span className="text-sm">Raw Data Export</span>
+                      <span className="text-sm">{t("adminReports.include.rawData", "Raw Data Export")}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -510,9 +521,9 @@ const AdminReports = () => {
               <Select value={format} onValueChange={(value: OutputFormat) => setFormat(value)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="excel">Excel</SelectItem>
-                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="pdf">{t("adminReports.format.pdf", "PDF")}</SelectItem>
+                  <SelectItem value="excel">{t("adminReports.format.excel", "Excel")}</SelectItem>
+                  <SelectItem value="csv">{t("adminReports.format.csv", "CSV")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -521,9 +532,9 @@ const AdminReports = () => {
               <Select value={template} onValueChange={(value: TemplateType) => setTemplate(value)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="detailed">Detailed</SelectItem>
-                  <SelectItem value="executive">Executive</SelectItem>
+                  <SelectItem value="standard">{t("adminReports.template.standard", "Standard")}</SelectItem>
+                  <SelectItem value="detailed">{t("adminReports.template.detailed", "Detailed")}</SelectItem>
+                  <SelectItem value="executive">{t("adminReports.template.executive", "Executive")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -549,28 +560,28 @@ const AdminReports = () => {
               <div className="grid grid-cols-1 gap-4 rounded-lg border bg-white p-4 md:grid-cols-[1.2fr_1fr]">
                 <div>
                   <p className="font-semibold text-slate-900">{buildReportName()}</p>
-                  <p className="text-sm text-slate-600">Type: {formatTypeLabel(selectedType)} | Template: {template} | Format: {format.toUpperCase()}</p>
+                  <p className="text-sm text-slate-600">{t("adminReports.preview.meta", "Type: {type} | Template: {template} | Format: {format}").replace("{type}", reportTypeLabel(selectedType)).replace("{template}", t(`adminReports.template.${template}`, template)).replace("{format}", t(`adminReports.format.${format}`, format.toUpperCase()))}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Badge variant="secondary">Group By: {groupBy}</Badge>
-                    <Badge variant="secondary">{departments.length || "All"} departments</Badge>
-                    <Badge variant="secondary">{categories.length || "All"} categories</Badge>
-                    <Badge variant="secondary">{statuses.length || "All"} statuses</Badge>
+                    <Badge variant="secondary">{t("adminReports.preview.groupBy", "Group By: {value}").replace("{value}", t(`adminReports.group.${groupBy}`, groupBy))}</Badge>
+                    <Badge variant="secondary">{t("adminReports.preview.departmentsCount", "{count} departments").replace("{count}", String(departments.length || t("adminReports.all", "All")))}</Badge>
+                    <Badge variant="secondary">{t("adminReports.preview.categoriesCount", "{count} categories").replace("{count}", String(categories.length || t("adminReports.all", "All")))}</Badge>
+                    <Badge variant="secondary">{t("adminReports.preview.statusesCount", "{count} statuses").replace("{count}", String(statuses.length || t("adminReports.all", "All")))}</Badge>
                   </div>
                   <div className="mt-4 space-y-2">
-                    <p className="text-xs text-slate-600">Total Complaints: {previewSnapshot.metrics.totalComplaints}</p>
+                    <p className="text-xs text-slate-600">{t("adminReports.preview.totalComplaints", "Total Complaints: {count}").replace("{count}", String(previewSnapshot.metrics.totalComplaints))}</p>
                     <div className="h-2 w-full rounded bg-primary/15"><div className="h-2 rounded bg-primary/100" style={{ width: `${previewSnapshot.metrics.totalComplaints === 0 ? 0 : Math.max((previewSnapshot.metrics.resolved / previewSnapshot.metrics.totalComplaints) * 100, 4)}%` }} /></div>
-                    <p className="text-xs text-slate-600">Resolved: {previewSnapshot.metrics.resolved} | Pending: {previewSnapshot.metrics.pending}</p>
+                    <p className="text-xs text-slate-600">{t("adminReports.preview.resolvedPending", "Resolved: {resolved} | Pending: {pending}").replace("{resolved}", String(previewSnapshot.metrics.resolved)).replace("{pending}", String(previewSnapshot.metrics.pending))}</p>
                     <div className="h-2 w-full rounded bg-emerald-100"><div className="h-2 rounded bg-emerald-500" style={{ width: `${previewSnapshot.metrics.slaCompliance}` }} /></div>
-                    <p className="text-xs text-slate-600">SLA Compliance: {previewSnapshot.metrics.slaCompliance}</p>
+                    <p className="text-xs text-slate-600">{t("adminReports.preview.sla", "SLA Compliance: {value}").replace("{value}", previewSnapshot.metrics.slaCompliance)}</p>
                   </div>
                 </div>
                 <div className="rounded-lg border bg-white p-4">
-                  <p className="mb-3 text-sm font-semibold text-slate-700">Report Snapshot</p>
+                  <p className="mb-3 text-sm font-semibold text-slate-700">{t("adminReports.preview.snapshot", "Report Snapshot")}</p>
                   <div className="space-y-2">
                     {previewSnapshot.rows.slice(0, 4).map((row) => (
                       <div key={row.label} className="rounded bg-slate-100 p-2 text-xs text-slate-700">
                         <p className="font-medium">{row.label}</p>
-                        <p>Total: {row.total} | Resolved: {row.resolved}</p>
+                        <p>{t("adminReports.preview.rowSummary", "Total: {total} | Resolved: {resolved}").replace("{total}", String(row.total)).replace("{resolved}", String(row.resolved))}</p>
                       </div>
                     ))}
                   </div>

@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import { useLanguage } from "@/contexts/LanguageContext";
+import LeafletLocationMap from "@/components/maps/LeafletLocationMap";
 
 interface UploadedFile {
   id: string;
@@ -330,11 +331,6 @@ const FileComplaint = () => {
     }
   };
 
-  const mapEmbedUrl =
-    latitude !== null && longitude !== null
-      ? `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01}%2C${latitude - 0.01}%2C${longitude + 0.01}%2C${latitude + 0.01}&layer=mapnik&marker=${latitude}%2C${longitude}`
-      : null;
-
   const movePin = (latDelta: number, lngDelta: number) => {
     if (latitude === null || longitude === null) return;
     const nextLat = Number((latitude + latDelta).toFixed(6));
@@ -524,16 +520,18 @@ const FileComplaint = () => {
               </div>
 
               {/* Map Preview Placeholder */}
-              {mapEmbedUrl ? (
-                <div className="w-full h-48 rounded overflow-hidden border border-input bg-muted">
-                  <iframe
-                    title="Location map preview"
-                    src={mapEmbedUrl}
-                    className="w-full h-full border-0"
-                    loading="lazy"
-                    allowFullScreen
-                  />
-                </div>
+              {latitude !== null && longitude !== null ? (
+                <LeafletLocationMap
+                  position={{ lat: latitude, lng: longitude }}
+                  className="h-48 w-full rounded border border-input bg-muted"
+                  draggable
+                  clickToSet
+                  onChange={(next) => {
+                    setLatitude(next.lat);
+                    setLongitude(next.lng);
+                    setAddress(`Lat: ${next.lat}, Long: ${next.lng}`);
+                  }}
+                />
               ) : (
                 <div className="w-full h-48 bg-muted rounded border-2 border-dashed border-input flex flex-col items-center justify-center text-muted-foreground">
                   <MapPin className="w-10 h-10 mb-2" />

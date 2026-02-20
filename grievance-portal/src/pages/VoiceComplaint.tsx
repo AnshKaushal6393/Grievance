@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, CheckCircle2, ChevronDown, MapPin, Mic, Navigation, Upload, Volume2 } from "lucide-react";
+import { Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MapPin, Mic, Navigation, Upload, Volume2 } from "lucide-react";
+import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import "leaflet/dist/leaflet.css";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -27,10 +33,38 @@ const help = {
 };
 const mapCat: Record<string, string> = { "Roads & Transportation": "Roads & Infrastructure", "Water Supply": "Water Supply", Electricity: "Electricity", "Sanitation & Garbage": "Sanitation & Garbage" };
 const catRules = [
-  { c: "Roads & Transportation", t: ["road", "roads", "sadak", "pothole", "gadda"] },
-  { c: "Water Supply", t: ["water", "paani", "jal", "pipeline"] },
-  { c: "Electricity", t: ["electricity", "bijli", "power", "light"] },
-  { c: "Sanitation & Garbage", t: ["safai", "garbage", "waste", "kooda"] },
+  {
+    c: "Roads & Transportation",
+    t: [
+      "road", "roads", "street", "transport", "traffic", "pothole", "gadda", "sadak",
+      "सड़क", "सड़क", "गड्ढा", "गड्डा", "रास्ता",
+      "سڑک", "گڑھا", "راستہ",
+    ],
+  },
+  {
+    c: "Water Supply",
+    t: [
+      "water", "paani", "jal", "pipeline", "tap", "leak", "seepage",
+      "पानी", "जल", "नल", "पाइप", "लीकेज",
+      "پانی", "نال", "پائپ", "لیک",
+    ],
+  },
+  {
+    c: "Electricity",
+    t: [
+      "electricity", "bijli", "power", "light", "voltage", "current",
+      "बिजली", "लाइट", "करंट", "बत्ती",
+      "بجلی", "لائٹ", "کرنٹ",
+    ],
+  },
+  {
+    c: "Sanitation & Garbage",
+    t: [
+      "safai", "garbage", "waste", "kooda", "cleaning", "drain", "sewage",
+      "सफाई", "कचरा", "गंदगी", "नाली", "सीवर",
+      "صفائی", "کچرا", "گندگی", "نالی", "سیوریج",
+    ],
+  },
 ];
 
 const ns = (v: string) => v.replace(/\s+/g, " ").trim();
@@ -38,10 +72,83 @@ const join = (a: string, b: string) => [ns(a), ns(b)].filter(Boolean).join(" ");
 const fmt = (v: string) => { const t = ns(v); if (!t) return ""; const c = t[0].toUpperCase() + t.slice(1); return /[.!?]$/.test(c) ? c : `${c}.`; };
 const locale = (l: Lang) => (l === "hi" ? "hi-IN" : l === "ur" ? "ur-PK" : "en-GB");
 const has = (t: string, words: string[]) => words.some((w) => t.toLowerCase().includes(w));
-const detect = (t: string) => { const low = t.toLowerCase(); return catRules.find((r) => r.t.some((x) => low.includes(x)))?.c || ""; };
-const mapUrl = (lat: number, lng: number) => { const d = 0.01; return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d}%2C${lat - d}%2C${lng + d}%2C${lat + d}&layer=mapnik&marker=${lat}%2C${lng}`; };
+const detect = (t: string) => {
+  const low = t.normalize("NFKC").toLowerCase();
+  return catRules.find((r) => r.t.some((x) => low.includes(x.toLowerCase())))?.c || "";
+};
 const rq = () => { try { const p = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); return Array.isArray(p) ? p : []; } catch { return []; } };
 const wq = (q: Pending[]) => localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+const defaultLeafletIcon = L.icon({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28],
+  shadowSize: [41, 41],
+});
+type LocationPickerMapProps = {
+  coords: { lat: number; lng: number };
+  onChange: (next: { lat: number; lng: number }) => void;
+  draggable?: boolean;
+  clickToSet?: boolean;
+};
+const LocationPickerMap = ({
+  coords,
+  onChange,
+  draggable = true,
+  clickToSet = true,
+}: LocationPickerMapProps) => {
+  const MapClickHandler = () => {
+    useMapEvents({
+      click: (event) => {
+        if (!clickToSet) return;
+        onChange({
+          lat: Number(event.latlng.lat.toFixed(6)),
+          lng: Number(event.latlng.lng.toFixed(6)),
+        });
+      },
+    });
+    return null;
+  };
+
+  return (
+    <MapContainer center={[coords.lat, coords.lng]} zoom={17} className="h-56 w-full rounded-lg border">
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <MapClickHandler />
+      <Marker
+        position={[coords.lat, coords.lng]}
+        draggable={draggable}
+        icon={defaultLeafletIcon}
+        eventHandlers={{
+          dragend: (event) => {
+            if (!draggable) return;
+            const marker = event.target;
+            const position = marker.getLatLng();
+            onChange({
+              lat: Number(position.lat.toFixed(6)),
+              lng: Number(position.lng.toFixed(6)),
+            });
+          },
+        }}
+      />
+    </MapContainer>
+  );
+};
+const detectWithConfidence = (text: string) => {
+  const low = text.normalize("NFKC").toLowerCase();
+  let best: { category: string; score: number } = { category: "", score: 0 };
+  for (const rule of catRules) {
+    const matched = rule.t.filter((token) => low.includes(token.toLowerCase()));
+    const score = matched.length / Math.max(1, rule.t.length);
+    if (score > best.score) best = { category: rule.c, score };
+  }
+  return { category: best.category, confidence: Math.min(1, best.score * 2.8) };
+};
 
 const VoiceComplaint = () => {
   const { t } = useLanguage();
@@ -75,10 +182,23 @@ const VoiceComplaint = () => {
   const meterRaf = useRef<number | null>(null);
   const lastSpeechAt = useRef<number>(0);
   const hasDetectedSpeech = useRef(false);
+  const keepRecording = useRef(false);
+  const secondsRef = useRef(0);
+  const autoAdvancedStep1 = useRef(false);
 
   const isRec = status === "recording";
   const isProc = status === "processing";
-  const activeCategory = category || (step === 1 ? detect(interim) : "");
+  const step1Detection = useMemo(
+    () => (step === 1 ? detectWithConfidence(interim) : { category: "", confidence: 0 }),
+    [step, interim],
+  );
+  const activeCategory = category || step1Detection.category;
+  const categoryConfidencePct = Math.round(step1Detection.confidence * 100);
+  const speechSupported = typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const isRecommendedBrowser =
+    typeof navigator !== "undefined" &&
+    /Chrome|Chromium|Edg\//i.test(navigator.userAgent) &&
+    !/OPR\//i.test(navigator.userAgent);
   const descPreview = step === 2 ? join(description, interim) : description;
   const addrPreview = step === 3 ? join(address, interim) : address;
   const timer = useMemo(() => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`, [seconds]);
@@ -132,13 +252,38 @@ const VoiceComplaint = () => {
     }
     setAddress((prev) => join(prev, p));
   };
-  const stopRecord = () => { try { recog.current?.stop?.(); } catch { /* noop */ } stopMeter(); setStatus("processing"); setInterim(""); };
+  const flushInterimForStep = () => {
+    const pending = ns(interim);
+    if (!pending) return;
+    if (step === 2) {
+      setDescription((prev) => join(prev, fmt(pending)));
+    } else if (step === 3) {
+      setAddress((prev) => join(prev, pending));
+    } else if (step === 1) {
+      const maybe = detect(pending);
+      if (maybe) setCategory(maybe);
+    }
+    setInterim("");
+  };
+  const stopRecord = () => {
+    keepRecording.current = false;
+    flushInterimForStep();
+    try { recog.current?.stop?.(); } catch { /* noop */ }
+    stopMeter();
+    setStatus("processing");
+  };
   const startRecord = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setError(t("voice.error.noSpeechSupport", "Speech recognition is not supported in this browser.")); return; }
-    setError(""); setSeconds(0); setWaveTick(0); setInterim(""); setStatus("recording"); lastSpeechAt.current = 0; hasDetectedSpeech.current = false; startMeter();
+    keepRecording.current = true;
+    autoAdvancedStep1.current = false;
+    setError(""); setSeconds(0); setWaveTick(0); setInterim(""); setStatus("recording"); lastSpeechAt.current = Date.now(); hasDetectedSpeech.current = false; startMeter();
     const r = new SR();
     r.lang = locale(language); r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.onspeechstart = () => {
+      hasDetectedSpeech.current = true;
+      lastSpeechAt.current = Date.now();
+    };
     r.onresult = (e: any) => {
       let i = "";
       for (let x = e.resultIndex; x < e.results.length; x += 1) {
@@ -156,6 +301,11 @@ const VoiceComplaint = () => {
     };
     r.onerror = (event: any) => {
       const reason = String(event?.error || "");
+      if (reason === "no-speech") {
+        lastSpeechAt.current = Date.now();
+        setError("No speech detected. Please speak clearly.");
+        return;
+      }
       const msg =
         reason === "not-allowed" || reason === "service-not-allowed"
           ? "Microphone permission denied. Please allow mic access and try again."
@@ -163,12 +313,19 @@ const VoiceComplaint = () => {
             ? "Microphone not detected. Check if another app is using it."
             : reason === "network"
               ? "Speech service network error. Please check internet and try again."
-              : reason === "no-speech"
-                ? "No speech detected. Please speak louder and closer to the mic."
-                : "Could not capture voice clearly. Please try again.";
+              : "Could not capture voice clearly. Please try again.";
+      keepRecording.current = false;
       setError(msg); setStatus("inactive"); stopMeter();
     };
-    r.onend = () => { setStatus((p: Status) => (p === "recording" ? "inactive" : p)); stopMeter(); setInterim(""); };
+    r.onend = () => {
+      if (keepRecording.current && secondsRef.current < MAX_SECONDS) {
+        try { r.start(); } catch { /* noop */ }
+        return;
+      }
+      flushInterimForStep();
+      setStatus((p: Status) => (p === "recording" ? "inactive" : p));
+      stopMeter();
+    };
     recog.current = r; r.start();
   };
 
@@ -216,10 +373,21 @@ const VoiceComplaint = () => {
     }
     setImages((prev) => [...prev, ...added].slice(0, 5));
   };
+  const movePin = (latDelta: number, lngDelta: number) => {
+    if (!coords) return;
+    const nextLat = Number((coords.lat + latDelta).toFixed(6));
+    const nextLng = Number((coords.lng + lngDelta).toFixed(6));
+    setCoords({ lat: nextLat, lng: nextLng });
+    setAddress(`Lat: ${nextLat}, Long: ${nextLng}`);
+  };
   const submit = async () => {
-    if (!category || !description.trim() || (!address.trim() && !coords)) { toast.error(t("voice.error.completeFields", "Please complete category, description, and location before submitting.")); return; }
-    const transcript = ns([category, description, address].filter(Boolean).join(". "));
-    const payload: Pending["payload"] = { language, category, description: description.trim(), address: address.trim() || (coords ? `${coords.lat}, ${coords.lng}` : ""), latitude: coords ? String(coords.lat) : undefined, longitude: coords ? String(coords.lng) : undefined, voiceConfidence, voiceTranscript: transcript, attachments: images.map((i) => ({ name: i.name, dataUrl: i.dataUrl })) };
+    flushInterimForStep();
+    const finalCategory = category || activeCategory;
+    const finalDescription = ns(step === 2 ? join(description, interim) : description);
+    const finalAddress = ns(step === 3 ? join(address, interim) : address);
+    if (!finalCategory || !finalDescription || (!finalAddress && !coords)) { toast.error(t("voice.error.completeFields", "Please complete category, description, and location before submitting.")); return; }
+    const transcript = ns([finalCategory, finalDescription, finalAddress].filter(Boolean).join(". "));
+    const payload: Pending["payload"] = { language, category: finalCategory, description: finalDescription, address: finalAddress || (coords ? `${coords.lat}, ${coords.lng}` : ""), latitude: coords ? String(coords.lat) : undefined, longitude: coords ? String(coords.lng) : undefined, voiceConfidence, voiceTranscript: transcript, attachments: images.map((i) => ({ name: i.name, dataUrl: i.dataUrl })) };
     if (!navigator.onLine) {
       const q = rq(); q.push({ id: `q-${Date.now()}`, payload }); wq(q); setOk(true); setComplaintId(`QUEUED-${String(q.length).padStart(3, "0")}`); toast.success(t("voice.savedOffline", "Offline mode: complaint saved. It will auto-upload when online.")); return;
     }
@@ -234,6 +402,7 @@ const VoiceComplaint = () => {
   const resetAll = () => { setStep(1); setStatus("inactive"); setSeconds(0); setWaveTick(0); setVoiceLevel(0); setInterim(""); setVoiceConfidence(null); setError(""); setCategory(""); setDescription(""); setAddress(""); setCoords(null); setConfirmed(false); setTs(null); setImages([]); setOk(false); setComplaintId(""); stopCamera(); };
 
   useEffect(() => { if (!isRec) return; const t = setInterval(() => setSeconds((p) => (p >= MAX_SECONDS ? MAX_SECONDS : p + 1)), 1000); return () => clearInterval(t); }, [isRec]);
+  useEffect(() => { secondsRef.current = seconds; }, [seconds]);
   useEffect(() => { if (!isRec) return; const t = setInterval(() => setWaveTick((p) => p + 1), 140); return () => clearInterval(t); }, [isRec]);
   useEffect(() => { if (status === "recording" && seconds >= MAX_SECONDS) stopRecord(); }, [seconds, status]);
   useEffect(() => { if (!isProc) return; const t = setTimeout(() => { setStatus("inactive"); setSeconds(0); }, 1100); return () => clearTimeout(t); }, [isProc]);
@@ -248,6 +417,16 @@ const VoiceComplaint = () => {
     }, 500);
     return () => clearInterval(silenceTimer);
   }, [isRec]);
+  useEffect(() => {
+    if (step !== 1 || !isRec || autoAdvancedStep1.current) return;
+    if (!step1Detection.category || step1Detection.confidence < 0.72) return;
+    autoAdvancedStep1.current = true;
+    setCategory(step1Detection.category);
+    toast.success(
+      `${t("voice.detectedCategory", "Detected category")}: ${step1Detection.category} (${Math.round(step1Detection.confidence * 100)}%)`,
+    );
+    setStep(2);
+  }, [isRec, step, step1Detection, t]);
   useEffect(() => { if (confirmed && !ts) setTs(new Date().toISOString()); }, [confirmed, ts]);
   useEffect(() => {
     const q = ns(address); if (!q || coords) return;
@@ -267,6 +446,15 @@ const VoiceComplaint = () => {
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 text-primary "><Mic className="h-8 w-8" /></div>
             <h1 className="text-3xl font-bold text-slate-900">{t("voice.title", "File Complaint by Voice")}</h1>
             <p className="text-sm text-slate-600">{t("voice.subtitle", "Speak in Hindi, English, or Urdu")}</p>
+            {!speechSupported ? (
+              <div className="w-full rounded border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900">
+                {t("voice.compatibility.notSupported", "Speech recognition is not supported in this browser. Please use Chrome or Microsoft Edge for voice filing.")}
+              </div>
+            ) : !isRecommendedBrowser ? (
+              <div className="w-full rounded border border-sky-300 bg-sky-50 px-4 py-3 text-left text-sm text-sky-900">
+                {t("voice.compatibility.recommended", "For best voice accuracy, use the latest Chrome or Microsoft Edge browser.")}
+              </div>
+            ) : null}
             <div className="flex flex-wrap justify-center gap-2">{langs.map((o) => <button key={o.code} type="button" onClick={() => setLanguage(o.code)} className={`min-h-[60px] rounded-full border px-5 py-2 text-sm font-semibold ${language === o.code ? "border-primary bg-primary/15 text-primary-foreground" : "border-slate-300 bg-white text-slate-800"}`}><span className="mr-2">{o.flag}</span>{o.label}</button>)}</div>
 
             <div className="mt-2 w-full rounded border bg-slate-50 p-5">
@@ -279,12 +467,12 @@ const VoiceComplaint = () => {
             </div>
 
             <div className="w-full rounded border p-5 text-left">
-              {step === 1 ? <div className="space-y-3"><h2 className="text-xl font-semibold">{t("voice.step1Title", "Step 1: Category")}</h2><p>{t("voice.step1Prompt", "What type of problem are you facing?")}</p><p className="text-sm text-slate-600">{t("voice.step1Hint", "Voice prompt: Road, Water, Electricity, Sanitation...")}</p><div className="rounded-lg bg-slate-50 p-3 text-sm">{t("voice.detectedCategory", "Detected category")}: <span className="font-semibold">{activeCategory || t("voice.listeningCategory", "Listening for category...")}</span></div>{activeCategory ? <div className="rounded-lg bg-primary/10 p-3 text-sm text-primary-foreground">{activeCategory} - {t("voice.confirmCategory", "Is this correct?")}</div> : null}{activeCategory ? <div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={() => { setCategory(activeCategory); setStep(2); }}>{t("common.yes", "Yes")}</Button><Button className="min-h-[60px]" variant="outline" onClick={() => setCategory("")}>{t("common.no", "No")}</Button></div> : null}</div> : null}
-              {step === 2 ? <div className="space-y-3"><h2 className="text-xl font-semibold">{t("voice.step2Title", "Step 2: Description")}</h2><p>{t("voice.step2Prompt", "Describe your problem in detail")}</p><div className="rounded-lg bg-slate-50 p-3 text-sm">{t("voice.liveTranscription", "Live transcription")}: <span className="font-semibold">{interim || t("voice.speakToStart", "Speak to start transcription...")}</span></div><textarea value={descPreview} onChange={(e) => setDescription(e.target.value)} rows={5} className="w-full rounded-lg border p-3" placeholder={t("voice.descriptionPlaceholder", "Describe the issue clearly with location references.")} /><div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={() => setStep(3)}>{t("voice.doneSpeaking", "Done Speaking")}</Button><Button className="min-h-[60px]" variant="outline" onClick={() => setStep(1)}>{t("common.back", "Back")}</Button></div></div> : null}
-              {step === 3 ? <div className="space-y-3"><h2 className="text-xl font-semibold">{t("voice.step3Title", "Step 3: Location")}</h2><p>{t("voice.step3Prompt", "Where is the problem?")}</p><div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={() => { if (!navigator.geolocation) { setError(t("voice.geoUnsupported", "Geolocation is not supported in this browser.")); return; } navigator.geolocation.getCurrentPosition((p) => setCoords({ lat: Number(p.coords.latitude.toFixed(6)), lng: Number(p.coords.longitude.toFixed(6)) }), () => setError(t("voice.geoDenied", "Unable to access current location.")), { enableHighAccuracy: true, timeout: 15000 }); }}><Navigation className="mr-2 h-4 w-4" />{t("voice.useCurrentLocation", "Use Current Location")}</Button><Button className="min-h-[60px]" variant="outline" onClick={startRecord}><Mic className="mr-2 h-4 w-4" />{t("voice.speakAddress", "Speak Address")}</Button></div><div className="rounded-lg bg-slate-50 p-3 text-sm">{t("voice.spokenAddress", "Spoken address")}: <span className="font-semibold">{addrPreview || t("voice.noAddressYet", "No address spoken yet.")}</span></div>{coords ? <div className="relative"><iframe title="Location preview" src={mapUrl(coords.lat, coords.lng)} className="h-56 w-full rounded-lg border" loading="lazy" /><div className="pointer-events-none absolute right-3 top-3 rounded-full bg-white/90 p-1 text-red-600 shadow"><MapPin className="h-4 w-4" /></div></div> : null}<div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={() => setConfirmed(true)} disabled={!coords && !addrPreview}>{t("voice.confirmLocation", "Confirm Location")}</Button><Button className="min-h-[60px]" variant="outline" onClick={() => setStep(2)}>{t("common.back", "Back")}</Button></div></div> : null}
+              {step === 1 ? <div className="space-y-3"><h2 className="text-xl font-semibold">{t("voice.step1Title", "Step 1: Category")}</h2><p>{t("voice.step1Prompt", "What type of problem are you facing?")}</p><p className="text-sm text-slate-600">{t("voice.step1Hint", "Voice prompt: Road, Water, Electricity, Sanitation...")}</p><div className="rounded-lg bg-slate-50 p-3 text-sm">{t("voice.detectedCategory", "Detected category")}: <span className="font-semibold">{activeCategory || t("voice.listeningCategory", "Listening for category...")}</span>{activeCategory ? <span className="ml-2 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">{t("voice.categoryConfidence", "Confidence")}: {categoryConfidencePct}%</span> : null}</div><div><label className="mb-1 block text-sm font-medium text-slate-700">{t("voice.manualCategory", "Or select category manually")}</label><select className="min-h-[44px] w-full rounded-md border bg-white px-3 py-2 text-sm" value={category} onChange={(e) => setCategory(e.target.value)}><option value="">{t("voice.selectCategory", "Select category")}</option><option value="Roads & Transportation">Roads & Transportation</option><option value="Water Supply">Water Supply</option><option value="Electricity">Electricity</option><option value="Sanitation & Garbage">Sanitation & Garbage</option></select></div>{activeCategory ? <div className="rounded-lg bg-primary/10 p-3 text-sm text-primary-foreground">{activeCategory} - {t("voice.confirmCategory", "Is this correct?")}</div> : null}<div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={() => { const picked = category || activeCategory; if (!picked) return; setCategory(picked); setStep(2); }} disabled={!category && !activeCategory}>{t("common.continue", "Continue")}</Button>{activeCategory ? <Button className="min-h-[60px]" variant="outline" onClick={() => setCategory("")}>{t("common.no", "No")}</Button> : null}</div></div> : null}
+              {step === 2 ? <div className="space-y-3"><h2 className="text-xl font-semibold">{t("voice.step2Title", "Step 2: Description")}</h2><p>{t("voice.step2Prompt", "Describe your problem in detail")}</p><div className="rounded-lg bg-slate-50 p-3 text-sm">{t("voice.liveTranscription", "Live transcription")}: <span className="font-semibold">{interim || t("voice.speakToStart", "Speak to start transcription...")}</span></div><textarea value={descPreview} onChange={(e) => setDescription(e.target.value)} rows={5} className="w-full rounded-lg border p-3" placeholder={t("voice.descriptionPlaceholder", "Describe the issue clearly with location references.")} /><div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={() => { flushInterimForStep(); setStep(3); }}>{t("voice.doneSpeaking", "Done Speaking")}</Button><Button className="min-h-[60px]" variant="outline" onClick={() => { flushInterimForStep(); setStep(1); }}>{t("common.back", "Back")}</Button></div></div> : null}
+              {step === 3 ? <div className="space-y-3"><h2 className="text-xl font-semibold">{t("voice.step3Title", "Step 3: Location")}</h2><p>{t("voice.step3Prompt", "Where is the problem?")}</p><div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={() => { if (!navigator.geolocation) { setError(t("voice.geoUnsupported", "Geolocation is not supported in this browser.")); return; } navigator.geolocation.getCurrentPosition((p) => setCoords({ lat: Number(p.coords.latitude.toFixed(6)), lng: Number(p.coords.longitude.toFixed(6)) }), () => setError(t("voice.geoDenied", "Unable to access current location.")), { enableHighAccuracy: true, timeout: 15000 }); }}><Navigation className="mr-2 h-4 w-4" />{t("voice.useCurrentLocation", "Use Current Location")}</Button><Button className="min-h-[60px]" variant="outline" onClick={startRecord}><Mic className="mr-2 h-4 w-4" />{t("voice.speakAddress", "Speak Address")}</Button></div><div className="rounded-lg bg-slate-50 p-3 text-sm">{t("voice.spokenAddress", "Spoken address")}: <span className="font-semibold">{addrPreview || t("voice.noAddressYet", "No address spoken yet.")}</span></div>{coords ? <div className="space-y-3"><div className="relative"><LocationPickerMap coords={coords} onChange={(next) => { setCoords(next); setAddress(`Lat: ${next.lat}, Long: ${next.lng}`); }} /><div className="pointer-events-none absolute right-3 top-3 rounded-full bg-white/90 p-1 text-red-600 shadow"><MapPin className="h-4 w-4" /></div></div><div className="rounded border border-input bg-background p-3"><p className="text-xs text-muted-foreground mb-2">{t("file.movePin", "Adjust pin position")}</p><div className="flex items-center justify-center gap-2 mb-2"><Button type="button" variant="outline" size="sm" onClick={() => movePin(0.0005, 0)}><ChevronUp className="w-4 h-4" /></Button></div><div className="flex items-center justify-center gap-2 mb-2"><Button type="button" variant="outline" size="sm" onClick={() => movePin(0, -0.0005)}><ChevronLeft className="w-4 h-4" /></Button><span className="text-xs text-muted-foreground px-2">{coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}</span><Button type="button" variant="outline" size="sm" onClick={() => movePin(0, 0.0005)}><ChevronRight className="w-4 h-4" /></Button></div><div className="flex items-center justify-center gap-2"><Button type="button" variant="outline" size="sm" onClick={() => movePin(-0.0005, 0)}><ChevronDown className="w-4 h-4" /></Button></div></div></div> : null}<div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={() => { flushInterimForStep(); setConfirmed(true); }} disabled={!coords && !addrPreview}>{t("voice.confirmLocation", "Confirm Location")}</Button><Button className="min-h-[60px]" variant="outline" onClick={() => { flushInterimForStep(); setStep(2); }}>{t("common.back", "Back")}</Button></div></div> : null}
             </div>
 
-            {confirmed ? <div className="w-full rounded border bg-slate-50 p-5 text-left"><div className="mb-3 flex items-center justify-between"><h3 className="text-lg font-semibold">{t("voice.reviewTitle", "Transcript Review")}</h3><span className="text-xs text-slate-600">{ts ? new Date(ts).toLocaleString() : new Date().toLocaleString()}</span></div><div className="space-y-3"><div className="rounded-lg border bg-white p-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs uppercase text-slate-500">{t("voice.category", "Category")}</span><Button variant="outline" size="sm" onClick={() => setStep(1)}>{t("common.edit", "Edit")}</Button></div><span className="inline-flex rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">{category || t("common.notSet", "Not set")}</span></div><div className="rounded-lg border bg-white p-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs uppercase text-slate-500">{t("voice.fullDescription", "Full Description")}</span><Button variant="outline" size="sm" onClick={() => setStep(2)}>{t("common.edit", "Edit")}</Button></div><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="w-full rounded-md border p-2" /></div><div className="rounded-lg border bg-white p-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs uppercase text-slate-500">{t("voice.location", "Location")}</span><Button variant="outline" size="sm" onClick={() => setStep(3)}>{t("common.edit", "Edit")}</Button></div><div className="mb-2 text-sm">{address || t("voice.currentLocationSelected", "Current location selected")}</div>{coords ? <div className="relative"><iframe title="Review location preview" src={mapUrl(coords.lat, coords.lng)} className="h-44 w-full rounded-lg border" loading="lazy" /><div className="pointer-events-none absolute right-3 top-3 rounded-full bg-white/90 p-1 text-red-600 shadow"><MapPin className="h-4 w-4" /></div></div> : <div className="rounded-md border border-dashed p-3 text-xs text-slate-500">{t("voice.mapUnavailable", "Map preview unavailable")}</div>}</div></div><div className="mt-4 flex flex-wrap gap-2"><Button className="min-h-[60px]" variant="outline" onClick={() => toast.success(t("voice.reviewApproved", "Looks good. Continue to photo and submission."))}>{t("voice.looksGood", "Looks good")}</Button><Button className="min-h-[60px]" variant="outline" onClick={resetAll}>{t("voice.rerecord", "Re-record")}</Button></div></div> : null}
+            {confirmed ? <div className="w-full rounded border bg-slate-50 p-5 text-left"><div className="mb-3 flex items-center justify-between"><h3 className="text-lg font-semibold">{t("voice.reviewTitle", "Transcript Review")}</h3><span className="text-xs text-slate-600">{ts ? new Date(ts).toLocaleString() : new Date().toLocaleString()}</span></div><div className="space-y-3"><div className="rounded-lg border bg-white p-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs uppercase text-slate-500">{t("voice.category", "Category")}</span><Button variant="outline" size="sm" onClick={() => setStep(1)}>{t("common.edit", "Edit")}</Button></div><span className="inline-flex rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">{category || t("common.notSet", "Not set")}</span></div><div className="rounded-lg border bg-white p-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs uppercase text-slate-500">{t("voice.fullDescription", "Full Description")}</span><Button variant="outline" size="sm" onClick={() => setStep(2)}>{t("common.edit", "Edit")}</Button></div><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="w-full rounded-md border p-2" /></div><div className="rounded-lg border bg-white p-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs uppercase text-slate-500">{t("voice.location", "Location")}</span><Button variant="outline" size="sm" onClick={() => setStep(3)}>{t("common.edit", "Edit")}</Button></div><div className="mb-2 text-sm">{address || t("voice.currentLocationSelected", "Current location selected")}</div>{coords ? <div className="relative"><LocationPickerMap coords={coords} draggable={false} clickToSet={false} onChange={() => { /* readonly */ }} /><div className="pointer-events-none absolute right-3 top-3 rounded-full bg-white/90 p-1 text-red-600 shadow"><MapPin className="h-4 w-4" /></div></div> : <div className="rounded-md border border-dashed p-3 text-xs text-slate-500">{t("voice.mapUnavailable", "Map preview unavailable")}</div>}</div></div><div className="mt-4 flex flex-wrap gap-2"><Button className="min-h-[60px]" variant="outline" onClick={() => toast.success(t("voice.reviewApproved", "Looks good. Continue to photo and submission."))}>{t("voice.looksGood", "Looks good")}</Button><Button className="min-h-[60px]" variant="outline" onClick={resetAll}>{t("voice.rerecord", "Re-record")}</Button></div></div> : null}
 
             {confirmed ? <div className="w-full rounded border bg-white p-5 text-left"><h3 className="mb-3 text-lg font-semibold">{t("voice.photoCapture", "Photo Capture")}</h3><div className="flex flex-wrap gap-2"><Button className="min-h-[60px]" onClick={cameraOpen ? capture : startCamera}><Camera className="mr-2 h-4 w-4" />{t("voice.takePhoto", "Take a Photo")}</Button><Button className="min-h-[60px]" variant="outline" onClick={() => fileRef.current?.click()}><Upload className="mr-2 h-4 w-4" />{t("voice.uploadGallery", "Upload from Gallery")}</Button><Button className="min-h-[60px]" variant="ghost">{t("common.skip", "Skip")}</Button></div><input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => pick(e.target.files)} />{cameraOpen ? <div className="mt-3"><video ref={videoRef} autoPlay playsInline className="h-52 w-full rounded-lg border object-cover" /><div className="mt-2 flex flex-wrap gap-2"><Button variant="outline" onClick={stopCamera}>{t("voice.closeCamera", "Close Camera")}</Button><Button onClick={capture}>{t("voice.capture", "Capture")}</Button></div></div> : null}{images.length ? <div className="mt-3"><div className="grid grid-cols-2 gap-2 md:grid-cols-4">{images.map((img) => <img key={img.id} src={img.dataUrl} alt={img.name} className="h-24 w-full rounded-md border object-cover" />)}</div><div className="mt-2 flex flex-wrap gap-2"><Button variant="outline" onClick={() => fileRef.current?.click()}>{t("voice.addMore", "Add More")}</Button><Button variant="ghost" onClick={() => setImages([])}>{t("common.clear", "Clear")}</Button></div></div> : null}</div> : null}
 

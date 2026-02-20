@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ComplianceInfoBlock from "@/components/ComplianceInfoBlock";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -76,6 +77,7 @@ const categories = [
 ];
 const statuses = ["all","filed","pending","assigned","in-progress","resolved","rejected"];
 const priorities = ["low","medium","high","critical"];
+const focusRingClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
 const AdminComplaints = () => {
   const { t } = useLanguage();
@@ -108,7 +110,7 @@ const AdminComplaints = () => {
   const [assignDialogDepartmentId, setAssignDialogDepartmentId] = useState("");
   const [assignDialogBulkMode, setAssignDialogBulkMode] = useState(false);
   const [escalateDialogComplaint, setEscalateDialogComplaint] = useState<Complaint | null>(null);
-  const [escalateDialogReason, setEscalateDialogReason] = useState("Escalated by admin");
+  const [escalateDialogReason, setEscalateDialogReason] = useState("");
   const [confirmDialogComplaint, setConfirmDialogComplaint] = useState<Complaint | null>(null);
   const [confirmDialogAction, setConfirmDialogAction] = useState<"close" | "delete" | null>(null);
 
@@ -285,7 +287,7 @@ const AdminComplaints = () => {
       });
       toast.success(t("adminComplaints.escalateSuccess", "Complaint escalated successfully"));
       setEscalateDialogComplaint(null);
-      setEscalateDialogReason("Escalated by admin");
+      setEscalateDialogReason(t("adminComplaints.escalatedByAdmin", "Escalated by admin"));
       await fetchComplaints();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || t("adminComplaints.escalateFailed", "Failed to escalate complaint"));
@@ -296,7 +298,7 @@ const AdminComplaints = () => {
 
   const handleRowEscalate = (complaint: Complaint) => {
     setEscalateDialogComplaint(complaint);
-    setEscalateDialogReason("Escalated by admin");
+    setEscalateDialogReason(t("adminComplaints.escalatedByAdmin", "Escalated by admin"));
   };
 
   const handleStatusDialogSubmit = async () => {
@@ -405,7 +407,18 @@ const AdminComplaints = () => {
   const exportSelectedToCsv = () => {
     const selected = complaints.filter((c) => selectedRows.includes(c.id));
     if (selected.length === 0) return;
-    const headers = ["ID","Title","Category","Status","Priority","Citizen","Email","Department","Filed Date","Last Updated"];
+    const headers = [
+      t("adminComplaints.csv.id", "ID"),
+      t("adminComplaints.csv.title", "Title"),
+      t("adminComplaints.csv.category", "Category"),
+      t("adminComplaints.csv.status", "Status"),
+      t("adminComplaints.csv.priority", "Priority"),
+      t("adminComplaints.csv.citizen", "Citizen"),
+      t("adminComplaints.csv.email", "Email"),
+      t("adminComplaints.csv.department", "Department"),
+      t("adminComplaints.csv.filedDate", "Filed Date"),
+      t("adminComplaints.csv.lastUpdated", "Last Updated"),
+    ];
     const csv = [
       headers.join(","),
       ...selected.map(r => [
@@ -437,7 +450,18 @@ const AdminComplaints = () => {
       const res = await adminService.getAllComplaints(buildQuery({ page: 1, limit: 2000 }));
       const raw = res?.data?.complaints ?? [];
       const rows: Complaint[] = raw.map(mapComplaint);
-      const headers = ["ID","Title","Category","Status","Priority","Citizen","Email","Department","Filed Date","Last Updated"];
+      const headers = [
+        t("adminComplaints.csv.id", "ID"),
+        t("adminComplaints.csv.title", "Title"),
+        t("adminComplaints.csv.category", "Category"),
+        t("adminComplaints.csv.status", "Status"),
+        t("adminComplaints.csv.priority", "Priority"),
+        t("adminComplaints.csv.citizen", "Citizen"),
+        t("adminComplaints.csv.email", "Email"),
+        t("adminComplaints.csv.department", "Department"),
+        t("adminComplaints.csv.filedDate", "Filed Date"),
+        t("adminComplaints.csv.lastUpdated", "Last Updated"),
+      ];
       const csv = [
         headers.join(","),
         ...rows.map(r => [
@@ -482,6 +506,13 @@ const AdminComplaints = () => {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <main id="main-content" className="container mx-auto px-4 py-8">
+        <ComplianceInfoBlock
+          className="mb-6"
+          source={t("compliance.adminComplaints.source", "Administrative complaint register (live transactional data)")}
+          lastSync={new Date().toLocaleString("en-IN")}
+          auditReference={t("compliance.adminComplaints.auditRef", "ADM-COMPLAINTS")}
+          retentionNotice={t("compliance.adminComplaints.retention", "Complaint lifecycle logs are retained for statutory review and audit traceability.")}
+        />
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-3">
@@ -676,7 +707,7 @@ const AdminComplaints = () => {
                       <Download className="h-4 w-4" />
                       {t("adminComplaints.bulkExport", "Bulk Export")}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setSelectedRows([])}><X className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="ghost" className={focusRingClass} onClick={() => setSelectedRows([])} aria-label={t("adminComplaints.clearSelection", "Clear selection")}><X className="h-4 w-4" /></Button>
                   </div>
                 </CardContent>
               </Card>
@@ -694,7 +725,7 @@ const AdminComplaints = () => {
                     <TableHead className="w-12">
                       <Checkbox checked={selectedRows.length === complaints.length && complaints.length > 0} onCheckedChange={handleSelectAll} />
                     </TableHead>
-                    <SortableHeader column="complaintId">ID</SortableHeader>
+                    <SortableHeader column="complaintId">{t("adminComplaints.table.id", "ID")}</SortableHeader>
                     <SortableHeader column="title">{t("adminComplaints.table.title", "Title")}</SortableHeader>
                     <SortableHeader column="category">{t("adminComplaints.table.category", "Category")}</SortableHeader>
                     <SortableHeader column="status">{t("adminComplaints.table.status", "Status")}</SortableHeader>
@@ -749,11 +780,11 @@ const AdminComplaints = () => {
                             <TableCell className="text-sm">{formatDate(complaint.lastUpdated)}</TableCell>
                             <TableCell onClick={e => e.stopPropagation()}>
                               <div className="flex items-center justify-end gap-1">
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setQuickViewComplaint(complaint)}><Eye className="h-4 w-4" /></Button>
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRowAssign(complaint)} disabled={isMutating}><UserPlus className="h-4 w-4" /></Button>
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRowEscalate(complaint)} disabled={isMutating}><Flag className="h-4 w-4" /></Button>
+                                <Button size="icon" variant="ghost" className={`h-8 w-8 ${focusRingClass}`} onClick={() => setQuickViewComplaint(complaint)} aria-label={t("adminComplaints.aria.viewComplaint", "View complaint details")}><Eye className="h-4 w-4" /></Button>
+                                <Button size="icon" variant="ghost" className={`h-8 w-8 ${focusRingClass}`} onClick={() => handleRowAssign(complaint)} disabled={isMutating} aria-label={t("adminComplaints.aria.assignComplaint", "Assign complaint")}><UserPlus className="h-4 w-4" /></Button>
+                                <Button size="icon" variant="ghost" className={`h-8 w-8 ${focusRingClass}`} onClick={() => handleRowEscalate(complaint)} disabled={isMutating} aria-label={t("adminComplaints.aria.escalateComplaint", "Escalate complaint")}><Flag className="h-4 w-4" /></Button>
                                 <DropdownMenu>
-                                  <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                  <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className={`h-8 w-8 ${focusRingClass}`} aria-label={t("adminComplaints.aria.moreActions", "More actions")}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
                                     <DropdownMenuItem className="gap-2" onClick={() => handleRowEdit(complaint)}><Edit className="h-4 w-4" />{t("adminComplaints.edit", "Edit")}</DropdownMenuItem>
                                     <DropdownMenuItem className="gap-2" onClick={() => handleRowClose(complaint)}><XCircle className="h-4 w-4" />{t("adminComplaints.closeComplaint", "Close Complaint")}</DropdownMenuItem>
@@ -901,12 +932,12 @@ const AdminComplaints = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="filed">filed</SelectItem>
-                    <SelectItem value="pending">pending</SelectItem>
-                    <SelectItem value="assigned">assigned</SelectItem>
-                    <SelectItem value="in-progress">in-progress</SelectItem>
-                    <SelectItem value="resolved">resolved</SelectItem>
-                    <SelectItem value="rejected">rejected</SelectItem>
+                    <SelectItem value="filed">{t("adminComplaints.status.filed", "Filed")}</SelectItem>
+                    <SelectItem value="pending">{t("adminComplaints.status.pending", "Pending")}</SelectItem>
+                    <SelectItem value="assigned">{t("adminComplaints.status.assigned", "Assigned")}</SelectItem>
+                    <SelectItem value="in-progress">{t("adminComplaints.status.inProgress", "In Progress")}</SelectItem>
+                    <SelectItem value="resolved">{t("adminComplaints.status.resolved", "Resolved")}</SelectItem>
+                    <SelectItem value="rejected">{t("adminComplaints.status.rejected", "Rejected")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1012,7 +1043,7 @@ const AdminComplaints = () => {
         onOpenChange={(open) => {
           if (!open) {
             setEscalateDialogComplaint(null);
-            setEscalateDialogReason("Escalated by admin");
+            setEscalateDialogReason(t("adminComplaints.escalatedByAdmin", "Escalated by admin"));
             toast.info(t("adminComplaints.escalateCancelled", "Escalation cancelled"));
           }
         }}
@@ -1037,7 +1068,7 @@ const AdminComplaints = () => {
                 variant="outline"
                 onClick={() => {
                   setEscalateDialogComplaint(null);
-                  setEscalateDialogReason("Escalated by admin");
+                  setEscalateDialogReason(t("adminComplaints.escalatedByAdmin", "Escalated by admin"));
                   toast.info(t("adminComplaints.escalateCancelled", "Escalation cancelled"));
                 }}
               >

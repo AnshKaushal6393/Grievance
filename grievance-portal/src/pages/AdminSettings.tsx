@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ComplianceInfoBlock from "@/components/ComplianceInfoBlock";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -563,6 +564,13 @@ const AdminSettings = () => {
     <div className="min-h-screen bg-slate-50">
       <Navbar branding={{ siteName: settings.general.siteName, logoDataUrl: settings.general.logoDataUrl }} />
       <main id="main-content" className="container mx-auto px-4 py-8">
+        <ComplianceInfoBlock
+          className="mb-6"
+          source={t("compliance.adminSettings.source", "Platform configuration store and governance controls")}
+          lastSync={new Date().toLocaleString("en-IN")}
+          auditReference={t("compliance.adminSettings.auditRef", "ADM-SETTINGS")}
+          retentionNotice={t("compliance.adminSettings.retention", "Configuration updates are retained with audit metadata and change history tracking.")}
+        />
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">{t("settings.title")}</h1>
@@ -618,43 +626,43 @@ const AdminSettings = () => {
               {section === "general" && (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <Label className="mb-1 block">Site Name</Label>
+                    <Label className="mb-1 block">{t("settings.general.siteName", "Site Name")}</Label>
                     <Input value={settings.general.siteName} onChange={(e) => setSettings((prev) => ({ ...prev, general: { ...prev.general, siteName: e.target.value } }))} />
                   </div>
                   <div>
-                    <Label className="mb-1 block">Site Logo</Label>
+                    <Label className="mb-1 block">{t("settings.general.siteLogo", "Site Logo")}</Label>
                     <Input type="file" accept="image/*" onChange={(e) => onLogoChange(e.target.files?.[0])} />
                     {settings.general.logoDataUrl ? (
-                      <img src={settings.general.logoDataUrl} alt="Site logo" className="mt-2 h-12 w-12 rounded border object-cover" />
+                      <img src={settings.general.logoDataUrl} alt={t("settings.general.siteLogoAlt", "Site logo")} className="mt-2 h-12 w-12 rounded border object-cover" />
                     ) : (
-                      <p className="mt-2 text-xs text-slate-500">No logo uploaded</p>
+                      <p className="mt-2 text-xs text-slate-500">{t("settings.general.noLogoUploaded", "No logo uploaded")}</p>
                     )}
                   </div>
                   <div>
-                    <Label className="mb-1 block">Contact Email</Label>
+                    <Label className="mb-1 block">{t("settings.general.contactEmail", "Contact Email")}</Label>
                     <Input type="email" value={settings.general.contactEmail} onChange={(e) => setSettings((prev) => ({ ...prev, general: { ...prev.general, contactEmail: e.target.value } }))} />
                   </div>
                   <div>
-                    <Label className="mb-1 block">Contact Phone</Label>
+                    <Label className="mb-1 block">{t("settings.general.contactPhone", "Contact Phone")}</Label>
                     <Input value={settings.general.contactPhone} onChange={(e) => setSettings((prev) => ({ ...prev, general: { ...prev.general, contactPhone: e.target.value } }))} />
                   </div>
                   <div className="md:col-span-2">
-                    <Label className="mb-1 block">Address</Label>
+                    <Label className="mb-1 block">{t("settings.general.address", "Address")}</Label>
                     <Textarea rows={3} value={settings.general.address} onChange={(e) => setSettings((prev) => ({ ...prev, general: { ...prev.general, address: e.target.value } }))} />
                   </div>
                   <div className="md:col-span-2">
-                    <Label className="mb-1 block">Working Hours</Label>
+                    <Label className="mb-1 block">{t("settings.general.workingHours", "Working Hours")}</Label>
                     <Input value={settings.general.workingHours} onChange={(e) => setSettings((prev) => ({ ...prev, general: { ...prev.general, workingHours: e.target.value } }))} />
                   </div>
                   <div className="md:col-span-2 space-y-2">
-                    <Label className="mb-1 block">Holidays List</Label>
+                    <Label className="mb-1 block">{t("settings.general.holidaysList", "Holidays List")}</Label>
                     <div className="flex gap-2">
                       <Input type="date" value={newHoliday} onChange={(e) => setNewHoliday(e.target.value)} />
-                      <Button type="button" variant="outline" onClick={addHoliday}>Add Holiday</Button>
+                      <Button type="button" variant="outline" onClick={addHoliday}>{t("settings.general.addHoliday", "Add Holiday")}</Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {settings.general.holidays.length === 0 ? (
-                        <span className="text-xs text-slate-500">No holidays configured</span>
+                        <span className="text-xs text-slate-500">{t("settings.general.noHolidaysConfigured", "No holidays configured")}</span>
                       ) : (
                         settings.general.holidays.map((holiday) => (
                           <Badge key={holiday} className="cursor-pointer" onClick={() => removeHoliday(holiday)}>
@@ -676,7 +684,7 @@ const AdminSettings = () => {
               {section === "notifications" && (
                 <div className="space-y-4">
                   <div className="rounded-lg border p-4">
-                    <h3 className="mb-3 font-semibold text-slate-900">Email Notifications</h3>
+                    <h3 className="mb-3 font-semibold text-slate-900">{t("settings.notifications.emailTitle", "Email Notifications")}</h3>
                     <div className="space-y-2">
                       {[
                         { key: "newComplaint", label: "New complaint received" },
@@ -705,7 +713,7 @@ const AdminSettings = () => {
                   </div>
 
                   <div className="rounded-lg border p-4">
-                    <h3 className="mb-3 font-semibold text-slate-900">SMS Notifications</h3>
+                    <h3 className="mb-3 font-semibold text-slate-900">{t("settings.notifications.smsTitle", "SMS Notifications")}</h3>
                     <div className="space-y-2">
                       {[
                         { key: "criticalComplaints", label: "Critical complaints" },
@@ -731,7 +739,7 @@ const AdminSettings = () => {
                   </div>
 
                   <div className="rounded-lg border p-4">
-                    <h3 className="mb-3 font-semibold text-slate-900">Push Notifications</h3>
+                    <h3 className="mb-3 font-semibold text-slate-900">{t("settings.notifications.pushTitle", "Push Notifications")}</h3>
                     <div className="space-y-2">
                       {[
                         { key: "realTimeUpdates", label: "Real-time updates" },
@@ -759,32 +767,32 @@ const AdminSettings = () => {
                   <div className="rounded-lg border p-4 space-y-4">
                     <div className="flex items-center gap-2">
                       <Megaphone className="h-5 w-5 text-primary" />
-                      <h3 className="font-semibold text-slate-900">Broadcast Announcement</h3>
+                      <h3 className="font-semibold text-slate-900">{t("settings.notifications.broadcastTitle", "Broadcast Announcement")}</h3>
                     </div>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className="md:col-span-2">
-                        <Label className="mb-1 block">Announcement Title</Label>
+                        <Label className="mb-1 block">{t("settings.notifications.announcementTitle", "Announcement Title")}</Label>
                         <Input
                           value={broadcastForm.title}
                           onChange={(e) =>
                             setBroadcastForm((prev) => ({ ...prev, title: e.target.value }))
                           }
-                          placeholder="Service disruption update"
+                          placeholder={t("settings.notifications.announcementTitlePlaceholder", "Service disruption update")}
                         />
                       </div>
                       <div className="md:col-span-2">
-                        <Label className="mb-1 block">Message</Label>
+                        <Label className="mb-1 block">{t("settings.notifications.message", "Message")}</Label>
                         <Textarea
                           rows={4}
                           value={broadcastForm.message}
                           onChange={(e) =>
                             setBroadcastForm((prev) => ({ ...prev, message: e.target.value }))
                           }
-                          placeholder="Share your announcement details..."
+                          placeholder={t("settings.notifications.messagePlaceholder", "Share your announcement details...")}
                         />
                       </div>
                       <div>
-                        <Label className="mb-1 block">Priority</Label>
+                        <Label className="mb-1 block">{t("settings.notifications.priority", "Priority")}</Label>
                         <Select
                           value={broadcastForm.priority}
                           onValueChange={(value) =>
@@ -796,15 +804,15 @@ const AdminSettings = () => {
                         >
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="low">Low</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="critical">Critical</SelectItem>
+                            <SelectItem value="low">{t("adminComplaints.priority.low", "Low")}</SelectItem>
+                            <SelectItem value="medium">{t("adminComplaints.priority.medium", "Medium")}</SelectItem>
+                            <SelectItem value="high">{t("adminComplaints.priority.high", "High")}</SelectItem>
+                            <SelectItem value="critical">{t("adminComplaints.priority.critical", "Critical")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <Label className="mb-1 block">Action URL (optional)</Label>
+                        <Label className="mb-1 block">{t("settings.notifications.actionUrlOptional", "Action URL (optional)")}</Label>
                         <Input
                           value={broadcastForm.actionUrl}
                           onChange={(e) =>
@@ -816,7 +824,7 @@ const AdminSettings = () => {
                     </div>
 
                     <div className="rounded-md border p-3 space-y-3">
-                      <Label className="text-sm font-semibold">Delivery Channels</Label>
+                      <Label className="text-sm font-semibold">{t("settings.notifications.deliveryChannels", "Delivery Channels")}</Label>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         {[
                           { key: "inApp", label: "In-App" },
@@ -877,9 +885,9 @@ const AdminSettings = () => {
                     {!broadcastForm.sendToAllUsers && (
                       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         <div className="rounded-md border p-3">
-                          <Label className="mb-2 block text-sm font-semibold">Target Departments</Label>
+                          <Label className="mb-2 block text-sm font-semibold">{t("settings.notifications.targetDepartments", "Target Departments")}</Label>
                           {isLoadingAudience ? (
-                            <p className="text-xs text-slate-500">Loading departments...</p>
+                            <p className="text-xs text-slate-500">{t("settings.notifications.loadingDepartments", "Loading departments...")}</p>
                           ) : (
                             <div className="max-h-48 overflow-y-auto space-y-2">
                               {audienceDepartments.map((dept) => (
@@ -903,7 +911,7 @@ const AdminSettings = () => {
                           )}
                         </div>
                         <div className="rounded-md border p-3">
-                          <Label className="mb-2 block text-sm font-semibold">Target Users</Label>
+                          <Label className="mb-2 block text-sm font-semibold">{t("settings.notifications.targetUsers", "Target Users")}</Label>
                           <Input
                             className="mb-2"
                             placeholder="Search users..."
@@ -911,7 +919,7 @@ const AdminSettings = () => {
                             onChange={(e) => setAudienceSearch(e.target.value)}
                           />
                           {isLoadingAudience ? (
-                            <p className="text-xs text-slate-500">Loading users...</p>
+                            <p className="text-xs text-slate-500">{t("settings.notifications.loadingUsers", "Loading users...")}</p>
                           ) : (
                             <div className="max-h-48 overflow-y-auto space-y-2">
                               {audienceUsers
@@ -954,12 +962,12 @@ const AdminSettings = () => {
                       disabled={isSendingBroadcast}
                     >
                       <Send className="h-4 w-4" />
-                      {isSendingBroadcast ? "Sending..." : "Send Announcement"}
+                      {isSendingBroadcast ? t("settings.notifications.sending", "Sending...") : t("settings.notifications.sendAnnouncement", "Send Announcement")}
                     </Button>
 
                     <div className="rounded-lg border p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-slate-900">Broadcast History</h4>
+                        <h4 className="font-semibold text-slate-900">{t("settings.notifications.broadcastHistory", "Broadcast History")}</h4>
                         <Button
                           type="button"
                           variant="outline"
@@ -967,19 +975,19 @@ const AdminSettings = () => {
                           onClick={() => loadBroadcastHistory(historyPage)}
                           disabled={isLoadingHistory}
                         >
-                          {isLoadingHistory ? "Refreshing..." : "Refresh"}
+                          {isLoadingHistory ? t("settings.notifications.refreshing", "Refreshing...") : t("common.refresh", "Refresh")}
                         </Button>
                       </div>
                       <div className="overflow-x-auto rounded border">
                         <table className="w-full text-sm">
                           <thead className="bg-slate-50">
                             <tr>
-                              <th className="px-3 py-2 text-left font-medium text-slate-700">When</th>
-                              <th className="px-3 py-2 text-left font-medium text-slate-700">Title</th>
-                              <th className="px-3 py-2 text-left font-medium text-slate-700">Priority</th>
-                              <th className="px-3 py-2 text-left font-medium text-slate-700">Recipients</th>
-                              <th className="px-3 py-2 text-left font-medium text-slate-700">Channels</th>
-                              <th className="px-3 py-2 text-left font-medium text-slate-700">Sent By</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">{t("settings.notifications.table.when", "When")}</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">{t("settings.notifications.table.title", "Title")}</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">{t("settings.notifications.table.priority", "Priority")}</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">{t("settings.notifications.table.recipients", "Recipients")}</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">{t("settings.notifications.table.channels", "Channels")}</th>
+                              <th className="px-3 py-2 text-left font-medium text-slate-700">{t("settings.notifications.table.sentBy", "Sent By")}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -998,7 +1006,7 @@ const AdminSettings = () => {
                                 <td className="px-3 py-2 text-slate-700">
                                   {row.recipientCount}
                                   <p className="text-xs text-slate-500">
-                                    {row.sendToAllUsers ? "All users" : "Targeted"}
+                                    {row.sendToAllUsers ? t("settings.notifications.allUsers", "All users") : t("settings.notifications.targeted", "Targeted")}
                                   </p>
                                 </td>
                                 <td className="px-3 py-2 text-xs text-slate-700">
@@ -1067,10 +1075,10 @@ const AdminSettings = () => {
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50 text-left">
                         <tr>
-                          <th className="px-3 py-2 font-medium text-slate-700">Priority</th>
-                          <th className="px-3 py-2 font-medium text-slate-700">Target Time (hours)</th>
-                          <th className="px-3 py-2 font-medium text-slate-700">Escalation Time (hours)</th>
-                          <th className="px-3 py-2 font-medium text-slate-700">Alert Before (hours)</th>
+                          <th className="px-3 py-2 font-medium text-slate-700">{t("settings.sla.priority", "Priority")}</th>
+                          <th className="px-3 py-2 font-medium text-slate-700">{t("settings.sla.targetTimeHours", "Target Time (hours)")}</th>
+                          <th className="px-3 py-2 font-medium text-slate-700">{t("settings.sla.escalationTimeHours", "Escalation Time (hours)")}</th>
+                          <th className="px-3 py-2 font-medium text-slate-700">{t("settings.sla.alertBeforeHours", "Alert Before (hours)")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1140,14 +1148,14 @@ const AdminSettings = () => {
               {section === "categories" && (
                 <div className="space-y-4">
                   <div className="rounded-lg border p-4">
-                    <h3 className="mb-3 font-semibold text-slate-900">Add Category</h3>
+                    <h3 className="mb-3 font-semibold text-slate-900">{t("settings.categories.addCategory", "Add Category")}</h3>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <div className="md:col-span-2">
-                        <Label className="mb-1 block">Name</Label>
+                        <Label className="mb-1 block">{t("settings.categories.name", "Name")}</Label>
                         <Input placeholder="Enter category name" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
                       </div>
                       <div>
-                        <Label className="mb-1 block">Icon</Label>
+                        <Label className="mb-1 block">{t("settings.categories.icon", "Icon")}</Label>
                         <Select value={newCategoryIcon} onValueChange={(value) => setNewCategoryIcon(value as CategoryIconKey)}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -1159,7 +1167,7 @@ const AdminSettings = () => {
                       </div>
                     </div>
                     <div className="mt-3">
-                      <Label className="mb-2 block">Associated Departments</Label>
+                      <Label className="mb-2 block">{t("settings.categories.associatedDepartments", "Associated Departments")}</Label>
                       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                         {departmentOptions.map((department) => (
                           <label key={department} className="flex items-center gap-2 rounded border px-3 py-2 text-sm">
@@ -1183,7 +1191,7 @@ const AdminSettings = () => {
                   </div>
 
                   <div className="rounded-lg border">
-                    <div className="border-b bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">Drag to reorder categories</div>
+                    <div className="border-b bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">{t("settings.categories.dragToReorder", "Drag to reorder categories")}</div>
                     <div className="divide-y">
                       {settings.categories.map((category) => {
                         const Icon = CATEGORY_ICON_LIBRARY[category.icon];
@@ -1259,7 +1267,7 @@ const AdminSettings = () => {
               {section === "templates" && (
                 <div className="space-y-4">
                   <div>
-                    <Label className="mb-1 block">Template</Label>
+                    <Label className="mb-1 block">{t("settings.templates.template", "Template")}</Label>
                     <Select value={settings.templates.selected} onValueChange={(value) => setSettings((prev) => ({ ...prev, templates: { ...prev.templates, selected: value } }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -1268,11 +1276,11 @@ const AdminSettings = () => {
                     </Select>
                   </div>
                   <div>
-                    <Label className="mb-1 block">Subject</Label>
+                    <Label className="mb-1 block">{t("settings.templates.subject", "Subject")}</Label>
                     <Input value={settings.templates.subject} onChange={(e) => setSettings((prev) => ({ ...prev, templates: { ...prev.templates, subject: e.target.value } }))} />
                   </div>
                   <div>
-                    <Label className="mb-1 block">Body</Label>
+                    <Label className="mb-1 block">{t("settings.templates.body", "Body")}</Label>
                     <Textarea rows={7} value={settings.templates.body} onChange={(e) => setSettings((prev) => ({ ...prev, templates: { ...prev.templates, body: e.target.value } }))} />
                   </div>
                 </div>
@@ -1282,24 +1290,24 @@ const AdminSettings = () => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 rounded border p-3">
                     <Checkbox checked={settings.system.maintenanceMode} onCheckedChange={(v) => setSettings((prev) => ({ ...prev, system: { ...prev.system, maintenanceMode: Boolean(v) } }))} />
-                    <span className="text-sm">Maintenance Mode</span>
+                    <span className="text-sm">{t("settings.system.maintenanceMode", "Maintenance Mode")}</span>
                   </div>
                   <div className="flex items-center gap-2 rounded border p-3">
                     <Checkbox checked={settings.system.auditLogs} onCheckedChange={(v) => setSettings((prev) => ({ ...prev, system: { ...prev.system, auditLogs: Boolean(v) } }))} />
-                    <span className="text-sm">Enable Audit Logs</span>
+                    <span className="text-sm">{t("settings.system.enableAuditLogs", "Enable Audit Logs")}</span>
                   </div>
                   <div>
-                    <Label className="mb-1 block">Default Language</Label>
+                    <Label className="mb-1 block">{t("settings.system.defaultLanguage", "Default Language")}</Label>
                     <Select value={settings.system.defaultLanguage} onValueChange={(value) => setSettings((prev) => ({ ...prev, system: { ...prev.system, defaultLanguage: value } }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="en">English</SelectItem>
-                        <SelectItem value="hi">Hindi</SelectItem>
+                        <SelectItem value="en">{t("common.english", "English")}</SelectItem>
+                        <SelectItem value="hi">{t("common.hindi", "Hindi")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="mb-1 block">Auto Archive (days)</Label>
+                    <Label className="mb-1 block">{t("settings.system.autoArchiveDays", "Auto Archive (days)")}</Label>
                     <Input type="number" value={settings.system.autoArchiveDays} onChange={(e) => setSettings((prev) => ({ ...prev, system: { ...prev.system, autoArchiveDays: Number(e.target.value) || 0 } }))} />
                   </div>
                 </div>
@@ -1308,23 +1316,23 @@ const AdminSettings = () => {
               {section === "api" && (
                 <div className="space-y-4">
                   <div>
-                    <Label className="mb-1 block">API Base URL</Label>
+                    <Label className="mb-1 block">{t("settings.api.baseUrl", "API Base URL")}</Label>
                     <Input value={settings.api.apiBaseUrl} onChange={(e) => setSettings((prev) => ({ ...prev, api: { ...prev.api, apiBaseUrl: e.target.value } }))} />
                   </div>
                   <div>
-                    <Label className="mb-1 block">Rate Limit (requests/min)</Label>
+                    <Label className="mb-1 block">{t("settings.api.rateLimit", "Rate Limit (requests/min)")}</Label>
                     <Input type="number" value={settings.api.rateLimitPerMin} onChange={(e) => setSettings((prev) => ({ ...prev, api: { ...prev.api, rateLimitPerMin: Number(e.target.value) || 0 } }))} />
                   </div>
                   <div>
-                    <Label className="mb-1 block">Allowed Origins (comma separated)</Label>
+                    <Label className="mb-1 block">{t("settings.api.allowedOrigins", "Allowed Origins (comma separated)")}</Label>
                     <Input value={settings.api.allowedOrigins} onChange={(e) => setSettings((prev) => ({ ...prev, api: { ...prev.api, allowedOrigins: e.target.value } }))} />
                   </div>
                   <div>
-                    <Label className="mb-1 block">Webhook URL</Label>
+                    <Label className="mb-1 block">{t("settings.api.webhookUrl", "Webhook URL")}</Label>
                     <Input value={settings.api.webhookUrl} onChange={(e) => setSettings((prev) => ({ ...prev, api: { ...prev.api, webhookUrl: e.target.value } }))} />
                   </div>
                   <div className="rounded border bg-slate-50 p-3 text-sm text-slate-700">
-                    <div className="mb-1 flex items-center gap-2"><KeyRound className="h-4 w-4" />API Key</div>
+                    <div className="mb-1 flex items-center gap-2"><KeyRound className="h-4 w-4" />{t("settings.api.apiKey", "API Key")}</div>
                     <code className="text-xs">grv_live_xxxxxxxx_xxxxxxxx</code>
                   </div>
                 </div>
@@ -1334,32 +1342,32 @@ const AdminSettings = () => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 rounded border p-3">
                     <Checkbox checked={settings.backup.autoBackup} onCheckedChange={(v) => setSettings((prev) => ({ ...prev, backup: { ...prev.backup, autoBackup: Boolean(v) } }))} />
-                    <span className="text-sm">Enable Automated Backups</span>
+                    <span className="text-sm">{t("settings.backup.enableAutomated", "Enable Automated Backups")}</span>
                   </div>
                   <div>
-                    <Label className="mb-1 block">Backup Frequency</Label>
+                    <Label className="mb-1 block">{t("settings.backup.frequency", "Backup Frequency")}</Label>
                     <Select value={settings.backup.backupFrequency} onValueChange={(value) => setSettings((prev) => ({ ...prev, backup: { ...prev.backup, backupFrequency: value } }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="daily">{t("common.daily", "Daily")}</SelectItem>
+                        <SelectItem value="weekly">{t("common.weekly", "Weekly")}</SelectItem>
+                        <SelectItem value="monthly">{t("common.monthly", "Monthly")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <Label className="mb-1 block">Retention (days)</Label>
+                      <Label className="mb-1 block">{t("settings.backup.retentionDays", "Retention (days)")}</Label>
                       <Input type="number" value={settings.backup.retentionDays} onChange={(e) => setSettings((prev) => ({ ...prev, backup: { ...prev.backup, retentionDays: Number(e.target.value) || 0 } }))} />
                     </div>
                     <div>
-                      <Label className="mb-1 block">Session Timeout (min)</Label>
+                      <Label className="mb-1 block">{t("settings.backup.sessionTimeout", "Session Timeout (min)")}</Label>
                       <Input type="number" value={settings.backup.sessionTimeoutMin} onChange={(e) => setSettings((prev) => ({ ...prev, backup: { ...prev.backup, sessionTimeoutMin: Number(e.target.value) || 0 } }))} />
                     </div>
                   </div>
                   <div className="flex items-center gap-2 rounded border p-3">
                     <Checkbox checked={settings.backup.force2FA} onCheckedChange={(v) => setSettings((prev) => ({ ...prev, backup: { ...prev.backup, force2FA: Boolean(v) } }))} />
-                    <span className="text-sm">Enforce 2FA for Admin Accounts</span>
+                    <span className="text-sm">{t("settings.backup.enforce2fa", "Enforce 2FA for Admin Accounts")}</span>
                   </div>
                   <Button
                     variant="outline"

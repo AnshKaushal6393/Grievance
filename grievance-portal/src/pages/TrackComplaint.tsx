@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
+import ComplianceInfoBlock from "@/components/ComplianceInfoBlock";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -160,7 +161,14 @@ const TrackComplaint = () => {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <ComplianceInfoBlock
+          className="mb-6"
+          source={t("compliance.track.source", "Public complaint status lookup service")}
+          lastSync={new Date().toLocaleString("en-IN")}
+          auditReference={t("compliance.track.auditRef", "PUB-TRACK")}
+          retentionNotice={t("compliance.track.retention", "Tracking logs are retained for grievance verification and support audit purposes.")}
+        />
         {/* Public Tracking Badge */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}

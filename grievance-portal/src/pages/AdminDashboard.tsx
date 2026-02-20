@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ComplianceInfoBlock from "@/components/ComplianceInfoBlock";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -133,19 +134,22 @@ const AdminDashboard = () => {
       setAlerts([
         {
           id: 1,
-          title: `${normalizedStats.pendingReview} grievances pending administrative action`,
+          title: t(
+            "adminDashboard.alert.pendingAction",
+            `${normalizedStats.pendingReview} grievances pending administrative action`,
+          ).replace("{count}", String(normalizedStats.pendingReview)),
           type: "critical",
           action: () => navigate("/admin/complaints"),
         },
         {
           id: 2,
-          title: "Department workload review required",
+          title: t("adminDashboard.alert.workloadReview", "Department workload review required"),
           type: "warning",
           action: () => navigate("/admin/departments"),
         },
         {
           id: 3,
-          title: "SLA compliance review required",
+          title: t("adminDashboard.alert.slaReview", "SLA compliance review required"),
           type: "warning",
           action: () => navigate("/admin/departments"),
         },
@@ -153,19 +157,19 @@ const AdminDashboard = () => {
 
       setStatsData([
         {
-          title: "Total Grievances Registered", value: normalizedStats.totalComplaints, subtitle: "Cumulative records",
+          title: t("adminDashboard.stats.total", "Total Grievances Registered"), value: normalizedStats.totalComplaints, subtitle: t("adminDashboard.stats.totalSub", "Cumulative records"),
           trend: null, trendUp: true, icon: FileText, iconBg: "bg-primary/15", iconColor: "text-primary",
         },
         {
-          title: "Grievances Registered Today", value: normalizedStats.todayComplaints, subtitle: "Since 00:00 hrs",
+          title: t("adminDashboard.stats.today", "Grievances Registered Today"), value: normalizedStats.todayComplaints, subtitle: t("adminDashboard.stats.todaySub", "Since 00:00 hrs"),
           trend: todayTrend.trend, trendUp: todayTrend.trendUp, icon: TrendingUp, iconBg: "bg-green-100", iconColor: "text-green-600",
         },
         {
-          title: "Pending Administrative Action", value: normalizedStats.pendingReview, subtitle: "Awaiting disposal action",
+          title: t("adminDashboard.stats.pending", "Pending Administrative Action"), value: normalizedStats.pendingReview, subtitle: t("adminDashboard.stats.pendingSub", "Awaiting disposal action"),
           trend: null, trendUp: false, icon: Clock, iconBg: "bg-orange-100", iconColor: "text-orange-600",
         },
         {
-          title: "Disposal Rate", value: normalizedStats.resolutionRate, subtitle: "Previous 30 days",
+          title: t("adminDashboard.stats.disposalRate", "Disposal Rate"), value: normalizedStats.resolutionRate, subtitle: t("adminDashboard.stats.disposalRateSub", "Previous 30 days"),
           trend: null, trendUp: true, icon: CheckCircle2, iconBg: "bg-purple-100", iconColor: "text-purple-600",
         },
       ]);
@@ -218,7 +222,7 @@ const AdminDashboard = () => {
         }))
       );
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Unable to load dashboard data.");
+      toast.error(error.response?.data?.message || t("adminDashboard.errorLoad", "Unable to load dashboard data."));
       setAlerts([]);
       setStatsData([]);
       setTrendChartData([]);
@@ -247,9 +251,9 @@ const AdminDashboard = () => {
         blob,
         `dashboard-trend-${new Date().toISOString().slice(0, 10)}.csv`,
       );
-      toast.success("Trend data exported");
+      toast.success(t("adminDashboard.exportTrendSuccess", "Trend data exported"));
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to export trend data");
+      toast.error(error?.response?.data?.message || t("adminDashboard.exportTrendFailed", "Failed to export trend data"));
     } finally {
       setIsExportingTrend(false);
     }
@@ -263,9 +267,9 @@ const AdminDashboard = () => {
         blob,
         `dashboard-category-${new Date().toISOString().slice(0, 10)}.csv`,
       );
-      toast.success("Category data exported");
+      toast.success(t("adminDashboard.exportCategorySuccess", "Category data exported"));
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to export category data");
+      toast.error(error?.response?.data?.message || t("adminDashboard.exportCategoryFailed", "Failed to export category data"));
     } finally {
       setIsExportingCategory(false);
     }
@@ -276,13 +280,12 @@ const AdminDashboard = () => {
       <Navbar />
 
       <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700">
-          <div className="flex flex-wrap items-center gap-4">
-            <span>Administrative data source: National Grievance Platform</span>
-            <span>Last refreshed: {new Date().toLocaleString("en-IN")}</span>
-            <span>Reference: ADM-DASHBOARD</span>
-          </div>
-        </div>
+        <ComplianceInfoBlock
+          source={t("adminDashboard.meta.source", "Administrative data source: National Grievance Platform")}
+          lastSync={new Date().toLocaleString("en-IN")}
+          auditReference={t("adminDashboard.meta.reference", "Reference: ADM-DASHBOARD").replace("Reference: ", "")}
+          retentionNotice={t("compliance.admin.retention", "Administrative records are retained and audited under applicable e-governance policy.")}
+        />
         {/* Alerts Section — ✅ icon resolved from type, no crash */}
         {alerts.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -335,7 +338,7 @@ const AdminDashboard = () => {
         </div>
         {isLoading && (
           <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
-            Loading latest administrative records...
+            {t("adminDashboard.loading", "Loading latest administrative records...")}
           </div>
         )}
 
@@ -345,19 +348,19 @@ const AdminDashboard = () => {
             className="bg-white rounded-lg p-6 border border-gray-200 min-h-[360px]"
           >
             <div className="flex items-center justify-between mb-6">
-              <div><h3 className="text-lg font-semibold text-gray-900">Grievance Trend</h3><p className="text-sm text-gray-500">Previous 30 days</p></div>
+              <div><h3 className="text-lg font-semibold text-gray-900">{t("adminDashboard.trend.title", "Grievance Trend")}</h3><p className="text-sm text-gray-500">{t("adminDashboard.trend.subtitle", "Previous 30 days")}</p></div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Chart actions">
+                    <Button variant="ghost" size="icon" aria-label={t("adminDashboard.aria.chartActions", "Chart actions")}>
                     <MoreHorizontal className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => fetchStats()}>Refresh data</DropdownMenuItem>
+                    <DropdownMenuLabel>{t("adminDashboard.actions", "Actions")}</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => fetchStats()}>{t("adminDashboard.refreshData", "Refresh data")}</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleExportTrendCsv} disabled={isExportingTrend}>
-                    {isExportingTrend ? "Exporting..." : "Export CSV"}
+                    {isExportingTrend ? t("adminDashboard.exporting", "Exporting...") : t("adminDashboard.exportCsv", "Export CSV")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -370,13 +373,13 @@ const AdminDashboard = () => {
                     <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
                     <YAxis stroke="#9ca3af" fontSize={12} />
                     <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "12px" }} />
-                    <Line type="monotone" dataKey="filed" stroke="#3B82F6" strokeWidth={3} dot={{ fill: "#3B82F6", strokeWidth: 2 }} name="Filed" />
-                    <Line type="monotone" dataKey="resolved" stroke="#10B981" strokeWidth={3} dot={{ fill: "#10B981", strokeWidth: 2 }} name="Resolved" />
+                    <Line type="monotone" dataKey="filed" stroke="#3B82F6" strokeWidth={3} dot={{ fill: "#3B82F6", strokeWidth: 2 }} name={t("adminDashboard.trend.filed", "Filed")} />
+                    <Line type="monotone" dataKey="resolved" stroke="#10B981" strokeWidth={3} dot={{ fill: "#10B981", strokeWidth: 2 }} name={t("adminDashboard.trend.resolved", "Resolved")} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">Trend data is not available.</p>
+              <p className="text-sm text-gray-500">{t("adminDashboard.trend.empty", "Trend data is not available.")}</p>
             )}
           </motion.div>
 
@@ -384,19 +387,19 @@ const AdminDashboard = () => {
             className="bg-white rounded-lg p-6 border border-gray-200 min-h-[360px]"
           >
             <div className="flex items-center justify-between mb-6">
-              <div><h3 className="text-lg font-semibold text-gray-900">Grievances by Category</h3><p className="text-sm text-gray-500">Distribution overview</p></div>
+              <div><h3 className="text-lg font-semibold text-gray-900">{t("adminDashboard.category.title", "Grievances by Category")}</h3><p className="text-sm text-gray-500">{t("adminDashboard.category.subtitle", "Distribution overview")}</p></div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Category chart actions">
+                    <Button variant="ghost" size="icon" aria-label={t("adminDashboard.aria.categoryChartActions", "Category chart actions")}>
                     <MoreHorizontal className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => fetchStats()}>Refresh data</DropdownMenuItem>
+                    <DropdownMenuLabel>{t("adminDashboard.actions", "Actions")}</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => fetchStats()}>{t("adminDashboard.refreshData", "Refresh data")}</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleExportCategoryCsv} disabled={isExportingCategory}>
-                    {isExportingCategory ? "Exporting..." : "Export CSV"}
+                    {isExportingCategory ? t("adminDashboard.exporting", "Exporting...") : t("adminDashboard.exportCsv", "Export CSV")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -408,13 +411,13 @@ const AdminDashboard = () => {
                     <Pie data={categoryChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
                       {categoryChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color ?? "#3B82F6"} />)}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "12px" }} formatter={(v: number|undefined) => [`${v}`, "Count"]} />
+                    <Tooltip contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "12px" }} formatter={(v: number|undefined) => [`${v}`, t("adminDashboard.category.count", "Count")]} />
                     <Legend verticalAlign="bottom" height={36} formatter={value => <span className="text-sm text-gray-600">{value}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-sm text-gray-500">Category data is not available.</p>
+              <p className="text-sm text-gray-500">{t("adminDashboard.category.empty", "Category data is not available.")}</p>
             )}
           </motion.div>
         </div>
@@ -426,48 +429,48 @@ const AdminDashboard = () => {
           <div className="p-6 border-b border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Department Performance Register</h3>
-                <p className="text-sm text-gray-500">Comparative departmental workload and disposal metrics</p>
+                <h3 className="text-lg font-semibold text-gray-900">{t("adminDashboard.department.title", "Department Performance Register")}</h3>
+                <p className="text-sm text-gray-500">{t("adminDashboard.department.subtitle", "Comparative departmental workload and disposal metrics")}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative w-full sm:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input type="text" placeholder="Search departments" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                  <input type="text" placeholder={t("adminDashboard.department.search", "Search departments")} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-ring text-sm w-full sm:w-72" />
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
                       <Filter className="w-4 h-4" />
-                      Filter
+                      {t("adminDashboard.department.filter", "Filter")}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Department Filter</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t("adminDashboard.department.filterTitle", "Department Filter")}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuCheckboxItem
                       checked={departmentFilter === "all"}
                       onCheckedChange={() => setDepartmentFilter("all")}
                     >
-                      All Departments
+                      {t("adminDashboard.department.filterAll", "All Departments")}
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                       checked={departmentFilter === "active"}
                       onCheckedChange={() => setDepartmentFilter("active")}
                     >
-                      Has Pending Complaints
+                      {t("adminDashboard.department.filterPending", "Has Pending Complaints")}
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                       checked={departmentFilter === "resolved"}
                       onCheckedChange={() => setDepartmentFilter("resolved")}
                     >
-                      Has Resolved Complaints
+                      {t("adminDashboard.department.filterResolved", "Has Resolved Complaints")}
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                       checked={departmentFilter === "unassigned"}
                       onCheckedChange={() => setDepartmentFilter("unassigned")}
                     >
-                      No Assigned Complaints
+                      {t("adminDashboard.department.filterUnassigned", "No Assigned Complaints")}
                     </DropdownMenuCheckboxItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -478,7 +481,7 @@ const AdminDashboard = () => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  {[{ key: "name", label: "Department" }, { key: "total", label: "Total" }, { key: "pending", label: "Pending" }, { key: "resolved", label: "Resolved" }, { key: "avgTime", label: "Avg Time" }, { key: "score", label: "Performance" }]
+                  {[{ key: "name", label: t("adminDashboard.department.table.department", "Department") }, { key: "total", label: t("adminDashboard.department.table.total", "Total") }, { key: "pending", label: t("adminDashboard.department.table.pending", "Pending") }, { key: "resolved", label: t("adminDashboard.department.table.resolved", "Resolved") }, { key: "avgTime", label: t("adminDashboard.department.table.avgTime", "Avg Time") }, { key: "score", label: t("adminDashboard.department.table.performance", "Performance") }]
                     .map(col => (
                       <th key={col.key} onClick={() => handleSort(col.key)}
                         className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
@@ -519,7 +522,7 @@ const AdminDashboard = () => {
                 {sortedDepartments.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
-                      No departments match the selected filters.
+                      {t("adminDashboard.department.noMatch", "No departments match the selected filters.")}
                     </td>
                   </tr>
                 )}
@@ -533,10 +536,10 @@ const AdminDashboard = () => {
           className="bg-white rounded-lg p-6 border border-gray-200"
         >
           <div className="flex items-center justify-between mb-6">
-            <div><h3 className="text-lg font-semibold text-gray-900">Recent Administrative Activity</h3><p className="text-sm text-gray-500">Latest recorded updates and actions</p></div>
+            <div><h3 className="text-lg font-semibold text-gray-900">{t("adminDashboard.activity.title", "Recent Administrative Activity")}</h3><p className="text-sm text-gray-500">{t("adminDashboard.activity.subtitle", "Latest recorded updates and actions")}</p></div>
             <Link to="/admin/complaints">
               <Button variant="ghost" size="sm" className="gap-2 text-primary">
-                View Activity Register
+                {t("adminDashboard.activity.viewRegister", "View Activity Register")}
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </Link>
@@ -556,7 +559,7 @@ const AdminDashboard = () => {
                 </div>
               </motion.div>
             ))}
-            {activityFeed.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No recent administrative activity</p>}
+            {activityFeed.length === 0 && <p className="text-sm text-gray-400 text-center py-4">{t("adminDashboard.activity.empty", "No recent administrative activity")}</p>}
           </div>
         </motion.div>
       </main>

@@ -15,6 +15,7 @@ import authService from "@/services/authService";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import GovernmentTopStrip from "@/components/GovernmentTopStrip";
+import ComplianceInfoBlock from "@/components/ComplianceInfoBlock";
 
 const OfficerDashboard = () => {
   const { t, language, setLanguage, getLanguageLabel } = useLanguage();
@@ -467,7 +468,7 @@ const OfficerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div id="main-content" className="max-w-7xl mx-auto space-y-6">
         <div className="rounded-lg overflow-hidden border border-slate-300">
           <GovernmentTopStrip
             rightLabel={t("officer.officialWorkspace", "Official Officer Workspace")}
@@ -485,6 +486,12 @@ const OfficerDashboard = () => {
             )}
           </p>
         </div>
+        <ComplianceInfoBlock
+          source={t("compliance.officer.source", "Department complaint queue and officer activity records")}
+          lastSync={new Date().toLocaleString("en-IN")}
+          auditReference={t("compliance.officer.auditRef", "OFF-DASHBOARD")}
+          retentionNotice={t("compliance.officer.retention", "All officer actions and status updates are retained for departmental audit review.")}
+        />
 
         {/* Welcome Header */}
         <div className="bg-white rounded-lg border p-6">

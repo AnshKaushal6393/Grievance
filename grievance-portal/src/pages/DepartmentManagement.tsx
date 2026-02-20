@@ -638,19 +638,19 @@ const DepartmentManagement = () => {
                           {dept.totalHandled.toLocaleString()}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Total Handled
+                          {t("departments.stats.totalHandled", "Total Handled")}
                         </p>
                       </div>
                       <div className="text-center p-2 bg-muted/50 rounded-lg">
                         <p className="text-lg font-semibold">{dept.pending}</p>
-                        <p className="text-xs text-muted-foreground">Pending</p>
+                        <p className="text-xs text-muted-foreground">{t("departments.stats.pending", "Pending")}</p>
                       </div>
                       <div className="text-center p-2 bg-muted/50 rounded-lg">
                         <p className="text-lg font-semibold">
                           {dept.resolvedThisMonth}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Resolved (Month)
+                          {t("departments.stats.resolvedMonth", "Resolved (Month)")}
                         </p>
                       </div>
                       <div className="text-center p-2 bg-muted/50 rounded-lg">
@@ -658,7 +658,7 @@ const DepartmentManagement = () => {
                           {dept.slaCompliance}%
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          SLA Compliance
+                          {t("departments.stats.slaCompliance", "SLA Compliance")}
                         </p>
                       </div>
                     </div>
@@ -796,7 +796,7 @@ const DepartmentManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t("departments.description", "Description")}</Label>
               <Textarea
                 id="description"
                 value={generateDepartmentDescriptionPreview(formData.name, formData.categories)}
@@ -812,7 +812,7 @@ const DepartmentManagement = () => {
 
             {/* Categories */}
             <div className="space-y-2">
-              <Label>Categories Handled</Label>
+              <Label>{t("departments.categoriesHandled", "Categories Handled")}</Label>
               <div className="flex flex-wrap gap-2 p-3 border rounded-lg max-h-32 overflow-y-auto">
                 {allCategories.map((category) => (
                   <Badge
@@ -837,13 +837,13 @@ const DepartmentManagement = () => {
             {/* Contact Info */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Contact Email</Label>
+                <Label htmlFor="email">{t("departments.contactEmail", "Contact Email")}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="department@gov.in"
+                    placeholder={t("departments.contactEmailPlaceholder", "department@gov.in")}
                     className="pl-10"
                     value={formData.contactEmail}
                     onChange={(e) =>
@@ -854,13 +854,13 @@ const DepartmentManagement = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Contact Phone</Label>
+                <Label htmlFor="phone">{t("departments.contactPhone", "Contact Phone")}</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+91 1234567890"
+                    placeholder={t("departments.contactPhonePlaceholder", "+91 1234567890")}
                     className="pl-10"
                     value={formData.contactPhone}
                     onChange={(e) =>
@@ -874,7 +874,7 @@ const DepartmentManagement = () => {
 
             {/* Capacity */}
             <div className="space-y-2">
-              <Label htmlFor="capacity">Maximum Workload Capacity</Label>
+              <Label htmlFor="capacity">{t("departments.maxCapacity", "Maximum Workload Capacity")}</Label>
               <Input
                 id="capacity"
                 type="number"

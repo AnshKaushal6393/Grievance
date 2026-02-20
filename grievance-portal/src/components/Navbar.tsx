@@ -56,7 +56,6 @@ const Navbar = ({ branding }: NavbarProps) => {
   const navigate = useNavigate();
   const { t, language, setLanguage, getLanguageLabel } = useLanguage();
   const [brandName, setBrandName] = useState("Grievance Portal");
-  const [brandLogo, setBrandLogo] = useState("");
   const notificationPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -105,7 +104,6 @@ const Navbar = ({ branding }: NavbarProps) => {
 
     if (branding) {
       setBrandName(branding.siteName?.trim() || "Grievance Portal");
-      setBrandLogo(branding.logoDataUrl || "");
       return () => {
         mounted = false;
       };
@@ -114,7 +112,6 @@ const Navbar = ({ branding }: NavbarProps) => {
     const loadBranding = async () => {
       if (currentUser?.role !== "admin") {
         setBrandName("Grievance Portal");
-        setBrandLogo("");
         return;
       }
       try {
@@ -122,11 +119,9 @@ const Navbar = ({ branding }: NavbarProps) => {
         const general = response?.data?.settings?.general;
         if (!mounted) return;
         setBrandName(general?.siteName?.trim() || "Grievance Portal");
-        setBrandLogo(general?.logoDataUrl || "");
       } catch {
         if (!mounted) return;
         setBrandName("Grievance Portal");
-        setBrandLogo("");
       }
     };
 

@@ -19,7 +19,6 @@ import {
   archiveAllNotifications,
   getNotificationPreferences,
   updateNotificationPreferences,
-  seedDemoNotifications,
   updateComplaintVoiceMetadata,
   submitDraft,
 } from '../controllers/complaintController.js';
@@ -39,7 +38,6 @@ router.post('/notifications/mark-all-read', protect, markAllNotificationsRead);
 router.post('/notifications/:notificationId/read', protect, markNotificationRead);
 router.post('/notifications/:notificationId/archive', protect, archiveNotification);
 router.post('/notifications/archive-all', protect, archiveAllNotifications);
-router.post('/notifications/seed-demo', protect, seedDemoNotifications);
 router.get('/notifications/preferences', protect, getNotificationPreferences);
 router.put('/notifications/preferences', protect, updateNotificationPreferences);
 router.get('/drafts', protect, getMyDrafts);

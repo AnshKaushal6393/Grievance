@@ -20,13 +20,14 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import LeafletLocationMap from "@/components/maps/LeafletLocationMap";
 
 const timeRanges = [
-  { label: "Today", value: "today" },
-  { label: "7 Days", value: "7days" },
-  { label: "30 Days", value: "30days" },
-  { label: "90 Days", value: "90days" },
-  { label: "Custom", value: "custom" },
+  { key: "analytics.range.today", fallback: "Today", value: "today" },
+  { key: "analytics.range.7days", fallback: "7 Days", value: "7days" },
+  { key: "analytics.range.30days", fallback: "30 Days", value: "30days" },
+  { key: "analytics.range.90days", fallback: "90 Days", value: "90days" },
+  { key: "analytics.range.custom", fallback: "Custom", value: "custom" },
 ];
 
 const EMPTY_METRICS = [
@@ -66,7 +67,6 @@ const AnalyticsDashboard = () => {
   const [selectedRange, setSelectedRange] = useState("30days");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
-  const [hoveredZone, setHoveredZone] = useState<number | null>(null);
   const [selectedHeatmapZoneId, setSelectedHeatmapZoneId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -112,11 +112,11 @@ const AnalyticsDashboard = () => {
       if (d.keyMetrics) {
         const cmp = d.keyMetrics.comparison || {};
         setKeyMetrics([
-          { title: "Total Complaints Filed", value: d.keyMetrics.totalFiled ?? "0", change: Number(cmp.totalFiled ?? 0), trend: Number(cmp.totalFiled ?? 0) >= 0 ? "up" : "down", icon: FileText, color: "text-primary", bgColor: "bg-primary/15" },
-          { title: "Resolution Rate", value: d.keyMetrics.resolutionRate ?? "0%", change: Number(cmp.resolutionRate ?? 0), trend: Number(cmp.resolutionRate ?? 0) >= 0 ? "up" : "down", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
-          { title: "Avg Resolution Time", value: d.keyMetrics.avgResolutionTime ?? "0.0 days", change: Number(cmp.avgResolutionTime ?? 0), trend: Number(cmp.avgResolutionTime ?? 0) >= 0 ? "up" : "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
-          { title: "Citizen Satisfaction", value: d.keyMetrics.citizenSatisfaction ?? "0.0/5", change: Number(cmp.citizenSatisfaction ?? 0), trend: Number(cmp.citizenSatisfaction ?? 0) >= 0 ? "up" : "down", icon: Star, color: "text-amber-600", bgColor: "bg-amber-100" },
-          { title: "SLA Compliance", value: d.keyMetrics.slaCompliance ?? "0%", change: Number(cmp.slaCompliance ?? 0), trend: Number(cmp.slaCompliance ?? 0) >= 0 ? "up" : "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
+          { title: t("analytics.metric.totalFiled", "Total Complaints Filed"), value: d.keyMetrics.totalFiled ?? "0", change: Number(cmp.totalFiled ?? 0), trend: Number(cmp.totalFiled ?? 0) >= 0 ? "up" : "down", icon: FileText, color: "text-primary", bgColor: "bg-primary/15" },
+          { title: t("analytics.metric.resolutionRate", "Resolution Rate"), value: d.keyMetrics.resolutionRate ?? "0%", change: Number(cmp.resolutionRate ?? 0), trend: Number(cmp.resolutionRate ?? 0) >= 0 ? "up" : "down", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-100" },
+          { title: t("analytics.metric.avgResolution", "Avg Resolution Time"), value: d.keyMetrics.avgResolutionTime ?? "0.0 days", change: Number(cmp.avgResolutionTime ?? 0), trend: Number(cmp.avgResolutionTime ?? 0) >= 0 ? "up" : "down", icon: Clock, color: "text-orange-600", bgColor: "bg-orange-100" },
+          { title: t("analytics.metric.citizenSatisfaction", "Citizen Satisfaction"), value: d.keyMetrics.citizenSatisfaction ?? "0.0/5", change: Number(cmp.citizenSatisfaction ?? 0), trend: Number(cmp.citizenSatisfaction ?? 0) >= 0 ? "up" : "down", icon: Star, color: "text-amber-600", bgColor: "bg-amber-100" },
+          { title: t("analytics.metric.slaCompliance", "SLA Compliance"), value: d.keyMetrics.slaCompliance ?? "0%", change: Number(cmp.slaCompliance ?? 0), trend: Number(cmp.slaCompliance ?? 0) >= 0 ? "up" : "down", icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-100" },
         ]);
       }
 
@@ -206,14 +206,6 @@ const AnalyticsDashboard = () => {
     }
   };
 
-  const csvEscape = (value: string | number) => {
-    const str = String(value ?? "");
-    if (/[",\n]/.test(str)) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
-
   const handleExportReport = () => {
     try {
       if (selectedRange === "custom" && (!dateFrom || !dateTo)) {
@@ -254,12 +246,6 @@ const AnalyticsDashboard = () => {
     }
   };
 
-  const getDensityColor = (density: string) => {
-    if (density === "high") return "bg-red-500/70 hover:bg-red-500/90";
-    if (density === "medium") return "bg-yellow-500/70 hover:bg-yellow-500/90";
-    return "bg-green-500/70 hover:bg-green-500/90";
-  };
-
   const getInsightBadgeColor = (type: string) => {
     const map: Record<string, string> = {
       warning: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -283,11 +269,6 @@ const AnalyticsDashboard = () => {
     selectedHeatmapZone && Number.isFinite(Number(selectedHeatmapZone.lng))
       ? Number(selectedHeatmapZone.lng)
       : null;
-  const selectedMapEmbedUrl =
-    selectedLat !== null && selectedLng !== null
-      ? `https://www.openstreetmap.org/export/embed.html?bbox=${selectedLng - 0.02}%2C${selectedLat - 0.02}%2C${selectedLng + 0.02}%2C${selectedLat + 0.02}&layer=mapnik&marker=${selectedLat}%2C${selectedLng}`
-      : null;
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -296,9 +277,9 @@ const AnalyticsDashboard = () => {
         <Card>
           <CardContent className="py-3 text-sm text-slate-700">
             <div className="flex flex-wrap items-center gap-4">
-              <span>Data source: Consolidated grievance records</span>
-              <span>Last refreshed: {new Date().toLocaleString("en-IN")}</span>
-              <span>Reference: ADM-ANALYTICS</span>
+              <span>{t("analytics.meta.source", "Data source: Consolidated grievance records")}</span>
+              <span>{t("analytics.meta.lastRefreshed", "Last refreshed:")} {new Date().toLocaleString("en-IN")}</span>
+              <span>{t("analytics.meta.reference", "Reference: ADM-ANALYTICS")}</span>
             </div>
           </CardContent>
         </Card>
@@ -334,7 +315,7 @@ const AnalyticsDashboard = () => {
               <div className="flex flex-wrap gap-2">
                 {timeRanges.map(range => (
                   <Button key={range.value} variant={selectedRange === range.value ? "default" : "outline"} size="sm" onClick={() => setSelectedRange(range.value)}>
-                    {range.label}
+                    {t(range.key, range.fallback)}
                   </Button>
                 ))}
               </div>
@@ -556,13 +537,11 @@ const AnalyticsDashboard = () => {
           <CardContent>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
               <div className="rounded-lg border bg-slate-50 overflow-hidden h-80">
-                {selectedMapEmbedUrl ? (
-                  <iframe
-                    title="Complaint density map"
-                    src={selectedMapEmbedUrl}
-                    className="h-full w-full border-0"
-                    loading="lazy"
-                    allowFullScreen
+                {selectedLat !== null && selectedLng !== null ? (
+                  <LeafletLocationMap
+                    position={{ lat: selectedLat, lng: selectedLng }}
+                    zoom={14}
+                    className="h-full w-full"
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm px-4 text-center">
@@ -576,8 +555,6 @@ const AnalyticsDashboard = () => {
                     key={zone.id}
                     type="button"
                     onClick={() => setSelectedHeatmapZoneId(zone.id)}
-                    onMouseEnter={() => setHoveredZone(zone.id)}
-                    onMouseLeave={() => setHoveredZone(null)}
                     className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                       selectedHeatmapZoneId === zone.id
                         ? "border-primary bg-primary/10"

@@ -16,6 +16,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import adminService from "@/services/adminService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,8 +84,6 @@ interface ReportSnapshot {
   }>;
 }
 
-const STORAGE_KEY = "admin_recent_reports_v1";
-
 const reportTypes: ReportCardOption[] = [
   { id: "summary", title: "Grievance Summary Report", description: "Administrative summary of grievance volume, disposal, and trends.", icon: FileText },
   { id: "department-performance", title: "Department Performance Report", description: "Compare departmental workload, disposal rate, and service efficiency.", icon: Building2 },
@@ -115,64 +114,6 @@ const includeDefaults = {
 
 const formatTypeLabel = (id: ReportType) => reportTypes.find((item) => item.id === id)?.title || id;
 
-const readSavedReports = (): SavedReport[] => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as SavedReport[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const writeSavedReports = (reports: SavedReport[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
-};
-
-const normalizeStatus = (status: string) => {
-  if (status === "in_progress") return "in-progress";
-  return status;
-};
-
-const escapePdfText = (input: string) =>
-  input.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-
-const buildSimplePdfBytes = (lines: string[]) => {
-  const content = [
-    "BT",
-    "/F1 14 Tf",
-    "72 760 Td",
-    ...lines.map((line, idx) => `${idx === 0 ? "" : "0 -22 Td"}(${escapePdfText(line)}) Tj`).filter(Boolean),
-    "ET",
-  ].join("\n");
-
-  const objects = [
-    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
-    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n",
-    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj\n",
-    `4 0 obj << /Length ${content.length} >> stream\n${content}\nendstream\nendobj\n`,
-    "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
-  ];
-
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  objects.forEach((obj) => {
-    offsets.push(pdf.length);
-    pdf += obj;
-  });
-  const xrefStart = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
-  });
-  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\n`;
-  pdf += `startxref\n${xrefStart}\n%%EOF`;
-
-  return new TextEncoder().encode(pdf);
-};
-
 const AdminReports = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -198,7 +139,7 @@ const AdminReports = () => {
   const [previewSnapshot, setPreviewSnapshot] = useState<ReportSnapshot | null>(null);
   const [progress, setProgress] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [savedReports, setSavedReports] = useState<SavedReport[]>(readSavedReports());
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
 
   const visibleReports = useMemo(
     () => [...savedReports].sort((a, b) => +new Date(b.generatedDate) - +new Date(a.generatedDate)).slice(0, 5),
@@ -219,7 +160,8 @@ const AdminReports = () => {
         setDepartmentOptions([]);
       }
     };
-    loadDepartments();
+    void loadDepartments();
+    void fetchGeneratedReports();
   }, []);
 
   useEffect(() => {
@@ -268,94 +210,52 @@ const AdminReports = () => {
 
   const buildReportName = () => `${formatTypeLabel(selectedType)} (${startDate} to ${endDate})`;
 
-  const fetchLiveSnapshot = async (): Promise<ReportSnapshot> => {
-    const fromDate = new Date(`${startDate}T00:00:00.000Z`).toISOString();
-    const toDate = new Date(`${endDate}T23:59:59.999Z`).toISOString();
+  const buildConfigPayload = () => ({
+    startDate,
+    endDate,
+    departments,
+    categories,
+    statuses,
+    priorities,
+    groupBy,
+    include,
+    template,
+    sendEmail,
+    scheduleRecurring,
+  });
 
-    const baseRes = await adminService.getAllComplaints({
-      fromDate,
-      toDate,
-      page: 1,
-      limit: 2000,
-    });
-    const raw = (baseRes?.data?.complaints || []) as Array<any>;
+  const fetchGeneratedReports = async () => {
+    try {
+      const response = await adminService.getGeneratedReports(20);
+      const reports = (response?.data?.reports || []).map((report: any) => ({
+        id: String(report.id || report._id),
+        name: report.name || "Report",
+        type: report.type || report.reportType || "summary",
+        generatedDate: report.generatedDate || new Date().toISOString(),
+        format: (report.format || "pdf") as OutputFormat,
+        snapshot: report.snapshot || undefined,
+      }));
+      setSavedReports(reports);
+    } catch {
+      setSavedReports([]);
+      toast.error(t("adminReports.loadFailed", "Failed to load generated reports"));
+    }
+  };
 
-    const filtered = raw.filter((item) => {
-      const deptName = item.department?.name || "Unassigned";
-      const st = normalizeStatus(item.status || "");
-      const byDepartment = departments.length === 0 || departments.includes(deptName);
-      const byCategory = categories.length === 0 || categories.includes(item.category);
-      const byStatus = statuses.length === 0 || statuses.includes(st);
-      const byPriority = priorities.length === 0 || priorities.includes(item.priority);
-      return byDepartment && byCategory && byStatus && byPriority;
-    });
-
-    const totalComplaints = filtered.length;
-    const resolved = filtered.filter((item) => normalizeStatus(item.status) === "resolved").length;
-    const pending = filtered.filter((item) => ["filed", "assigned", "in-progress", "pending"].includes(normalizeStatus(item.status))).length;
-
-    const resolvedWithSla = filtered.filter(
-      (item) =>
-        normalizeStatus(item.status) === "resolved" &&
-        item.resolvedDate &&
-        item.estimatedResolution &&
-        new Date(item.resolvedDate).getTime() <= new Date(item.estimatedResolution).getTime(),
-    ).length;
-    const slaCompliance = resolved > 0 ? `${Math.round((resolvedWithSla / resolved) * 100)}%` : "0%";
-
-    const groupKey = (item: any) => {
-      if (groupBy === "department") return item.department?.name || "Unassigned";
-      if (groupBy === "category") return item.category || "Unknown";
-      if (groupBy === "status") return normalizeStatus(item.status || "unknown");
-      return new Date(item.createdAt).toISOString().slice(0, 10);
-    };
-
-    const grouped = new Map<string, { total: number; resolved: number; pending: number }>();
-    filtered.forEach((item) => {
-      const key = groupKey(item);
-      const current = grouped.get(key) || { total: 0, resolved: 0, pending: 0 };
-      current.total += 1;
-      const st = normalizeStatus(item.status || "");
-      if (st === "resolved") current.resolved += 1;
-      if (["filed", "assigned", "in-progress", "pending"].includes(st)) current.pending += 1;
-      grouped.set(key, current);
-    });
-
-    const rows = Array.from(grouped.entries())
-      .map(([label, value]) => ({
-        label,
-        total: value.total,
-        resolved: value.resolved,
-        pending: value.pending,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 12);
-
-    return {
-      dateRange: `${startDate} to ${endDate}`,
-      groupBy,
-      departments,
-      categories,
-      statuses,
-      priorities,
-      include,
-      template,
-      sendEmail,
-      scheduleRecurring,
-      metrics: {
-        totalComplaints,
-        resolved,
-        pending,
-        slaCompliance,
-      },
-      rows,
-    };
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handlePreview = async () => {
     setPreviewLoading(true);
     try {
-      const snapshot = await fetchLiveSnapshot();
+      const response = await adminService.previewReport(buildConfigPayload());
+      const snapshot = response?.data?.snapshot as ReportSnapshot;
       setPreviewSnapshot(snapshot);
       setPreviewReady(true);
       toast.success(t("adminReports.previewSuccess", "Preview generated from live backend data"));
@@ -366,196 +266,88 @@ const AdminReports = () => {
     }
   };
 
-  const triggerDownload = (report: SavedReport) => {
-    const baseName = report.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-    const snapshot = report.snapshot;
-    const metrics = snapshot?.metrics || {
-      totalComplaints: 0,
-      resolved: 0,
-      pending: 0,
-      slaCompliance: "0%",
-    };
-    const includeTags = snapshot
-      ? [
-          snapshot.include.charts ? "Charts" : null,
-          snapshot.include.detailedList ? "Detailed List" : null,
-          snapshot.include.executiveSummary ? "Executive Summary" : null,
-          snapshot.include.recommendations ? "Recommendations" : null,
-          snapshot.include.rawData ? "Raw Data Export" : null,
-        ].filter(Boolean).join(", ")
-      : "N/A";
-    const filterDepartments = snapshot?.departments.length ? snapshot.departments.join(" | ") : "All";
-    const filterCategories = snapshot?.categories.length ? snapshot.categories.join(" | ") : "All";
-    const filterStatuses = snapshot?.statuses.length ? snapshot.statuses.join(" | ") : "All";
-    const filterPriorities = snapshot?.priorities.length ? snapshot.priorities.join(" | ") : "All";
-    const rowList = snapshot?.rows || [];
-
-    const csvSections = [
-      "Section,Key,Value",
-      `Meta,Name,"${report.name.replace(/"/g, '""')}"`,
-      `Meta,Type,"${report.type.replace(/"/g, '""')}"`,
-      `Meta,Generated Date,"${new Date(report.generatedDate).toLocaleString().replace(/"/g, '""')}"`,
-      `Meta,Format,${report.format.toUpperCase()}`,
-      `Meta,Date Range,"${snapshot?.dateRange || "N/A"}"`,
-      `Meta,Group By,${snapshot?.groupBy || "N/A"}`,
-      `Meta,Template,${snapshot?.template || "N/A"}`,
-      `Meta,Send Email,${snapshot?.sendEmail ? "Yes" : "No"}`,
-      `Meta,Schedule Recurring,${snapshot?.scheduleRecurring ? "Yes" : "No"}`,
-      `Filters,Departments,"${filterDepartments.replace(/"/g, '""')}"`,
-      `Filters,Categories,"${filterCategories.replace(/"/g, '""')}"`,
-      `Filters,Statuses,"${filterStatuses.replace(/"/g, '""')}"`,
-      `Filters,Priorities,"${filterPriorities.replace(/"/g, '""')}"`,
-      `Include,Sections,"${includeTags.replace(/"/g, '""')}"`,
-      `Metrics,Total Complaints,${metrics.totalComplaints}`,
-      `Metrics,Resolved,${metrics.resolved}`,
-      `Metrics,Pending,${metrics.pending}`,
-      `Metrics,SLA Compliance,${metrics.slaCompliance}`,
-      "",
-      "Analysis Label,Total,Resolved,Pending",
-      ...rowList.map((row) => `"${row.label.replace(/"/g, '""')}",${row.total},${row.resolved},${row.pending}`),
-    ].join("\n");
-
-    let blob: Blob;
-    let extension = "csv";
-
-    if (report.format === "pdf") {
-      const bytes = buildSimplePdfBytes([
-        "Grievance Portal Report",
-        `Name: ${report.name}`,
-        `Type: ${report.type}`,
-        `Generated: ${new Date(report.generatedDate).toLocaleString()}`,
-        `Format: ${report.format.toUpperCase()}`,
-        `Date Range: ${snapshot?.dateRange || "N/A"}`,
-        `Group By: ${snapshot?.groupBy || "N/A"}`,
-        `Template: ${snapshot?.template || "N/A"}`,
-        `Filters -> Departments: ${filterDepartments}`,
-        `Filters -> Categories: ${filterCategories}`,
-        `Filters -> Statuses: ${filterStatuses}`,
-        `Filters -> Priorities: ${filterPriorities}`,
-        `Included Sections: ${includeTags || "None"}`,
-        `Metrics -> Total: ${metrics.totalComplaints} | Resolved: ${metrics.resolved} | Pending: ${metrics.pending}`,
-        `SLA Compliance: ${metrics.slaCompliance}`,
-        "Analysis:",
-        ...rowList.map((row) => `${row.label}: total ${row.total}, resolved ${row.resolved}, pending ${row.pending}`),
-      ]);
-      blob = new Blob([bytes], { type: "application/pdf" });
-      extension = "pdf";
-    } else if (report.format === "excel") {
-      const htmlTable = `
-        <h2>Grievance Portal Report</h2>
-        <table border="1" cellspacing="0" cellpadding="6">
-          <thead><tr><th>Name</th><th>Type</th><th>Generated Date</th><th>Format</th></tr></thead>
-          <tbody><tr><td>${report.name}</td><td>${report.type}</td><td>${new Date(report.generatedDate).toLocaleString()}</td><td>${report.format.toUpperCase()}</td></tr></tbody>
-        </table>
-        <br />
-        <table border="1" cellspacing="0" cellpadding="6">
-          <thead><tr><th colspan="2">Configuration</th></tr></thead>
-          <tbody>
-            <tr><td>Date Range</td><td>${snapshot?.dateRange || "N/A"}</td></tr>
-            <tr><td>Group By</td><td>${snapshot?.groupBy || "N/A"}</td></tr>
-            <tr><td>Template</td><td>${snapshot?.template || "N/A"}</td></tr>
-            <tr><td>Departments</td><td>${filterDepartments}</td></tr>
-            <tr><td>Categories</td><td>${filterCategories}</td></tr>
-            <tr><td>Statuses</td><td>${filterStatuses}</td></tr>
-            <tr><td>Priorities</td><td>${filterPriorities}</td></tr>
-            <tr><td>Included Sections</td><td>${includeTags || "None"}</td></tr>
-          </tbody>
-        </table>
-        <br />
-        <table border="1" cellspacing="0" cellpadding="6">
-          <thead><tr><th>Total Complaints</th><th>Resolved</th><th>Pending</th><th>SLA Compliance</th></tr></thead>
-          <tbody><tr><td>${metrics.totalComplaints}</td><td>${metrics.resolved}</td><td>${metrics.pending}</td><td>${metrics.slaCompliance}</td></tr></tbody>
-        </table>
-        <br />
-        <table border="1" cellspacing="0" cellpadding="6">
-          <thead><tr><th>Analysis Label</th><th>Total</th><th>Resolved</th><th>Pending</th></tr></thead>
-          <tbody>
-            ${rowList.map((row) => `<tr><td>${row.label}</td><td>${row.total}</td><td>${row.resolved}</td><td>${row.pending}</td></tr>`).join("")}
-          </tbody>
-        </table>
-      `;
-      blob = new Blob([htmlTable], { type: "application/vnd.ms-excel" });
-      extension = "xls";
-    } else {
-      blob = new Blob([csvSections], { type: "text/csv;charset=utf-8;" });
-      extension = "csv";
+  const triggerDownload = async (report: SavedReport) => {
+    try {
+      const blob = await adminService.downloadGeneratedReport(report.id, report.format);
+      const baseName = report.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      const extension = report.format === "excel" ? "xls" : report.format;
+      downloadBlob(blob, `${baseName}.${extension}`);
+    } catch {
+      toast.error(t("adminReports.downloadFailed", "Failed to download report"));
     }
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${baseName}.${extension}`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const completeGeneration = (snapshot: ReportSnapshot) => {
-    const report: SavedReport = {
-      id: crypto.randomUUID(),
-      name: buildReportName(),
-      type: formatTypeLabel(selectedType),
-      generatedDate: new Date().toISOString(),
-      format,
-      snapshot,
-    };
-    const next = [report, ...savedReports];
-    setSavedReports(next);
-    writeSavedReports(next);
-    setIsGenerating(false);
-    setProgress(100);
-    toast.success(t("adminReports.generated", "Report generated successfully"));
   };
 
   const handleGenerate = async () => {
-    let snapshot = previewSnapshot;
-    if (!snapshot) {
-      setPreviewLoading(true);
-      try {
-        snapshot = await fetchLiveSnapshot();
-        setPreviewSnapshot(snapshot);
+    try {
+      setIsGenerating(true);
+      setProgress(15);
+      const response = await adminService.generateReport({
+        name: buildReportName(),
+        reportType: selectedType,
+        format,
+        config: buildConfigPayload(),
+      });
+      const generated = response?.data?.report;
+      if (generated?.snapshot) {
+        setPreviewSnapshot(generated.snapshot as ReportSnapshot);
         setPreviewReady(true);
-      } catch {
-        toast.error(t("adminReports.fetchFailed", "Could not fetch live report data"));
-        setPreviewLoading(false);
-        return;
-      } finally {
-        setPreviewLoading(false);
       }
+      setProgress(100);
+      toast.success(t("adminReports.generated", "Report generated successfully"));
+      await fetchGeneratedReports();
+    } catch {
+      toast.error(t("adminReports.fetchFailed", "Could not generate live report"));
+    } finally {
+      setIsGenerating(false);
     }
-    setIsGenerating(true);
-    setProgress(0);
-    let current = 0;
-    const timer = setInterval(() => {
-      current += 12;
-      if (current >= 100) {
-        clearInterval(timer);
-        completeGeneration(snapshot!);
-      } else {
-        setProgress(current);
-      }
-    }, 280);
   };
 
-  const handleSaveConfiguration = () => {
-    toast.success(t("adminReports.configSaved", "Report configuration saved"));
+  const handleSaveConfiguration = async () => {
+    try {
+      await adminService.saveReportConfiguration({
+        name: `${formatTypeLabel(selectedType)} Configuration`,
+        reportType: selectedType,
+        config: buildConfigPayload(),
+      });
+      toast.success(t("adminReports.configSaved", "Report configuration saved"));
+    } catch {
+      toast.error(t("adminReports.configFailed", "Failed to save configuration"));
+    }
   };
 
-  const handleSchedule = () => {
+  const handleSchedule = async () => {
     if (!scheduleRecurring) {
       toast.error(t("adminReports.enableRecurringFirst", "Enable recurring schedule checkbox first"));
       return;
     }
-    toast.success(t("adminReports.scheduleSaved", "Report schedule has been saved"));
+    try {
+      await adminService.scheduleReport({
+        name: `${formatTypeLabel(selectedType)} Schedule`,
+        reportType: selectedType,
+        format,
+        config: buildConfigPayload(),
+        schedule: {
+          frequency: "weekly",
+          dayOfWeek: 1,
+          time: "09:00",
+          timezone: "Asia/Kolkata",
+          enabled: true,
+        },
+      });
+      toast.success(t("adminReports.scheduleSaved", "Report schedule has been saved"));
+    } catch {
+      toast.error(t("adminReports.scheduleFailed", "Failed to save schedule"));
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <main className="container mx-auto space-y-6 px-4 py-8">
+      <main id="main-content" className="container mx-auto space-y-6 px-4 py-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">{t("adminReports.title", "Generate Administrative Reports")}</h1>
-            <p className="text-sm text-muted-foreground">{t("adminReports.subtitle", "Configure, preview, and export official grievance reports")}</p>
+            <h1 className="text-3xl font-bold text-slate-900">{t("adminReports.title", "Administrative Report Generation")}</h1>
+            <p className="text-sm text-muted-foreground">{t("adminReports.subtitle", "Configure, preview, and export official grievance records and summaries")}</p>
           </div>
           <Button variant="outline" className="gap-2" onClick={() => document.getElementById("recent-reports")?.scrollIntoView({ behavior: "smooth" })}>
             <FileSpreadsheet className="h-4 w-4" />
@@ -855,6 +647,7 @@ const AdminReports = () => {
           <Link to="/admin/complaints" className="text-sm text-primary hover:underline">{t("adminReports.goComplaints", "Go to complaints")}</Link>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

@@ -4,11 +4,11 @@ import {
   Bell,
   ChevronDown,
   FileQuestion,
-  FileText,
   LayoutDashboard,
   LogOut,
   Menu,
   Mic,
+  Settings,
   User,
   Users,
   X,
@@ -150,6 +150,7 @@ const Navbar = ({ branding }: NavbarProps) => {
           { label: t("nav.departments", "Departments"), href: "/admin/departments" },
           { label: t("nav.reports", "Reports"), href: "/admin/reports" },
           { label: t("nav.analytics", "Analytics"), href: "/admin/analytics" },
+          { label: t("nav.settings", "Settings"), href: "/admin/settings" },
         ]
       : currentUser?.role === "officer"
         ? [
@@ -174,6 +175,7 @@ const Navbar = ({ branding }: NavbarProps) => {
           { label: t("nav.departments", "Departments"), icon: Users, href: "/admin/departments" },
           { label: t("nav.reports", "Reports"), icon: BarChart3, href: "/admin/reports" },
           { label: t("nav.analytics", "Analytics"), icon: BarChart3, href: "/admin/analytics" },
+          { label: t("nav.settings", "Settings"), icon: Settings, href: "/admin/settings" },
           { label: t("nav.profile", "Profile"), icon: User, href: "/profile" },
         ]
       : currentUser?.role === "officer"
@@ -245,7 +247,7 @@ const Navbar = ({ branding }: NavbarProps) => {
       <header className="sticky top-0 z-50 border-b border-border bg-background">
         <a
           href="#main-content"
-          className="skip-link absolute left-2 top-2 z-60translate-y-16 rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus:translate-y-0"
+          className="skip-link absolute left-2 top-2 z-[70] rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
         >
           {t("nav.skipContent", "Skip to main content")}
         </a>
@@ -264,13 +266,11 @@ const Navbar = ({ branding }: NavbarProps) => {
         <div className="border-b border-border bg-white">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
             <Link to="/" className="flex items-center gap-3" aria-label={t("nav.home", "Home")}>
-              {brandLogo ? (
-                <img src={brandLogo} alt={t("nav.departmentLogo", "Department logo")} className="h-10 w-10 border border-border object-cover" />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center bg-primary text-primary-foreground">
-                  <FileText className="h-5 w-5" />
-                </div>
-              )}
+              <img
+                src="/gov-emblem.svg"
+                alt={t("nav.departmentLogo", "Department logo")}
+                className="h-10 w-10 border border-border object-contain p-1"
+              />
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("nav.goiDept", "Public Grievance Redressal")}</p>
                 <p className="text-lg font-semibold leading-tight text-foreground">{brandName}</p>

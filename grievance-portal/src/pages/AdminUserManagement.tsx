@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Ban, Download, Eye, FileSpreadsheet, Plus, RefreshCcw, Search, ShieldAlert, UserPlus } from "lucide-react";
+import { Ban, Download, Eye, FileSpreadsheet, Plus, RefreshCcw, Search, ShieldAlert, Trash2, UserPlus } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import adminService from "@/services/adminService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 type UserRole = "user" | "officer" | "admin";
 type UserStatus = "active" | "inactive" | "banned";
 type BulkAction = "none" | "activate" | "deactivate" | "export";
-type ConfirmType = "ban" | "unban" | "reset" | "bulk";
+type ConfirmType = "ban" | "unban" | "reset" | "bulk" | "delete";
 
 interface DepartmentOption { id: string; name: string }
 interface UserRow {
@@ -85,7 +86,6 @@ const AdminUserManagement = () => {
   const sseConnectedRef = useRef(false);
   const sseErrorToastRef = useRef(false);
   const sseDisconnectedAtRef = useRef<number | null>(null);
-  const selectedRows = useMemo(() => users.filter((u) => selectedIds.includes(u._id)), [users, selectedIds]);
 
   useEffect(() => {
     detailRef.current = detail;
@@ -196,9 +196,7 @@ const AdminUserManagement = () => {
     if (!selectedIds.length) return toast.error(t("adminUsers.error.selectUsers", "Select users first"));
     if (bulkAction === "none") return toast.error(t("adminUsers.error.chooseAction", "Choose bulk action"));
     if (bulkAction === "export") {
-      const headers = ["name", "email", "phone", "role", "status", "department"];
-      const csv = [headers.join(","), ...selectedRows.map((u) => [u.name, u.email, u.phone, u.role, u.status, u.department?.name || ""].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const blob = await adminService.exportUsersCsv(selectedIds);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = `users-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
@@ -242,10 +240,18 @@ const AdminUserManagement = () => {
       } else if (confirm.type === "bulk" && confirm.bulkAction) {
         await adminService.bulkUserAction(selectedIds, confirm.bulkAction);
         setSelectedIds([]);
+      } else if (confirm.type === "delete" && confirm.userId) {
+        await adminService.deleteUser(confirm.userId);
       }
+      const actionType = confirm.type;
       setConfirm(null); setReason(""); setResetPwd("");
       await loadUsers(true);
-      if (detail) await openDetails(detail._id);
+      if (actionType === "delete") {
+        setDetailsOpen(false);
+        setDetail(null);
+      } else if (detail) {
+        await openDetails(detail._id);
+      }
     } catch (err: unknown) {
       toast.error(parseErr(err, t("adminUsers.error.action", "Action failed")));
     } finally {
@@ -259,7 +265,7 @@ const AdminUserManagement = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div><h1 className="text-3xl font-bold">{t("adminUsers.title", "User Management")}</h1></div>
           <div className="flex gap-2">
@@ -310,19 +316,20 @@ const AdminUserManagement = () => {
                   <TableCell>{u.role === "user" ? u.complaintsFiled : "-"}</TableCell>
                   <TableCell>{new Date(u.joinedDate).toLocaleDateString()}</TableCell>
                   <TableCell>{formatDistanceToNow(new Date(u.lastActive), { addSuffix: true })}</TableCell>
-                  <TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" onClick={() => openDetails(u._id)}><Eye className="h-4 w-4" /></Button>{u.status === "banned" ? <Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "unban", userId: u._id, userName: u.name })}>{t("adminUsers.unban", "Unban")}</Button> : <Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "ban", userId: u._id, userName: u.name })}><Ban className="h-4 w-4 text-red-600" /></Button>}</div></TableCell>
+                  <TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" onClick={() => openDetails(u._id)}><Eye className="h-4 w-4" /></Button>{u.status === "banned" ? <Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "unban", userId: u._id, userName: u.name })}>{t("adminUsers.unban", "Unban")}</Button> : <Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "ban", userId: u._id, userName: u.name })}><Ban className="h-4 w-4 text-red-600" /></Button>}<Button variant="ghost" size="icon" onClick={() => setConfirm({ type: "delete", userId: u._id, userName: u.name })}><Trash2 className="h-4 w-4 text-red-700" /></Button></div></TableCell>
                 </TableRow>)}
           </TableBody></Table></div>
           <div className="flex justify-end gap-2 border-t p-4"><Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>{t("common.previous", "Previous")}</Button><span className="self-center text-sm">{t("common.page", "Page")} {page}</span><Button variant="outline" disabled={pageEnd >= total} onClick={() => setPage((p) => p + 1)}>{t("common.next", "Next")}</Button></div>
         </CardContent></Card>
-      </div>
+      </main>
+      <Footer />
 
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{t("adminUsers.userDetails", "User Details")}</DialogTitle><DialogDescription>{t("adminUsers.userDetailsSub", "Profile, activity and admin controls")}</DialogDescription></DialogHeader>
         {detailsLoading || !detail ? <div className="py-8 text-center text-muted-foreground">{t("common.loading", "Loading...")}</div> : <div className="space-y-4">
           <div className="rounded-lg border p-4"><p className="text-lg font-semibold">{detail.name}</p><p className="text-sm text-muted-foreground">{detail.email} • {detail.phone}</p><div className="mt-2 flex gap-2"><Badge>{roleLabel(detail.role)}</Badge><Badge variant="outline">Joined {new Date(detail.joinedDate).toLocaleDateString()}</Badge></div><p className="mt-2 text-sm">Verification: Email {detail.verification.email ? "✓" : "✗"} | Phone {detail.verification.phone ? "✓" : "✗"} | Aadhaar {detail.verification.aadhaar ? "✓" : "✗"}</p></div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3"><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Total complaints</p><p className="text-xl font-semibold">{detail.activity.totalComplaints}</p></CardContent></Card><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Resolved</p><p className="text-xl font-semibold">{detail.activity.resolvedComplaints}</p></CardContent></Card><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Avg rating</p><p className="text-xl font-semibold">{detail.activity.avgRating}</p></CardContent></Card></div>
           <div className="rounded-lg border p-4"><p className="mb-2 font-medium">Recent activity</p><div className="space-y-2">{detail.activity.recentTimeline.length ? detail.activity.recentTimeline.map((t) => <div key={t.id} className="rounded-md bg-muted/40 p-2"><p className="text-sm font-medium">{t.label}</p><p className="text-xs text-muted-foreground">{t.description}</p></div>) : <p className="text-sm text-muted-foreground">No activity</p>}</div></div>
-          <div className="rounded-lg border p-4"><p className="mb-2 font-medium">Edit options</p><div className="grid grid-cols-1 gap-3 md:grid-cols-2"><div><Label className="mb-2 block">Change role</Label><Select value={editRole} onValueChange={(v: UserRole) => setEditRole(v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">Citizen</SelectItem><SelectItem value="officer">Officer</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select></div>{editRole === "officer" && <div><Label className="mb-2 block">Assign department</Label><Select value={editDept} onValueChange={setEditDept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Select department</SelectItem>{departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>}</div><div className="mt-3 flex flex-wrap gap-2"><Button onClick={async () => { if (!detail) return; if (editRole === "officer" && editDept === "none") return toast.error("Department required for officer"); setSaving(true); try { await adminService.updateUser(detail._id, { role: editRole, departmentId: editRole === "officer" ? editDept : undefined }); await openDetails(detail._id); await loadUsers(true); } catch (err: unknown) { toast.error(parseErr(err, "Failed to update user")); } finally { setSaving(false); } }}>Save role/department</Button>{detail.status === "banned" ? <Button variant="outline" onClick={() => setConfirm({ type: "unban", userId: detail._id, userName: detail.name })}>Unban user</Button> : <Button variant="destructive" onClick={() => setConfirm({ type: "ban", userId: detail._id, userName: detail.name })}>Ban user</Button>}</div><div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]"><Input placeholder="Custom password (optional)" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} /><Button variant="outline" onClick={() => setConfirm({ type: "reset", userId: detail._id, userName: detail.name })}>Reset Password</Button></div></div>
+          <div className="rounded-lg border p-4"><p className="mb-2 font-medium">Edit options</p><div className="grid grid-cols-1 gap-3 md:grid-cols-2"><div><Label className="mb-2 block">Change role</Label><Select value={editRole} onValueChange={(v: UserRole) => setEditRole(v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">Citizen</SelectItem><SelectItem value="officer">Officer</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select></div>{editRole === "officer" && <div><Label className="mb-2 block">Assign department</Label><Select value={editDept} onValueChange={setEditDept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Select department</SelectItem>{departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>}</div><div className="mt-3 flex flex-wrap gap-2"><Button onClick={async () => { if (!detail) return; if (editRole === "officer" && editDept === "none") return toast.error("Department required for officer"); setSaving(true); try { await adminService.updateUser(detail._id, { role: editRole, departmentId: editRole === "officer" ? editDept : undefined }); await openDetails(detail._id); await loadUsers(true); } catch (err: unknown) { toast.error(parseErr(err, "Failed to update user")); } finally { setSaving(false); } }}>Save role/department</Button>{detail.status === "banned" ? <Button variant="outline" onClick={() => setConfirm({ type: "unban", userId: detail._id, userName: detail.name })}>Unban user</Button> : <Button variant="destructive" onClick={() => setConfirm({ type: "ban", userId: detail._id, userName: detail.name })}>Ban user</Button>}<Button variant="outline" className="text-red-700 border-red-200 hover:bg-red-50" onClick={() => setConfirm({ type: "delete", userId: detail._id, userName: detail.name })}>Delete user</Button></div><div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]"><Input placeholder="Custom password (optional)" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} /><Button variant="outline" onClick={() => setConfirm({ type: "reset", userId: detail._id, userName: detail.name })}>Reset Password</Button></div></div>
         </div>}
       </DialogContent></Dialog>
 
@@ -334,7 +341,7 @@ const AdminUserManagement = () => {
         <DialogFooter><Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button><Button disabled={saving} onClick={async () => { if (!addForm.name || !addForm.email || !addForm.phone) return toast.error("Name, email, phone are required"); if (addForm.role === "officer" && addForm.departmentId === "none") return toast.error("Department required for officers"); if (!addForm.autoGeneratePassword && addForm.password.length < 8) return toast.error("Password must be at least 8 chars"); setSaving(true); try { const res = await adminService.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role, departmentId: addForm.role === "officer" ? addForm.departmentId : undefined, autoGeneratePassword: addForm.autoGeneratePassword, password: addForm.autoGeneratePassword ? undefined : addForm.password, sendWelcome: addForm.sendWelcome }); const temp = res?.data?.tempPassword; toast.success(temp ? `User created. Temp password: ${temp}` : "User created"); setAddOpen(false); setAddForm({ name: "", email: "", phone: "", role: "user", departmentId: "none", autoGeneratePassword: true, password: "", sendWelcome: true }); await loadUsers(true); } catch (err: unknown) { toast.error(parseErr(err, "Failed to create user")); } finally { setSaving(false); } }}>Create User</Button></DialogFooter>
       </DialogContent></Dialog>
 
-      <Dialog open={!!confirm} onOpenChange={() => setConfirm(null)}><DialogContent><DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5 text-amber-600" />Confirm Action</DialogTitle><DialogDescription>{confirm?.type === "ban" && `Ban ${confirm.userName}?`} {confirm?.type === "unban" && `Unban ${confirm.userName}?`} {confirm?.type === "reset" && `Reset password for ${confirm.userName}?`} {confirm?.type === "bulk" && `Apply ${confirm.bulkAction} on ${selectedIds.length} users?`}</DialogDescription></DialogHeader>{confirm?.type === "ban" && <div><Label className="mb-2 block">Reason</Label><Textarea value={reason} onChange={(e) => setReason(e.target.value)} /></div>}<DialogFooter><Button variant="outline" onClick={() => setConfirm(null)}>Cancel</Button><Button variant={confirm?.type === "ban" ? "destructive" : "default"} onClick={confirmAction} disabled={saving}>Confirm</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={!!confirm} onOpenChange={() => setConfirm(null)}><DialogContent><DialogHeader><DialogTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5 text-amber-600" />Confirm Action</DialogTitle><DialogDescription>{confirm?.type === "ban" && `Ban ${confirm.userName}?`} {confirm?.type === "unban" && `Unban ${confirm.userName}?`} {confirm?.type === "reset" && `Reset password for ${confirm.userName}?`} {confirm?.type === "bulk" && `Apply ${confirm.bulkAction} on ${selectedIds.length} users?`} {confirm?.type === "delete" && `Delete ${confirm.userName}? This cannot be undone.`}</DialogDescription></DialogHeader>{confirm?.type === "ban" && <div><Label className="mb-2 block">Reason</Label><Textarea value={reason} onChange={(e) => setReason(e.target.value)} /></div>}<DialogFooter><Button variant="outline" onClick={() => setConfirm(null)}>Cancel</Button><Button variant={confirm?.type === "ban" || confirm?.type === "delete" ? "destructive" : "default"} onClick={confirmAction} disabled={saving}>Confirm</Button></DialogFooter></DialogContent></Dialog>
     </div>
   );
 };

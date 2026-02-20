@@ -3,11 +3,21 @@ import Department from "../models/Department.js";
 import User from "../models/User.js";
 import AdminSetting from "../models/AdminSetting.js";
 import Notification from "../models/Notification.js";
+import AdminReport from "../models/AdminReport.js";
 import { createStatusNotification } from "../utils/notification.js";
 import { sendWelcomeEmail } from "../utils/sendOTP.js";
 import { publishUserManagementEvent, subscribeUserManagement } from "../utils/realtime.js";
+import { invalidateRuntimeSettingsCache } from "../utils/runtimeSettings.js";
+import { randomBytes } from "crypto";
 
 const ADMIN_SETTINGS_KEY = "global";
+
+const csvEscape = (value) => {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
+const generateSystemKey = () => `grv_key_${randomBytes(24).toString("hex")}`;
 
 
 // @desc    Get all complaints (Admin)
@@ -45,7 +55,19 @@ export async function getAllComplaints(req, res) {
     if (fromDate) query.createdAt = { $gte: new Date(fromDate) };
     if (toDate) query.createdAt = { ...query.createdAt, $lte: new Date(toDate) };
 
-    const sort = { [sortBy === 'filedDate' ? 'createdAt' : sortBy]: sortDir === 'asc' ? 1 : -1 };
+    const sortableFieldMap = {
+      complaintId: "complaintId",
+      title: "title",
+      category: "category",
+      status: "status",
+      priority: "priority",
+      filedDate: "createdAt",
+      createdAt: "createdAt",
+      lastUpdated: "updatedAt",
+      updatedAt: "updatedAt",
+    };
+    const mappedSortField = sortableFieldMap[sortBy] || "createdAt";
+    const sort = { [mappedSortField]: sortDir === 'asc' ? 1 : -1 };
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const complaints = await Complaint.find(query)
@@ -85,7 +107,7 @@ export async function getAllComplaints(req, res) {
 // @access  Private/Admin
 export async function assignComplaint(req, res) {
   try {
-    const { departmentId, officerId, priority, estimatedDays = 7 } = req.body;
+    const { departmentId, officerId, priority, estimatedDays } = req.body;
 
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
@@ -178,9 +200,26 @@ export async function assignComplaint(req, res) {
         updatedAt: new Date(),
       });
     }
-    const est = new Date();
-    est.setDate(est.getDate() + estimatedDays);
-    complaint.estimatedResolution = est;
+    let estimatedResolution = null;
+    if (
+      estimatedDays !== undefined &&
+      estimatedDays !== null &&
+      !Number.isNaN(Number(estimatedDays)) &&
+      Number(estimatedDays) > 0
+    ) {
+      estimatedResolution = new Date();
+      estimatedResolution.setDate(
+        estimatedResolution.getDate() + Number(estimatedDays),
+      );
+    } else if (effectiveDepartmentId) {
+      const departmentForSla = await Department.findById(effectiveDepartmentId)
+        .select("slaTargets")
+        .lean();
+      const slaHours =
+        departmentForSla?.slaTargets?.[complaint.priority] || 72;
+      estimatedResolution = new Date(Date.now() + slaHours * 60 * 60 * 1000);
+    }
+    complaint.estimatedResolution = estimatedResolution;
 
     await complaint.save();
     await createStatusNotification({
@@ -209,22 +248,30 @@ export async function updateComplaintStatus(req, res) {
 
     const complaint = await Complaint.findById(req.params.id);
     if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
+    if (String(complaint.status || "").toLowerCase() === "resolved") {
+      return res.status(400).json({
+        success: false,
+        message: "Resolved complaints cannot be updated",
+      });
+    }
+
+    const normalizedStatus = status === "in_progress" ? "in-progress" : status;
 
     complaint.recordStatusChange(
-      status,
+      normalizedStatus,
       req.user.id,
-      message || `Status updated to ${status}`,
+      message || `Status updated to ${normalizedStatus}`,
       "admin",
     );
-    if (status === 'resolved') complaint.resolvedDate = new Date();
-    if (status === 'rejected' && rejectionReason) complaint.rejectionReason = rejectionReason;
+    if (normalizedStatus === 'resolved') complaint.resolvedDate = new Date();
+    if (normalizedStatus === 'rejected' && rejectionReason) complaint.rejectionReason = rejectionReason;
 
     if (message) {
       complaint.updates.push({ message, updatedBy: req.user.id });
     }
     complaint.timeline.unshift({
-      status,
-      message: message || `Status updated to ${status}`,
+      status: normalizedStatus,
+      message: message || `Status updated to ${normalizedStatus}`,
       updatedBy: req.user.id,
       updatedAt: new Date(),
     });
@@ -233,11 +280,91 @@ export async function updateComplaintStatus(req, res) {
     await createStatusNotification({
       userId: complaint.user,
       complaint,
-      status,
-      message: message || `Complaint status updated to ${status}`,
+      status: normalizedStatus,
+      message: message || `Complaint status updated to ${normalizedStatus}`,
       source: "admin",
     });
     res.status(200).json({ success: true, message: 'Status updated successfully', data: { complaint } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Escalate complaint priority and add escalation note
+// @route   PUT /api/admin/complaints/:id/escalate
+// @access  Private/Admin
+export async function escalateComplaint(req, res) {
+  try {
+    const { reason = "Escalated by admin", priority = "high" } = req.body;
+    const safePriority = ["low", "medium", "high", "critical"].includes(String(priority))
+      ? String(priority)
+      : "high";
+
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: "Complaint not found" });
+    }
+    if (["resolved", "rejected"].includes(String(complaint.status || "").toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Resolved or rejected complaints cannot be escalated",
+      });
+    }
+
+    complaint.priority = safePriority;
+    complaint.updates.push({
+      message: reason,
+      updatedBy: req.user.id,
+    });
+    complaint.timeline.unshift({
+      status: complaint.status,
+      message: reason,
+      updatedBy: req.user.id,
+      updatedAt: new Date(),
+      metadata: {
+        escalated: true,
+        escalatedPriority: safePriority,
+      },
+    });
+
+    await complaint.save();
+    await createStatusNotification({
+      userId: complaint.user,
+      complaint,
+      status: complaint.status,
+      message: `Your complaint was escalated with priority ${safePriority}.`,
+      source: "admin",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Complaint escalated successfully",
+      data: { complaint },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Delete complaint
+// @route   DELETE /api/admin/complaints/:id
+// @access  Private/Admin
+export async function deleteComplaint(req, res) {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: "Complaint not found" });
+    }
+
+    await Notification.deleteMany({
+      $or: [{ complaint: complaint._id }, { complaintId: complaint.complaintId }],
+    });
+    await complaint.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Complaint deleted successfully",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -396,17 +523,74 @@ export async function getDashboardStats(req, res) {
           $project: {
             name: 1,
             code: 1,
-            total: { $size: '$complaints' },
+            total: {
+              $size: {
+                $filter: {
+                  input: '$complaints',
+                  as: 'c',
+                  cond: { $eq: ['$$c.isDraft', false] },
+                },
+              },
+            },
             pending: {
               $size: {
-                $filter: { input: '$complaints', as: 'c', cond: { $in: ['$$c.status', ['filed', 'assigned', 'in-progress']] } }
+                $filter: {
+                  input: '$complaints',
+                  as: 'c',
+                  cond: {
+                    $and: [
+                      { $eq: ['$$c.isDraft', false] },
+                      { $in: ['$$c.status', ['filed', 'assigned', 'pending', 'in-progress', 'in_progress']] },
+                    ],
+                  },
+                },
               }
             },
             resolved: {
               $size: {
-                $filter: { input: '$complaints', as: 'c', cond: { $eq: ['$$c.status', 'resolved'] } }
+                $filter: {
+                  input: '$complaints',
+                  as: 'c',
+                  cond: {
+                    $and: [
+                      { $eq: ['$$c.isDraft', false] },
+                      { $eq: ['$$c.status', 'resolved'] },
+                    ],
+                  },
+                },
               }
-            }
+            },
+            avgResolutionHours: {
+              $avg: {
+                $map: {
+                  input: {
+                    $filter: {
+                      input: '$complaints',
+                      as: 'c',
+                      cond: {
+                        $and: [
+                          { $eq: ['$$c.isDraft', false] },
+                          { $eq: ['$$c.status', 'resolved'] },
+                          { $ne: ['$$c.createdAt', null] },
+                        ],
+                      },
+                    },
+                  },
+                  as: 'rc',
+                  in: {
+                    $divide: [
+                      {
+                        $subtract: [
+                          { $ifNull: ['$$rc.resolvedDate', '$$rc.updatedAt'] },
+                          '$$rc.createdAt',
+                        ],
+                      },
+                      1000 * 60 * 60,
+                    ],
+                  },
+                },
+              },
+            },
           }
         }
       ]),
@@ -445,6 +629,73 @@ export async function getDashboardStats(req, res) {
   }
 }
 
+// @desc    Export dashboard trend data as CSV
+// @route   GET /api/admin/dashboard/export/trend.csv
+// @access  Private/Admin
+export async function exportDashboardTrendCsv(req, res) {
+  try {
+    const trendData = await Complaint.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+          isDraft: false,
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          filed: { $sum: 1 },
+          resolved: { $sum: { $cond: [{ $eq: ["$status", "resolved"] }, 1, 0] } },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const rows = [
+      ["Date", "Filed", "Resolved"],
+      ...trendData.map((item) => [item._id, item.filed ?? 0, item.resolved ?? 0]),
+    ];
+
+    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="dashboard-trend-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+    res.status(200).send(csv);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Export dashboard category data as CSV
+// @route   GET /api/admin/dashboard/export/category.csv
+// @access  Private/Admin
+export async function exportDashboardCategoryCsv(req, res) {
+  try {
+    const categoryData = await Complaint.aggregate([
+      { $match: { isDraft: false } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    const rows = [
+      ["Category", "Count"],
+      ...categoryData.map((item) => [item._id || "Unknown", item.count ?? 0]),
+    ];
+
+    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="dashboard-category-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+    res.status(200).send(csv);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 // @desc    Get analytics data
 // @route   GET /api/admin/analytics
 // @access  Private/Admin
@@ -469,7 +720,7 @@ export async function getAnalytics(req, res) {
     const prevStart = new Date(startDate.getTime() - windowMs);
     const prevEnd = new Date(startDate.getTime() - 1);
 
-    const [totalFiled, totalResolved, previousFiled, avgResolutionAgg, slaAgg, categoryBreakdown, statusDist, trendData, deptPerf, topCoords, categoryHotspots] = await Promise.all([
+    const [totalFiled, totalResolved, previousFiled, avgResolutionAgg, slaAgg, categoryBreakdown, statusDist, trendData, categoryTrendData, deptPerf, topCoords, categoryHotspots] = await Promise.all([
       Complaint.countDocuments(matchQuery),
       Complaint.countDocuments({ ...matchQuery, status: 'resolved' }),
       Complaint.countDocuments({ createdAt: { $gte: prevStart, $lte: prevEnd }, isDraft: false }),
@@ -513,8 +764,92 @@ export async function getAnalytics(req, res) {
       ]),
       Complaint.aggregate([
         { $match: matchQuery },
-        { $group: { _id: '$category', value: { $sum: 1 } } },
-        { $project: { name: '$_id', value: 1, _id: 0 } },
+        {
+          $group: {
+            _id: "$category",
+            total: { $sum: 1 },
+            pending: {
+              $sum: {
+                $cond: [
+                  {
+                    $in: [
+                      "$status",
+                      ["filed", "assigned", "in-progress", "in_progress"],
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            resolvedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$status", "resolved"] },
+                      { $ne: ["$resolvedDate", null] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            resolvedDurationDays: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$status", "resolved"] },
+                      { $ne: ["$resolvedDate", null] },
+                    ],
+                  },
+                  {
+                    $divide: [
+                      { $subtract: ["$resolvedDate", "$createdAt"] },
+                      1000 * 60 * 60 * 24,
+                    ],
+                  },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            name: "$_id",
+            value: "$total",
+            total: "$total",
+            pending: 1,
+            avgTime: {
+              $cond: [
+                { $gt: ["$resolvedCount", 0] },
+                {
+                  $concat: [
+                    {
+                      $toString: {
+                        $round: [
+                          {
+                            $divide: [
+                              "$resolvedDurationDays",
+                              "$resolvedCount",
+                            ],
+                          },
+                          1,
+                        ],
+                      },
+                    },
+                    " days",
+                  ],
+                },
+                "N/A",
+              ],
+            },
+          },
+        },
         { $sort: { value: -1 } }
       ]),
         Complaint.aggregate([
@@ -553,6 +888,27 @@ export async function getAnalytics(req, res) {
         },
         { $sort: { _id: 1 } },
         { $project: { name: '$_id', filed: 1, resolved: 1, pending: 1, _id: 0 } }
+      ]),
+      Complaint.aggregate([
+        { $match: matchQuery },
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+              category: "$category",
+            },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            date: "$_id.date",
+            category: "$_id.category",
+            count: 1,
+          },
+        },
+        { $sort: { date: 1 } },
       ]),
       Department.aggregate([
         {
@@ -645,7 +1001,7 @@ export async function getAnalytics(req, res) {
           }
         },
         { $sort: { complaints: -1 } },
-        { $limit: 5 },
+        { $limit: 12 },
       ]),
       Complaint.aggregate([
         { $match: matchQuery },
@@ -699,8 +1055,10 @@ export async function getAnalytics(req, res) {
         Complaint.aggregate([
           {
             $match: {
-              ...matchQuery,
-              'feedback.rating': { $gte: 1 }
+              isDraft: false,
+              status: "resolved",
+              "feedback.rating": { $gte: 1 },
+              "feedback.submittedAt": { $gte: startDate, $lte: endDate },
             }
           },
           { $group: { _id: null, avgRating: { $avg: '$feedback.rating' } } }
@@ -708,9 +1066,10 @@ export async function getAnalytics(req, res) {
         Complaint.aggregate([
           {
             $match: {
-              createdAt: { $gte: prevStart, $lte: prevEnd },
               isDraft: false,
-              'feedback.rating': { $gte: 1 }
+              status: "resolved",
+              "feedback.rating": { $gte: 1 },
+              "feedback.submittedAt": { $gte: prevStart, $lte: prevEnd },
             }
           },
           { $group: { _id: null, avgRating: { $avg: '$feedback.rating' } } }
@@ -755,20 +1114,31 @@ export async function getAnalytics(req, res) {
     if (topCoords.length > 0) {
       const lats = topCoords.map((c) => c._id.lat);
       const lngs = topCoords.map((c) => c._id.lng);
-      const latMin = Math.min(...lats);
-      const latMax = Math.max(...lats);
-      const lngMin = Math.min(...lngs);
-      const lngMax = Math.max(...lngs);
+      const dynamicLatMin = Math.min(...lats);
+      const dynamicLatMax = Math.max(...lats);
+      const dynamicLngMin = Math.min(...lngs);
+      const dynamicLngMax = Math.max(...lngs);
+      const allInIndiaBounds =
+        lats.every((lat) => lat >= 6 && lat <= 38) &&
+        lngs.every((lng) => lng >= 68 && lng <= 98);
+      const latMin = allInIndiaBounds ? 6 : dynamicLatMin;
+      const latMax = allInIndiaBounds ? 38 : dynamicLatMax;
+      const lngMin = allInIndiaBounds ? 68 : dynamicLngMin;
+      const lngMax = allInIndiaBounds ? 98 : dynamicLngMax;
       const latRange = latMax - latMin || 1;
       const lngRange = lngMax - lngMin || 1;
 
+      const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+
       heatmapZones = topCoords.map((zone, idx) => ({
         id: idx + 1,
-        name: `Zone ${idx + 1}`,
+        name: `Lat ${zone._id.lat}, Lon ${zone._id.lng}`,
         complaints: zone.complaints,
         density: toDensity(zone.complaints),
-        x: 15 + ((zone._id.lng - lngMin) / lngRange) * 70,
-        y: 15 + ((latMax - zone._id.lat) / latRange) * 70,
+        lat: zone._id.lat,
+        lng: zone._id.lng,
+        x: clamp(((zone._id.lng - lngMin) / lngRange) * 100, 8, 92),
+        y: clamp(((latMax - zone._id.lat) / latRange) * 100, 10, 90),
       }));
     } else {
       const fallbackPositions = [
@@ -783,12 +1153,43 @@ export async function getAnalytics(req, res) {
         name: zone._id || `Zone ${idx + 1}`,
         complaints: zone.complaints,
         density: toDensity(zone.complaints),
+        lat: null,
+        lng: null,
         x: fallbackPositions[idx]?.x ?? 50,
         y: fallbackPositions[idx]?.y ?? 50,
       }));
     }
 
-    const topCategory = categoryBreakdown[0];
+    const trendLabels =
+      (trendData || []).map((row) => row.name).slice(-7);
+    const categoryDateCountMap = new Map();
+    (categoryTrendData || []).forEach((row) => {
+      const cat = row.category || "Unknown";
+      const date = row.date || "";
+      if (!categoryDateCountMap.has(cat)) {
+        categoryDateCountMap.set(cat, new Map());
+      }
+      categoryDateCountMap.get(cat).set(date, Number(row.count || 0));
+    });
+
+    const categoryBreakdownWithTrend = (categoryBreakdown || []).map((cat) => {
+      const categoryName = cat.name || cat._id || "Unknown";
+      const dateMap = categoryDateCountMap.get(categoryName) || new Map();
+      const trend = trendLabels.length
+        ? trendLabels.map((label) => Number(dateMap.get(label) || 0))
+        : [0, 0, 0, 0, 0, 0, 0];
+      const first = trend[0] ?? 0;
+      const last = trend[trend.length - 1] ?? 0;
+      const trendDirection = last < first ? "down" : "up";
+
+      return {
+        ...cat,
+        trend,
+        trendDirection,
+      };
+    });
+
+    const topCategory = categoryBreakdownWithTrend[0];
     const topCategoryShare = topCategory && totalFiled > 0
       ? ((topCategory.value / totalFiled) * 100).toFixed(1)
       : "0.0";
@@ -846,7 +1247,7 @@ export async function getAnalytics(req, res) {
           slaCompliance: `${slaCompliance}%`,
           comparison,
         },
-        categoryBreakdown,
+        categoryBreakdown: categoryBreakdownWithTrend,
         statusDistribution: statusDist,
         trendData,
         departmentPerformance: deptPerf,
@@ -854,6 +1255,766 @@ export async function getAnalytics(req, res) {
         insights,
       }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+const resolveAnalyticsRange = (range, fromDate, toDate) => {
+  let startDate = new Date();
+  switch (range) {
+    case "today":
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "7days":
+      startDate.setDate(startDate.getDate() - 7);
+      break;
+    case "30days":
+      startDate.setDate(startDate.getDate() - 30);
+      break;
+    case "90days":
+      startDate.setDate(startDate.getDate() - 90);
+      break;
+    case "custom":
+      if (fromDate) startDate = new Date(fromDate);
+      break;
+    default:
+      startDate.setDate(startDate.getDate() - 30);
+      break;
+  }
+
+  const endDate =
+    range === "custom" && toDate ? new Date(toDate) : new Date();
+  return { startDate, endDate };
+};
+
+// @desc    Export analytics report as CSV (live backend data)
+// @route   GET /api/admin/analytics/export.csv
+// @access  Private/Admin
+export async function exportAnalyticsCsv(req, res) {
+  try {
+    const { range = "30days", fromDate, toDate } = req.query;
+    const { startDate, endDate } = resolveAnalyticsRange(
+      String(range),
+      fromDate,
+      toDate,
+    );
+    const matchQuery = {
+      createdAt: { $gte: startDate, $lte: endDate },
+      isDraft: false,
+    };
+
+    const [
+      totalFiled,
+      totalResolved,
+      avgResolutionAgg,
+      slaAgg,
+      satisfactionAgg,
+      trendData,
+      categoryBreakdown,
+      departmentPerformance,
+      statusDistribution,
+    ] = await Promise.all([
+      Complaint.countDocuments(matchQuery),
+      Complaint.countDocuments({ ...matchQuery, status: "resolved" }),
+      Complaint.aggregate([
+        {
+          $match: {
+            ...matchQuery,
+            status: "resolved",
+            resolvedDate: { $ne: null },
+          },
+        },
+        {
+          $project: {
+            resolutionDays: {
+              $divide: [
+                { $subtract: ["$resolvedDate", "$createdAt"] },
+                1000 * 60 * 60 * 24,
+              ],
+            },
+          },
+        },
+        { $group: { _id: null, avgDays: { $avg: "$resolutionDays" } } },
+      ]),
+      Complaint.aggregate([
+        {
+          $match: {
+            ...matchQuery,
+            status: "resolved",
+            resolvedDate: { $ne: null },
+            estimatedResolution: { $ne: null },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            withinSla: {
+              $sum: {
+                $cond: [
+                  { $lte: ["$resolvedDate", "$estimatedResolution"] },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+      Complaint.aggregate([
+        {
+          $match: {
+            isDraft: false,
+            status: "resolved",
+            "feedback.rating": { $gte: 1 },
+            "feedback.submittedAt": { $gte: startDate, $lte: endDate },
+          },
+        },
+        { $group: { _id: null, avgRating: { $avg: "$feedback.rating" } } },
+      ]),
+      Complaint.aggregate([
+        { $match: matchQuery },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            filed: { $sum: 1 },
+            resolved: {
+              $sum: { $cond: [{ $eq: ["$status", "resolved"] }, 1, 0] },
+            },
+            pending: {
+              $sum: {
+                $cond: [
+                  {
+                    $in: [
+                      "$status",
+                      ["filed", "assigned", "in-progress", "in_progress"],
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Complaint.aggregate([
+        { $match: matchQuery },
+        { $group: { _id: "$category", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Department.aggregate([
+        {
+          $lookup: {
+            from: "complaints",
+            let: { departmentId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$department", "$$departmentId"] },
+                  createdAt: { $gte: startDate, $lte: endDate },
+                  isDraft: false,
+                },
+              },
+            ],
+            as: "complaints",
+          },
+        },
+        {
+          $project: {
+            name: 1,
+            avgTime: {
+              $let: {
+                vars: {
+                  resolvedComplaints: {
+                    $filter: {
+                      input: "$complaints",
+                      as: "c",
+                      cond: {
+                        $and: [
+                          { $eq: ["$$c.status", "resolved"] },
+                          { $ne: ["$$c.resolvedDate", null] },
+                        ],
+                      },
+                    },
+                  },
+                },
+                in: {
+                  $cond: [
+                    { $gt: [{ $size: "$$resolvedComplaints" }, 0] },
+                    {
+                      $divide: [
+                        {
+                          $sum: {
+                            $map: {
+                              input: "$$resolvedComplaints",
+                              as: "rc",
+                              in: {
+                                $divide: [
+                                  {
+                                    $subtract: [
+                                      "$$rc.resolvedDate",
+                                      "$$rc.createdAt",
+                                    ],
+                                  },
+                                  1000 * 60 * 60 * 24,
+                                ],
+                              },
+                            },
+                          },
+                        },
+                        { $size: "$$resolvedComplaints" },
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+        { $sort: { name: 1 } },
+      ]),
+      Complaint.aggregate([
+        { $match: matchQuery },
+        { $group: { _id: "$status", value: { $sum: 1 } } },
+        { $sort: { value: -1 } },
+      ]),
+    ]);
+
+    const resolutionRate =
+      totalFiled > 0 ? ((totalResolved / totalFiled) * 100).toFixed(1) : "0.0";
+    const avgResolutionDays = Number(avgResolutionAgg?.[0]?.avgDays ?? 0).toFixed(
+      1,
+    );
+    const slaTotal = slaAgg?.[0]?.total ?? 0;
+    const slaWithin = slaAgg?.[0]?.withinSla ?? 0;
+    const slaCompliance =
+      slaTotal > 0 ? ((slaWithin / slaTotal) * 100).toFixed(1) : "0.0";
+    const citizenSatisfaction = Number(
+      satisfactionAgg?.[0]?.avgRating ?? 0,
+    ).toFixed(1);
+    const pendingCount = Math.max(totalFiled - totalResolved, 0);
+
+    const lines = [
+      "Section,Key,Value",
+      `Meta,Range,${csvEscape(String(range))}`,
+      `Meta,From,${csvEscape(startDate.toISOString())}`,
+      `Meta,To,${csvEscape(endDate.toISOString())}`,
+      `Key Metrics,Total Complaints Filed,${csvEscape(totalFiled)}`,
+      `Key Metrics,Resolved,${csvEscape(totalResolved)}`,
+      `Key Metrics,Pending,${csvEscape(pendingCount)}`,
+      `Key Metrics,Resolution Rate,${csvEscape(`${resolutionRate}%`)}`,
+      `Key Metrics,Avg Resolution Time,${csvEscape(`${avgResolutionDays} days`)}`,
+      `Key Metrics,Citizen Satisfaction,${csvEscape(`${citizenSatisfaction}/5`)}`,
+      `Key Metrics,SLA Compliance,${csvEscape(`${slaCompliance}%`)}`,
+      "",
+      "Trend Data,Date,Filed,Resolved,Pending",
+      ...trendData.map((row) =>
+        [
+          csvEscape("Trend Data"),
+          csvEscape(row._id),
+          csvEscape(row.filed ?? 0),
+          csvEscape(row.resolved ?? 0),
+          csvEscape(row.pending ?? 0),
+        ].join(","),
+      ),
+      "",
+      "Category Breakdown,Category,Count",
+      ...categoryBreakdown.map((row) =>
+        [
+          csvEscape("Category Breakdown"),
+          csvEscape(row._id || "Unknown"),
+          csvEscape(row.count ?? 0),
+        ].join(","),
+      ),
+      "",
+      "Department Performance,Department,Avg Resolution Time (days)",
+      ...departmentPerformance.map((row) =>
+        [
+          csvEscape("Department Performance"),
+          csvEscape(row.name || "Unknown"),
+          csvEscape(Number(row.avgTime ?? 0).toFixed(1)),
+        ].join(","),
+      ),
+      "",
+      "Status Distribution,Status,Count",
+      ...statusDistribution.map((row) =>
+        [
+          csvEscape("Status Distribution"),
+          csvEscape(row._id || "Unknown"),
+          csvEscape(row.value ?? 0),
+        ].join(","),
+      ),
+    ];
+
+    const csv = lines.join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="admin-analytics-${String(range)}-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+    return res.status(200).send(csv);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+const DEFAULT_INCLUDE = {
+  charts: true,
+  detailedList: false,
+  executiveSummary: true,
+  recommendations: true,
+  rawData: false,
+};
+
+const normalizeStatusForReport = (status = "") => {
+  const value = String(status).toLowerCase().trim();
+  if (value === "in_progress") return "in-progress";
+  return value;
+};
+
+const buildSimplePdfBytes = (lines = []) => {
+  const escapedLines = lines.map((line) =>
+    String(line)
+      .replace(/\\/g, "\\\\")
+      .replace(/\(/g, "\\(")
+      .replace(/\)/g, "\\)"),
+  );
+
+  const content = [
+    "BT",
+    "/F1 12 Tf",
+    "72 760 Td",
+    ...escapedLines
+      .slice(0, 28)
+      .map((line, idx) => `${idx === 0 ? "" : "0 -20 Td"}(${line}) Tj`)
+      .filter(Boolean),
+    "ET",
+  ].join("\n");
+
+  const objects = [
+    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
+    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n",
+    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj\n",
+    `4 0 obj << /Length ${content.length} >> stream\n${content}\nendstream\nendobj\n`,
+    "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((obj) => {
+    offsets.push(pdf.length);
+    pdf += obj;
+  });
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\n`;
+  pdf += `startxref\n${xrefStart}\n%%EOF`;
+
+  return Buffer.from(pdf, "utf8");
+};
+
+const buildReportSnapshot = async (config = {}) => {
+  const startDateRaw = config.startDate || new Date().toISOString().slice(0, 10);
+  const endDateRaw = config.endDate || new Date().toISOString().slice(0, 10);
+  const fromDate = new Date(`${startDateRaw}T00:00:00.000Z`);
+  const toDate = new Date(`${endDateRaw}T23:59:59.999Z`);
+  const groupBy = ["department", "category", "date", "status"].includes(config.groupBy)
+    ? config.groupBy
+    : "department";
+
+  const include = {
+    ...DEFAULT_INCLUDE,
+    ...(config.include || {}),
+  };
+
+  const departments = Array.isArray(config.departments) ? config.departments : [];
+  const categories = Array.isArray(config.categories) ? config.categories : [];
+  const statuses = (Array.isArray(config.statuses) ? config.statuses : []).map(normalizeStatusForReport);
+  const priorities = Array.isArray(config.priorities) ? config.priorities : [];
+
+  const query = {
+    isDraft: false,
+    createdAt: { $gte: fromDate, $lte: toDate },
+  };
+
+  if (categories.length > 0) query.category = { $in: categories };
+  if (statuses.length > 0) query.status = { $in: statuses };
+  if (priorities.length > 0) query.priority = { $in: priorities };
+
+  if (departments.length > 0) {
+    const deptDocs = await Department.find({ name: { $in: departments } }).select("_id name").lean();
+    const deptIds = deptDocs.map((d) => d._id);
+    const includesUnassigned = departments.includes("Unassigned");
+    if (deptIds.length === 0 && !includesUnassigned) {
+      query.department = { $in: [] };
+    } else if (includesUnassigned) {
+      query.$or = [
+        { department: { $in: deptIds } },
+        { department: { $exists: false } },
+        { department: null },
+      ];
+    } else {
+      query.department = { $in: deptIds };
+    }
+  }
+
+  const complaints = await Complaint.find(query)
+    .select("category status priority resolvedDate estimatedResolution createdAt department")
+    .populate("department", "name")
+    .lean();
+
+  const totalComplaints = complaints.length;
+  const resolved = complaints.filter((item) => normalizeStatusForReport(item.status) === "resolved").length;
+  const pending = complaints.filter((item) =>
+    ["filed", "assigned", "in-progress", "pending"].includes(normalizeStatusForReport(item.status)),
+  ).length;
+
+  const resolvedWithSla = complaints.filter(
+    (item) =>
+      normalizeStatusForReport(item.status) === "resolved" &&
+      item.resolvedDate &&
+      item.estimatedResolution &&
+      new Date(item.resolvedDate).getTime() <= new Date(item.estimatedResolution).getTime(),
+  ).length;
+  const slaCompliance = resolved > 0 ? `${Math.round((resolvedWithSla / resolved) * 100)}%` : "0%";
+
+  const groupKey = (item) => {
+    if (groupBy === "department") return item.department?.name || "Unassigned";
+    if (groupBy === "category") return item.category || "Unknown";
+    if (groupBy === "status") return normalizeStatusForReport(item.status || "unknown");
+    return new Date(item.createdAt).toISOString().slice(0, 10);
+  };
+
+  const grouped = new Map();
+  complaints.forEach((item) => {
+    const key = groupKey(item);
+    const current = grouped.get(key) || { total: 0, resolved: 0, pending: 0 };
+    current.total += 1;
+    const normalizedStatus = normalizeStatusForReport(item.status || "");
+    if (normalizedStatus === "resolved") current.resolved += 1;
+    if (["filed", "assigned", "in-progress", "pending"].includes(normalizedStatus)) current.pending += 1;
+    grouped.set(key, current);
+  });
+
+  const rows = Array.from(grouped.entries())
+    .map(([label, value]) => ({
+      label,
+      total: value.total,
+      resolved: value.resolved,
+      pending: value.pending,
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 12);
+
+  return {
+    dateRange: `${startDateRaw} to ${endDateRaw}`,
+    groupBy,
+    departments,
+    categories,
+    statuses,
+    priorities,
+    include,
+    template: ["standard", "detailed", "executive"].includes(config.template) ? config.template : "standard",
+    sendEmail: Boolean(config.sendEmail),
+    scheduleRecurring: Boolean(config.scheduleRecurring),
+    metrics: {
+      totalComplaints,
+      resolved,
+      pending,
+      slaCompliance,
+    },
+    rows,
+  };
+};
+
+const buildReportCsv = (report) => {
+  const snapshot = report.snapshot || {};
+  const metrics = snapshot.metrics || {};
+  const rows = snapshot.rows || [];
+  const include = snapshot.include || DEFAULT_INCLUDE;
+
+  const includeTags = [
+    include.charts ? "Charts" : null,
+    include.detailedList ? "Detailed List" : null,
+    include.executiveSummary ? "Executive Summary" : null,
+    include.recommendations ? "Recommendations" : null,
+    include.rawData ? "Raw Data Export" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const data = [
+    "Section,Key,Value",
+    `Meta,Name,${csvEscape(report.name || "")}`,
+    `Meta,Type,${csvEscape(report.reportType || "")}`,
+    `Meta,Generated Date,${csvEscape(new Date(report.generatedDate || Date.now()).toISOString())}`,
+    `Meta,Format,${csvEscape(String(report.format || "csv").toUpperCase())}`,
+    `Meta,Date Range,${csvEscape(snapshot.dateRange || "N/A")}`,
+    `Meta,Group By,${csvEscape(snapshot.groupBy || "N/A")}`,
+    `Meta,Template,${csvEscape(snapshot.template || "N/A")}`,
+    `Meta,Send Email,${csvEscape(snapshot.sendEmail ? "Yes" : "No")}`,
+    `Meta,Schedule Recurring,${csvEscape(snapshot.scheduleRecurring ? "Yes" : "No")}`,
+    `Include,Sections,${csvEscape(includeTags || "None")}`,
+    `Metrics,Total Complaints,${csvEscape(metrics.totalComplaints ?? 0)}`,
+    `Metrics,Resolved,${csvEscape(metrics.resolved ?? 0)}`,
+    `Metrics,Pending,${csvEscape(metrics.pending ?? 0)}`,
+    `Metrics,SLA Compliance,${csvEscape(metrics.slaCompliance ?? "0%")}`,
+    "",
+    "Analysis Label,Total,Resolved,Pending",
+    ...rows.map((row) =>
+      [csvEscape(row.label || ""), csvEscape(row.total ?? 0), csvEscape(row.resolved ?? 0), csvEscape(row.pending ?? 0)].join(","),
+    ),
+  ];
+
+  return data.join("\n");
+};
+
+// @desc    Preview report with live backend data
+// @route   POST /api/admin/reports/preview
+// @access  Private/Admin
+export async function previewReport(req, res) {
+  try {
+    const snapshot = await buildReportSnapshot(req.body?.config || req.body || {});
+    res.status(200).json({
+      success: true,
+      data: { snapshot },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Generate and persist report
+// @route   POST /api/admin/reports/generate
+// @access  Private/Admin
+export async function generateReport(req, res) {
+  try {
+    const {
+      name = "Administrative Report",
+      reportType = "summary",
+      format = "pdf",
+      config = {},
+    } = req.body || {};
+
+    const safeFormat = ["pdf", "excel", "csv"].includes(String(format)) ? String(format) : "pdf";
+    const snapshot = await buildReportSnapshot(config);
+
+    const report = await AdminReport.create({
+      recordType: "generated",
+      name: String(name).trim(),
+      reportType: String(reportType).trim(),
+      format: safeFormat,
+      config,
+      snapshot,
+      generatedDate: new Date(),
+      createdBy: req.user.id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Report generated successfully",
+      data: {
+        report: {
+          id: report._id,
+          name: report.name,
+          type: report.reportType,
+          generatedDate: report.generatedDate,
+          format: report.format,
+          snapshot: report.snapshot,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Save report configuration
+// @route   POST /api/admin/reports/configuration
+// @access  Private/Admin
+export async function saveReportConfiguration(req, res) {
+  try {
+    const { name = "Saved Report Configuration", reportType = "summary", config = {} } = req.body || {};
+    const saved = await AdminReport.create({
+      recordType: "configuration",
+      name: String(name).trim(),
+      reportType: String(reportType).trim(),
+      format: "pdf",
+      config,
+      createdBy: req.user.id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Report configuration saved",
+      data: { id: saved._id },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Save report schedule
+// @route   POST /api/admin/reports/schedule
+// @access  Private/Admin
+export async function scheduleReport(req, res) {
+  try {
+    const {
+      name = "Scheduled Report",
+      reportType = "summary",
+      format = "pdf",
+      config = {},
+      schedule = {},
+    } = req.body || {};
+
+    const safeFormat = ["pdf", "excel", "csv"].includes(String(format)) ? String(format) : "pdf";
+    const saved = await AdminReport.create({
+      recordType: "schedule",
+      name: String(name).trim(),
+      reportType: String(reportType).trim(),
+      format: safeFormat,
+      config,
+      schedule: {
+        frequency: ["daily", "weekly", "monthly"].includes(String(schedule.frequency))
+          ? schedule.frequency
+          : "weekly",
+        dayOfWeek: Number.isFinite(Number(schedule.dayOfWeek)) ? Number(schedule.dayOfWeek) : 1,
+        dayOfMonth: Number.isFinite(Number(schedule.dayOfMonth)) ? Number(schedule.dayOfMonth) : 1,
+        time: schedule.time || "09:00",
+        timezone: schedule.timezone || "Asia/Kolkata",
+        enabled: schedule.enabled !== false,
+      },
+      createdBy: req.user.id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Report schedule saved",
+      data: { id: saved._id },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    List generated reports
+// @route   GET /api/admin/reports
+// @access  Private/Admin
+export async function getGeneratedReports(req, res) {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "10", 10), 1), 50);
+    const reports = await AdminReport.find({
+      createdBy: req.user.id,
+      recordType: "generated",
+    })
+      .sort({ generatedDate: -1 })
+      .limit(limit)
+      .select("name reportType format generatedDate snapshot")
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        reports: reports.map((report) => ({
+          id: report._id,
+          name: report.name,
+          type: report.reportType,
+          generatedDate: report.generatedDate,
+          format: report.format,
+          snapshot: report.snapshot || null,
+        })),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Download generated report
+// @route   GET /api/admin/reports/:id/download
+// @access  Private/Admin
+export async function downloadGeneratedReport(req, res) {
+  try {
+    const report = await AdminReport.findOne({
+      _id: req.params.id,
+      createdBy: req.user.id,
+      recordType: "generated",
+    }).lean();
+
+    if (!report) {
+      return res.status(404).json({ success: false, message: "Report not found" });
+    }
+
+    const requestedFormat = String(req.query.format || report.format || "csv").toLowerCase();
+    const format = ["pdf", "excel", "csv"].includes(requestedFormat) ? requestedFormat : "csv";
+    const baseName = String(report.name || "report")
+      .replace(/[^a-z0-9]+/gi, "-")
+      .toLowerCase();
+
+    if (format === "pdf") {
+      const snapshot = report.snapshot || {};
+      const metrics = snapshot.metrics || {};
+      const rows = snapshot.rows || [];
+      const bytes = buildSimplePdfBytes([
+        "Grievance Portal Report",
+        `Name: ${report.name || ""}`,
+        `Type: ${report.reportType || ""}`,
+        `Generated: ${new Date(report.generatedDate || Date.now()).toLocaleString()}`,
+        `Date Range: ${snapshot.dateRange || "N/A"}`,
+        `Group By: ${snapshot.groupBy || "N/A"}`,
+        `Total: ${metrics.totalComplaints ?? 0}`,
+        `Resolved: ${metrics.resolved ?? 0}`,
+        `Pending: ${metrics.pending ?? 0}`,
+        `SLA Compliance: ${metrics.slaCompliance ?? "0%"}`,
+        ...rows.slice(0, 15).map(
+          (row) => `${row.label}: total ${row.total}, resolved ${row.resolved}, pending ${row.pending}`,
+        ),
+      ]);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${baseName}.pdf"`);
+      return res.status(200).send(bytes);
+    }
+
+    if (format === "excel") {
+      const snapshot = report.snapshot || {};
+      const metrics = snapshot.metrics || {};
+      const rows = snapshot.rows || [];
+      const htmlTable = `
+        <h2>Grievance Portal Report</h2>
+        <table border="1" cellspacing="0" cellpadding="6">
+          <thead><tr><th>Name</th><th>Type</th><th>Generated Date</th><th>Format</th></tr></thead>
+          <tbody><tr><td>${report.name || ""}</td><td>${report.reportType || ""}</td><td>${new Date(report.generatedDate || Date.now()).toLocaleString()}</td><td>${String(report.format || "").toUpperCase()}</td></tr></tbody>
+        </table>
+        <br />
+        <table border="1" cellspacing="0" cellpadding="6">
+          <thead><tr><th>Total Complaints</th><th>Resolved</th><th>Pending</th><th>SLA Compliance</th></tr></thead>
+          <tbody><tr><td>${metrics.totalComplaints ?? 0}</td><td>${metrics.resolved ?? 0}</td><td>${metrics.pending ?? 0}</td><td>${metrics.slaCompliance ?? "0%"}</td></tr></tbody>
+        </table>
+        <br />
+        <table border="1" cellspacing="0" cellpadding="6">
+          <thead><tr><th>Analysis Label</th><th>Total</th><th>Resolved</th><th>Pending</th></tr></thead>
+          <tbody>
+            ${rows.map((row) => `<tr><td>${row.label}</td><td>${row.total}</td><td>${row.resolved}</td><td>${row.pending}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      `;
+      res.setHeader("Content-Type", "application/vnd.ms-excel");
+      res.setHeader("Content-Disposition", `attachment; filename="${baseName}.xls"`);
+      return res.status(200).send(htmlTable);
+    }
+
+    const csv = buildReportCsv(report);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${baseName}.csv"`);
+    return res.status(200).send(csv);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1479,6 +2640,127 @@ export async function bulkUserAction(req, res) {
   }
 }
 
+// @desc    Export users to CSV
+// @route   POST /api/admin/users/export
+// @access  Private/Admin
+export async function exportUsersCsv(req, res) {
+  try {
+    const { userIds = [] } = req.body || {};
+    const query = {};
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      query._id = { $in: userIds };
+    }
+
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .select(
+        "name email phone role isActive isBanned isEmailVerified isPhoneVerified isAadhaarVerified createdAt updatedAt lastLogin",
+      )
+      .lean();
+
+    const officerMap = await getOfficerDepartmentMap(users.map((u) => u._id));
+
+    const rows = [
+      [
+        "Name",
+        "Email",
+        "Phone",
+        "Role",
+        "Status",
+        "Department",
+        "Email Verified",
+        "Phone Verified",
+        "Aadhaar Verified",
+        "Joined Date",
+        "Last Active",
+      ],
+      ...users.map((user) => {
+        const row = toUserRow(
+          user,
+          user.role === "officer" ? officerMap[user._id.toString()] : null,
+          null,
+        );
+        return [
+          row.name,
+          row.email,
+          row.phone,
+          row.role,
+          row.status,
+          row.department?.name || "",
+          row.verification?.email ? "Yes" : "No",
+          row.verification?.phone ? "Yes" : "No",
+          row.verification?.aadhaar ? "Yes" : "No",
+          row.joinedDate ? new Date(row.joinedDate).toISOString() : "",
+          row.lastActive ? new Date(row.lastActive).toISOString() : "",
+        ];
+      }),
+    ];
+
+    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="admin-users-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+    return res.status(200).send(csv);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Delete user by admin (restricted)
+// @route   DELETE /api/admin/users/:id
+// @access  Private/Admin
+export async function deleteUserByAdmin(req, res) {
+  try {
+    const targetUserId = req.params.id;
+    if (String(targetUserId) === String(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete your own account",
+      });
+    }
+
+    const user = await User.findById(targetUserId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const [citizenComplaints, assignedComplaints] = await Promise.all([
+      Complaint.countDocuments({ user: targetUserId, isDraft: false }),
+      Complaint.countDocuments({
+        assignedOfficer: targetUserId,
+        status: { $in: ["filed", "assigned", "in-progress", "in_progress"] },
+        isDraft: false,
+      }),
+    ]);
+
+    if (citizenComplaints > 0 || assignedComplaints > 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "User cannot be deleted because related complaint records exist. Deactivate or ban the account instead.",
+      });
+    }
+
+    await Promise.all([
+      Department.updateMany({ officers: targetUserId }, { $pull: { officers: targetUserId } }),
+      Department.updateMany({ headOfDepartment: targetUserId }, { $set: { headOfDepartment: null } }),
+      Notification.deleteMany({ user: targetUserId }),
+    ]);
+
+    await user.deleteOne();
+    publishUserManagementEvent("user.deleted", { userId: targetUserId, by: req.user.id });
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 async function createUsersFromRows(rows, sendWelcome = false) {
   const created = [];
   const failed = [];
@@ -1851,6 +3133,7 @@ export async function updateAdminSettings(req, res) {
       },
       { new: true, upsert: true, setDefaultsOnInsert: true },
     ).lean();
+    invalidateRuntimeSettingsCache();
 
     res.status(200).json({
       success: true,
@@ -1862,5 +3145,58 @@ export async function updateAdminSettings(req, res) {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// @desc    Rotate system runtime keys
+// @route   POST /api/admin/settings/rotate-keys
+// @access  Private/Admin
+export async function rotateSystemKeys(req, res) {
+  try {
+    const doc = await AdminSetting.findOne({ key: ADMIN_SETTINGS_KEY }).lean();
+    const currentSettings = doc?.settings || {};
+    const now = new Date();
+
+    const nextKey = generateSystemKey();
+    const nextSettings = {
+      ...currentSettings,
+      system: {
+        ...(currentSettings.system || {}),
+        keyRotation: {
+          keyId: `key_${Date.now()}`,
+          rotatedAt: now.toISOString(),
+          rotatedBy: req.user?._id?.toString() || null,
+        },
+      },
+      api: {
+        ...(currentSettings.api || {}),
+        runtimeKey: nextKey,
+        runtimeKeyLastRotatedAt: now.toISOString(),
+      },
+    };
+
+    await AdminSetting.findOneAndUpdate(
+      { key: ADMIN_SETTINGS_KEY },
+      {
+        $set: {
+          settings: nextSettings,
+          updatedBy: req.user?._id || null,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).lean();
+
+    invalidateRuntimeSettingsCache();
+
+    return res.status(200).json({
+      success: true,
+      message: "System keys rotated successfully",
+      data: {
+        rotatedAt: now.toISOString(),
+        keyId: nextSettings.system.keyRotation.keyId,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 }

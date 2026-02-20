@@ -12,12 +12,103 @@ export const adminService = {
     return res.data;
   },
 
+  // GET /api/admin/dashboard/export/trend.csv
+  exportDashboardTrendCsv: async () => {
+    const res = await api.get("/admin/dashboard/export/trend.csv", {
+      responseType: "blob",
+    });
+    return res.data;
+  },
+
+  // GET /api/admin/dashboard/export/category.csv
+  exportDashboardCategoryCsv: async () => {
+    const res = await api.get("/admin/dashboard/export/category.csv", {
+      responseType: "blob",
+    });
+    return res.data;
+  },
+
   // GET /api/admin/analytics?range=30days
   getAnalytics: async (range = '30days', fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams({ range });
     if (fromDate) params.append('fromDate', fromDate);
     if (toDate) params.append('toDate', toDate);
     const res = await api.get(`/admin/analytics?${params}`);
+    return res.data;
+  },
+
+  // GET /api/admin/analytics/export.csv?range=30days
+  exportAnalyticsCsv: async (range = "30days", fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams({ range });
+    if (fromDate) params.append("fromDate", fromDate);
+    if (toDate) params.append("toDate", toDate);
+    const res = await api.get(`/admin/analytics/export.csv?${params}`, {
+      responseType: "blob",
+    });
+    return res.data;
+  },
+
+  // POST /api/admin/reports/preview
+  previewReport: async (config: Record<string, any>) => {
+    const res = await api.post("/admin/reports/preview", { config });
+    return res.data;
+  },
+
+  // POST /api/admin/reports/generate
+  generateReport: async (payload: {
+    name: string;
+    reportType: string;
+    format: "pdf" | "excel" | "csv";
+    config: Record<string, any>;
+  }) => {
+    const res = await api.post("/admin/reports/generate", payload);
+    return res.data;
+  },
+
+  // POST /api/admin/reports/configuration
+  saveReportConfiguration: async (payload: {
+    name: string;
+    reportType: string;
+    config: Record<string, any>;
+  }) => {
+    const res = await api.post("/admin/reports/configuration", payload);
+    return res.data;
+  },
+
+  // POST /api/admin/reports/schedule
+  scheduleReport: async (payload: {
+    name: string;
+    reportType: string;
+    format: "pdf" | "excel" | "csv";
+    config: Record<string, any>;
+    schedule: {
+      frequency: "daily" | "weekly" | "monthly";
+      dayOfWeek?: number;
+      dayOfMonth?: number;
+      time?: string;
+      timezone?: string;
+      enabled?: boolean;
+    };
+  }) => {
+    const res = await api.post("/admin/reports/schedule", payload);
+    return res.data;
+  },
+
+  // GET /api/admin/reports
+  getGeneratedReports: async (limit = 10) => {
+    const res = await api.get(`/admin/reports?limit=${limit}`);
+    return res.data;
+  },
+
+  // GET /api/admin/reports/:id/download?format=csv
+  downloadGeneratedReport: async (
+    reportId: string,
+    format?: "pdf" | "excel" | "csv",
+  ) => {
+    const query = format ? `?format=${format}` : "";
+    const res = await api.get(`/admin/reports/${reportId}/download${query}`, {
+      responseType: "blob",
+    });
     return res.data;
   },
 
@@ -57,6 +148,18 @@ export const adminService = {
     return res.data;
   },
 
+  // PUT /api/admin/complaints/:id/escalate
+  escalateComplaint: async (id: string, data?: { reason?: string; priority?: "low" | "medium" | "high" | "critical" }) => {
+    const res = await api.put(`/admin/complaints/${id}/escalate`, data || {});
+    return res.data;
+  },
+
+  // DELETE /api/admin/complaints/:id
+  deleteComplaint: async (id: string) => {
+    const res = await api.delete(`/admin/complaints/${id}`);
+    return res.data;
+  },
+
   // ─── Departments ─────────────────────────────────────────
 
   // GET /api/admin/departments
@@ -74,7 +177,7 @@ export const adminService = {
   // POST /api/admin/departments
   createDepartment: async (data: {
     name: string;
-    code: string;
+    code?: string;
     description?: string;
     categories?: string[];
     contactEmail?: string;
@@ -197,6 +300,22 @@ export const adminService = {
     return res.data;
   },
 
+  // POST /api/admin/users/export
+  exportUsersCsv: async (userIds: string[]) => {
+    const res = await api.post(
+      "/admin/users/export",
+      { userIds },
+      { responseType: "blob" },
+    );
+    return res.data;
+  },
+
+  // DELETE /api/admin/users/:id
+  deleteUser: async (id: string) => {
+    const res = await api.delete(`/admin/users/${id}`);
+    return res.data;
+  },
+
   // POST /api/admin/users/import
   importUsers: async (users: Array<Record<string, any>>, sendWelcome = false) => {
     const res = await api.post("/admin/users/import", { users, sendWelcome });
@@ -231,6 +350,10 @@ export const adminService = {
   // PUT /api/admin/settings
   updateSettings: async (settings: Record<string, any>) => {
     const res = await api.put("/admin/settings", { settings });
+    return res.data;
+  },
+  rotateSystemKeys: async () => {
+    const res = await api.post("/admin/settings/rotate-keys");
     return res.data;
   },
   broadcastAnnouncement: async (data: {

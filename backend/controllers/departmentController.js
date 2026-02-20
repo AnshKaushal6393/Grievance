@@ -2,6 +2,48 @@ import Department from "../models/Department.js";
 import User from "../models/User.js";
 import Complaint from "../models/Complaint.js";
 
+const buildBaseDepartmentCode = (name = "") => {
+  const words = String(name)
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const initials = words.map((word) => word[0]).join("");
+  if (initials.length >= 3) return initials.slice(0, 6);
+
+  const compact = words.join("");
+  if (compact.length >= 3) return compact.slice(0, 6);
+
+  return "DEPT";
+};
+
+const generateUniqueDepartmentCode = async (name = "") => {
+  const base = buildBaseDepartmentCode(name);
+  let code = base;
+  let suffix = 1;
+
+  while (await Department.exists({ code })) {
+    const suffixText = String(suffix);
+    const maxBaseLength = Math.max(1, 10 - suffixText.length);
+    code = `${base.slice(0, maxBaseLength)}${suffixText}`;
+    suffix += 1;
+  }
+
+  return code;
+};
+
+const buildDepartmentDescription = (name = "", categories = []) => {
+  const cleanName = String(name || "").trim() || "Department";
+  const list = Array.isArray(categories) ? categories.filter(Boolean) : [];
+  if (list.length === 0) {
+    return `${cleanName} handles citizen grievances and ensures timely resolution as per government service standards.`;
+  }
+  const shortList = list.slice(0, 3).join(", ");
+  const more = list.length > 3 ? ` and ${list.length - 3} more categories` : "";
+  return `${cleanName} handles grievances related to ${shortList}${more} and ensures timely redressal as per defined SLA timelines.`;
+};
+
 export const getDepartments = async (req, res) => {
   try {
     const departments = await Department.find()
@@ -72,22 +114,36 @@ export const createDepartment = async (req, res) => {
       slaTargets,
     } = req.body;
 
-    if (!name || !code)
+    if (!name)
       return res
         .status(400)
-        .json({ success: false, message: "Name and code are required" });
+        .json({ success: false, message: "Department name is required" });
 
-    const existing = await Department.findOne({ $or: [{ name }, { code }] });
-    if (existing)
+    const existingByName = await Department.findOne({ name });
+    if (existingByName)
       return res.status(400).json({
         success: false,
-        message: "Department with same name or code already exists",
+        message: "Department with same name already exists",
       });
+
+    const finalCode = code
+      ? String(code).toUpperCase().trim()
+      : await generateUniqueDepartmentCode(name);
+
+    if (code) {
+      const existingByCode = await Department.findOne({ code: finalCode });
+      if (existingByCode) {
+        return res.status(400).json({
+          success: false,
+          message: "Department with same code already exists",
+        });
+      }
+    }
 
     const department = await Department.create({
       name,
-      code: code.toUpperCase(),
-      description,
+      code: finalCode,
+      description: description || buildDepartmentDescription(name, categories),
       categories: categories || [],
       contactInfo: {
         email: contactEmail,
@@ -131,7 +187,14 @@ export const updateDepartment = async (req, res) => {
 
     if (name) department.name = name;
     if (code) department.code = code.toUpperCase();
-    if (description !== undefined) department.description = description;
+    if (description !== undefined) {
+      department.description = description;
+    } else if (name || categories) {
+      department.description = buildDepartmentDescription(
+        name || department.name,
+        categories || department.categories,
+      );
+    }
     if (categories) department.categories = categories;
     if (contactEmail) department.contactInfo.email = contactEmail;
     if (contactPhone) department.contactInfo.phone = contactPhone;

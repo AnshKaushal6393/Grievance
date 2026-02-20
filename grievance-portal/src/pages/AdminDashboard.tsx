@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import adminService from "@/services/adminService";
-import authService from "@/services/authService";
 import {
   FileText, TrendingUp, Clock, CheckCircle2, AlertTriangle,
-  BarChart3, Users, Settings, Download, Bell, ChevronRight,
-  ArrowUpRight, ArrowDownRight, Search, Filter, MoreHorizontal,
-  Building2, LogOut
+  Users, ChevronRight, ArrowUpRight, ArrowDownRight, Search, Filter,
+  MoreHorizontal, Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -39,6 +39,9 @@ const ALERT_ICON_MAP: Record<string, React.ElementType> = {
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
   filed: "bg-primary/100",
   assigned: "bg-purple-500",
+  pending: "bg-amber-500",
+  "in-progress": "bg-blue-500",
+  in_progress: "bg-blue-500",
   resolved: "bg-green-500",
   rejected: "bg-red-500",
   sla: "bg-orange-500",
@@ -46,7 +49,7 @@ const ACTIVITY_COLOR_MAP: Record<string, string> = {
 };
 
 const AdminDashboard = () => {
-  const { t, language, setLanguage, getLanguageLabel } = useLanguage();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<"all" | "active" | "resolved" | "unassigned">("all");
@@ -59,6 +62,8 @@ const AdminDashboard = () => {
   const [deptData, setDeptData] = useState<any[]>([]);
   const [activityFeed, setActivityFeed] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExportingTrend, setIsExportingTrend] = useState(false);
+  const [isExportingCategory, setIsExportingCategory] = useState(false);
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -94,14 +99,6 @@ const AdminDashboard = () => {
 
   useEffect(() => { fetchStats(); }, []);
 
-  const handleSignOut = async () => {
-    try {
-      await authService.logout();
-    } finally {
-      navigate("/login");
-    }
-  };
-
   const fetchStats = async () => {
     setIsLoading(true);
     try {
@@ -114,6 +111,12 @@ const AdminDashboard = () => {
         deptPerformance = [],
         recentActivity = [],
       } = payload;
+      const normalizedStats = {
+        totalComplaints: Number(stats.totalComplaints ?? 0),
+        todayComplaints: Number(stats.todayComplaints ?? 0),
+        pendingReview: Number(stats.pendingReview ?? 0),
+        resolutionRate: String(stats.resolutionRate ?? "0%"),
+      };
 
       const getTrend = (current: number, previous: number | null) => {
         if (previous === null || previous === undefined || previous <= 0) return { trend: null, trendUp: true };
@@ -122,7 +125,7 @@ const AdminDashboard = () => {
       };
 
       const lastTwoDays = (trendData ?? []).slice(-2);
-      const todayFiled = trendData?.[trendData.length - 1]?.filed ?? stats.todayComplaints ?? 0;
+      const todayFiled = trendData?.[trendData.length - 1]?.filed ?? normalizedStats.todayComplaints;
       const prevFiled = lastTwoDays.length === 2 ? lastTwoDays[0].filed ?? 0 : null;
       const todayTrend = getTrend(todayFiled, prevFiled);
 
@@ -130,19 +133,19 @@ const AdminDashboard = () => {
       setAlerts([
         {
           id: 1,
-          title: `${stats.pendingReview} grievances pending administrative review`,
+          title: `${normalizedStats.pendingReview} grievances pending administrative action`,
           type: "critical",
           action: () => navigate("/admin/complaints"),
         },
         {
           id: 2,
-          title: "Review department workload distribution",
+          title: "Department workload review required",
           type: "warning",
           action: () => navigate("/admin/departments"),
         },
         {
           id: 3,
-          title: "Review SLA compliance performance",
+          title: "SLA compliance review required",
           type: "warning",
           action: () => navigate("/admin/departments"),
         },
@@ -150,19 +153,19 @@ const AdminDashboard = () => {
 
       setStatsData([
         {
-          title: "Total Grievances", value: stats.totalComplaints, subtitle: "Cumulative",
+          title: "Total Grievances Registered", value: normalizedStats.totalComplaints, subtitle: "Cumulative records",
           trend: null, trendUp: true, icon: FileText, iconBg: "bg-primary/15", iconColor: "text-primary",
         },
         {
-          title: "Grievances Received Today", value: stats.todayComplaints, subtitle: "Since 00:00 hrs",
+          title: "Grievances Registered Today", value: normalizedStats.todayComplaints, subtitle: "Since 00:00 hrs",
           trend: todayTrend.trend, trendUp: todayTrend.trendUp, icon: TrendingUp, iconBg: "bg-green-100", iconColor: "text-green-600",
         },
         {
-          title: "Pending Administrative Review", value: stats.pendingReview, subtitle: "Awaiting action",
+          title: "Pending Administrative Action", value: normalizedStats.pendingReview, subtitle: "Awaiting disposal action",
           trend: null, trendUp: false, icon: Clock, iconBg: "bg-orange-100", iconColor: "text-orange-600",
         },
         {
-          title: "Resolution Rate", value: stats.resolutionRate, subtitle: "Previous 30 days",
+          title: "Disposal Rate", value: normalizedStats.resolutionRate, subtitle: "Previous 30 days",
           trend: null, trendUp: true, icon: CheckCircle2, iconBg: "bg-purple-100", iconColor: "text-purple-600",
         },
       ]);
@@ -194,7 +197,13 @@ const AdminDashboard = () => {
           total: d.total ?? 0,
           pending: d.pending ?? 0,
           resolved: d.resolved ?? 0,
-          avgTime: d.avgTime ?? "N/A",
+          avgTime:
+            typeof (d.avgResolutionHours ?? d.avgTimeHours) === "number" &&
+            Number.isFinite(d.avgResolutionHours ?? d.avgTimeHours)
+              ? (d.avgResolutionHours ?? d.avgTimeHours) < 24
+                ? `${(d.avgResolutionHours ?? d.avgTimeHours).toFixed(1)} hrs`
+                : `${((d.avgResolutionHours ?? d.avgTimeHours) / 24).toFixed(1)} days`
+              : d.avgTime ?? "N/A",
           score: d.score ?? Math.round(((d.resolved ?? 0) / Math.max(d.total ?? 1, 1)) * 100),
         }))
       );
@@ -209,174 +218,71 @@ const AdminDashboard = () => {
         }))
       );
     } catch (error: any) {
-      // Fallback data so UI doesn't break when admin APIs aren't ready
-      toast.error(error.response?.data?.message || "Unable to load dashboard data. Displaying fallback summary.");
-      const sampleStats = {
-        totalComplaints: 1280,
-        todayComplaints: 12,
-        pendingReview: 34,
-        resolutionRate: "82%",
-      };
-      setAlerts([
-        { id: 1, title: `${sampleStats.pendingReview} grievances pending administrative review`, type: "critical" },
-      ]);
-      setStatsData([
-        { title: "Total Grievances", value: sampleStats.totalComplaints, subtitle: "Cumulative", trend: null, trendUp: true, icon: FileText, iconBg: "bg-primary/15", iconColor: "text-primary" },
-        { title: "Grievances Received Today", value: sampleStats.todayComplaints, subtitle: "Since 00:00 hrs", trend: null, trendUp: true, icon: TrendingUp, iconBg: "bg-green-100", iconColor: "text-green-600" },
-        { title: "Pending Administrative Review", value: sampleStats.pendingReview, subtitle: "Awaiting action", trend: null, trendUp: false, icon: Clock, iconBg: "bg-orange-100", iconColor: "text-orange-600" },
-        { title: "Resolution Rate", value: sampleStats.resolutionRate, subtitle: "Previous 30 days", trend: null, trendUp: true, icon: CheckCircle2, iconBg: "bg-purple-100", iconColor: "text-purple-600" },
-      ]);
-      setTrendChartData([
-        { date: "2026-02-05", filed: 12, resolved: 9 },
-        { date: "2026-02-06", filed: 10, resolved: 11 },
-        { date: "2026-02-07", filed: 14, resolved: 12 },
-      ]);
-      setCategoryChartData([
-        { name: "Roads", value: 24, color: "#3B82F6" },
-        { name: "Water", value: 18, color: "#06B6D4" },
-        { name: "Electricity", value: 12, color: "#F59E0B" },
-      ]);
-      setDeptData([
-        { id: "1", name: "PWD", total: 120, pending: 30, resolved: 80, avgTime: "2.1d", score: 78 },
-        { id: "2", name: "Water", total: 90, pending: 15, resolved: 70, avgTime: "1.8d", score: 82 },
-      ]);
+      toast.error(error.response?.data?.message || "Unable to load dashboard data.");
+      setAlerts([]);
+      setStatsData([]);
+      setTrendChartData([]);
+      setCategoryChartData([]);
+      setDeptData([]);
       setActivityFeed([]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const downloadCsvBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportTrendCsv = async () => {
+    try {
+      setIsExportingTrend(true);
+      const blob = await adminService.exportDashboardTrendCsv();
+      downloadCsvBlob(
+        blob,
+        `dashboard-trend-${new Date().toISOString().slice(0, 10)}.csv`,
+      );
+      toast.success("Trend data exported");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to export trend data");
+    } finally {
+      setIsExportingTrend(false);
+    }
+  };
+
+  const handleExportCategoryCsv = async () => {
+    try {
+      setIsExportingCategory(true);
+      const blob = await adminService.exportDashboardCategoryCsv();
+      downloadCsvBlob(
+        blob,
+        `dashboard-category-${new Date().toISOString().slice(0, 10)}.csv`,
+      );
+      toast.success("Category data exported");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to export category data");
+    } finally {
+      setIsExportingCategory(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary rounded flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">{t("admin.title")}</h1>
-                  <p className="text-xs text-gray-500">{t("admin.subtitle")}</p>
-                </div>
-              </div>
-            </div>
-            {/* Desktop actions */}
-            <div className="hidden xl:flex items-center gap-2">
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
-                className="h-9 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
-                aria-label={t("nav.language")}
-              >
-                <option value="en">{getLanguageLabel("en")}</option>
-                <option value="hi">{getLanguageLabel("hi")}</option>
-                <option value="ur">{getLanguageLabel("ur")}</option>
-              </select>
-              <Link to="/admin/analytics">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  {t("admin.analytics")}
-                </Button>
-              </Link>
-              <Link to="/admin/complaints">
-                <Button variant="outline" size="sm" className="gap-2"><FileText className="w-4 h-4" />{t("admin.allComplaints")}</Button>
-              </Link>
-              <Link to="/admin/departments">
-                <Button variant="outline" size="sm" className="gap-2"><Users className="w-4 h-4" />{t("admin.departments")}</Button>
-              </Link>
-              <Link to="/admin/users">
-                <Button variant="outline" size="sm" className="gap-2"><Users className="w-4 h-4" />{t("admin.users")}</Button>
-              </Link>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => navigate("/admin/reports")}
-              >
-                <Download className="w-4 h-4" />
-                {t("admin.generateReport")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => navigate("/admin/settings")}
-              >
-                <Settings className="w-4 h-4" />
-                {t("admin.settings")}
-              </Button>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                onClick={handleSignOut}
-              >
-                <LogOut className="w-4 h-4" />
-                {t("admin.signOut")}
-              </Button>
-            </div>
+      <Navbar />
 
-            {/* Mobile actions in dropdown */}
-            <div className="xl:hidden flex items-center gap-2">
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "ur")}
-                className="h-9 rounded-lg border border-input bg-background px-2 text-sm text-foreground"
-                aria-label={t("nav.language")}
-              >
-                <option value="en">{getLanguageLabel("en")}</option>
-                <option value="hi">{getLanguageLabel("hi")}</option>
-                <option value="ur">{getLanguageLabel("ur")}</option>
-              </select>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Open admin menu">
-                    <MoreHorizontal className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{t("admin.title")}</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigate("/admin/complaints")}>
-                  <FileText className="w-4 h-4 mr-2" /> {t("admin.allComplaints")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin/analytics")}>
-                  <BarChart3 className="w-4 h-4 mr-2" /> {t("admin.analytics")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin/departments")}>
-                  <Users className="w-4 h-4 mr-2" /> {t("admin.departments")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin/users")}>
-                  <Users className="w-4 h-4 mr-2" /> {t("admin.users")}
-                </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/admin/reports")}>
-                    <Download className="w-4 h-4 mr-2" /> {t("admin.generateReport")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
-                    <Settings className="w-4 h-4 mr-2" /> {t("admin.settings")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleSignOut}
-                    className="text-red-600 focus:text-red-700"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" /> {t("admin.signOut")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+      <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700">
+          <div className="flex flex-wrap items-center gap-4">
+            <span>Administrative data source: National Grievance Platform</span>
+            <span>Last refreshed: {new Date().toLocaleString("en-IN")}</span>
+            <span>Reference: ADM-DASHBOARD</span>
           </div>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Alerts Section — ✅ icon resolved from type, no crash */}
         {alerts.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -429,7 +335,7 @@ const AdminDashboard = () => {
         </div>
         {isLoading && (
           <div className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
-            Loading latest administrative dashboard data...
+            Loading latest administrative records...
           </div>
         )}
 
@@ -439,7 +345,7 @@ const AdminDashboard = () => {
             className="bg-white rounded-lg p-6 border border-gray-200 min-h-[360px]"
           >
             <div className="flex items-center justify-between mb-6">
-              <div><h3 className="text-lg font-semibold text-gray-900">Complaints Trend</h3><p className="text-sm text-gray-500">Last 30 Days</p></div>
+              <div><h3 className="text-lg font-semibold text-gray-900">Grievance Trend</h3><p className="text-sm text-gray-500">Previous 30 days</p></div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="Chart actions">
@@ -450,7 +356,9 @@ const AdminDashboard = () => {
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => fetchStats()}>Refresh data</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>Export CSV (coming soon)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportTrendCsv} disabled={isExportingTrend}>
+                    {isExportingTrend ? "Exporting..." : "Export CSV"}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -476,7 +384,7 @@ const AdminDashboard = () => {
             className="bg-white rounded-lg p-6 border border-gray-200 min-h-[360px]"
           >
             <div className="flex items-center justify-between mb-6">
-              <div><h3 className="text-lg font-semibold text-gray-900">Complaints by Category</h3><p className="text-sm text-gray-500">Distribution Overview</p></div>
+              <div><h3 className="text-lg font-semibold text-gray-900">Grievances by Category</h3><p className="text-sm text-gray-500">Distribution overview</p></div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="Category chart actions">
@@ -487,7 +395,9 @@ const AdminDashboard = () => {
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => fetchStats()}>Refresh data</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>Export CSV (coming soon)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportCategoryCsv} disabled={isExportingCategory}>
+                    {isExportingCategory ? "Exporting..." : "Export CSV"}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -516,8 +426,8 @@ const AdminDashboard = () => {
           <div className="p-6 border-b border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Department Performance</h3>
-                <p className="text-sm text-gray-500">Track and compare departmental performance metrics</p>
+                <h3 className="text-lg font-semibold text-gray-900">Department Performance Register</h3>
+                <p className="text-sm text-gray-500">Comparative departmental workload and disposal metrics</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative w-full sm:w-auto">
@@ -623,10 +533,10 @@ const AdminDashboard = () => {
           className="bg-white rounded-lg p-6 border border-gray-200"
         >
           <div className="flex items-center justify-between mb-6">
-            <div><h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3><p className="text-sm text-gray-500">Latest administrative updates and actions</p></div>
+            <div><h3 className="text-lg font-semibold text-gray-900">Recent Administrative Activity</h3><p className="text-sm text-gray-500">Latest recorded updates and actions</p></div>
             <Link to="/admin/complaints">
               <Button variant="ghost" size="sm" className="gap-2 text-primary">
-                View All Activity
+                View Activity Register
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </Link>
@@ -650,6 +560,7 @@ const AdminDashboard = () => {
           </div>
         </motion.div>
       </main>
+      <Footer />
     </div>
   );
 };

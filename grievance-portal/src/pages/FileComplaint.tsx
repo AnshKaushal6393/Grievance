@@ -13,6 +13,8 @@ import {
   ArrowRight,
   Save,
   ChevronDown,
+  ChevronUp,
+  ChevronLeft,
   Search,
   Check,
   Locate,
@@ -333,6 +335,15 @@ const FileComplaint = () => {
       ? `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01}%2C${latitude - 0.01}%2C${longitude + 0.01}%2C${latitude + 0.01}&layer=mapnik&marker=${latitude}%2C${longitude}`
       : null;
 
+  const movePin = (latDelta: number, lngDelta: number) => {
+    if (latitude === null || longitude === null) return;
+    const nextLat = Number((latitude + latDelta).toFixed(6));
+    const nextLng = Number((longitude + lngDelta).toFixed(6));
+    setLatitude(nextLat);
+    setLongitude(nextLng);
+    setAddress(`Lat: ${nextLat}, Long: ${nextLng}`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
@@ -527,6 +538,34 @@ const FileComplaint = () => {
                 <div className="w-full h-48 bg-muted rounded border-2 border-dashed border-input flex flex-col items-center justify-center text-muted-foreground">
                   <MapPin className="w-10 h-10 mb-2" />
                   <span className="text-sm">{t("file.mapPlaceholder")}</span>
+                </div>
+              )}
+              {latitude !== null && longitude !== null && (
+                <div className="rounded border border-input bg-background p-3">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {t("file.movePin", "Adjust pin position")}
+                  </p>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => movePin(0.0005, 0)}>
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => movePin(0, -0.0005)}>
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-2">
+                      {latitude.toFixed(6)}, {longitude.toFixed(6)}
+                    </span>
+                    <Button type="button" variant="outline" size="sm" onClick={() => movePin(0, 0.0005)}>
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => movePin(-0.0005, 0)}>
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
               {isGeocoding && (

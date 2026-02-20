@@ -154,6 +154,12 @@
 
 .skip-link {
   transform: translateY(-200%);
+  transition: transform 0.2s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
 }
 
 :focus-visible {

@@ -7,6 +7,8 @@ import authRoutes from "./routes/auth.js";
 import complaintRoutes from "./routes/complaint.js"
 import adminRoutes from "./routes/admin.js";
 import officerRoutes from "./routes/officer.js"
+import { maintenanceModeGuard, runtimeRateLimit } from "./middleware/systemPolicy.js";
+import { startAutoArchiveJob } from "./utils/autoArchive.js";
 dotenv.config();
 
 connectDB();
@@ -35,6 +37,7 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.use("/api", runtimeRateLimit, maintenanceModeGuard);
 app.use("/api/auth", authRoutes);
 app.use("/api/complaints",complaintRoutes);
 app.use("/api/admin", adminRoutes);
@@ -78,6 +81,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`Server running successfully on port ${PORT}`);
+  startAutoArchiveJob();
 });
 
 process.on("unhandledRejection", (err) => {

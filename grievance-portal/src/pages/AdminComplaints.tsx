@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import adminService from "@/services/adminService";
 import {
@@ -20,6 +20,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -30,7 +31,7 @@ interface Complaint {
   title: string;
   description: string;
   category: string;
-  status: "filed" | "assigned" | "in-progress" | "resolved" | "rejected";
+  status: "filed" | "pending" | "assigned" | "in-progress" | "resolved" | "rejected";
   priority: "low" | "medium" | "high" | "critical";
   citizenName: string;
   citizenEmail: string;
@@ -47,7 +48,10 @@ const mapComplaint = (c: any): Complaint => ({
   title: c.title ?? "",
   description: c.description ?? "",
   category: c.category ?? "",
-  status: c.status ?? "filed",
+  status:
+    c.status === "in_progress"
+      ? "in-progress"
+      : (c.status ?? "filed"),
   priority: c.priority ?? "low",
   citizenName: c.user?.name ?? c.citizenName ?? "Unknown",
   citizenEmail: c.user?.email ?? c.citizenEmail ?? "",
@@ -57,8 +61,20 @@ const mapComplaint = (c: any): Complaint => ({
   lastUpdated: c.updatedAt ?? c.lastUpdated ?? "",
 });
 
-const categories = ["all","Roads & Infrastructure","Water Supply","Electricity","Sanitation","Traffic","Environment","Parks & Recreation","Municipal","Health","Education"];
-const statuses = ["all","filed","assigned","in-progress","resolved","rejected"];
+const categories = [
+  "all",
+  "Roads & Infrastructure",
+  "Water Supply",
+  "Electricity",
+  "Sanitation & Garbage",
+  "Drainage & Sewage",
+  "Street Lights",
+  "Parks & Gardens",
+  "Pollution",
+  "Encroachment",
+  "Other",
+];
+const statuses = ["all","filed","pending","assigned","in-progress","resolved","rejected"];
 const priorities = ["low","medium","high","critical"];
 
 const AdminComplaints = () => {
@@ -84,6 +100,17 @@ const AdminComplaints = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [quickViewComplaint, setQuickViewComplaint] = useState<Complaint | null>(null);
   const [departmentOptions, setDepartmentOptions] = useState<{id:string; name:string}[]>([]);
+  const [isMutating, setIsMutating] = useState(false);
+  const [statusDialogComplaint, setStatusDialogComplaint] = useState<Complaint | null>(null);
+  const [statusDialogValue, setStatusDialogValue] = useState<Complaint["status"]>("filed");
+  const [statusDialogRejectionReason, setStatusDialogRejectionReason] = useState("");
+  const [assignDialogComplaint, setAssignDialogComplaint] = useState<Complaint | null>(null);
+  const [assignDialogDepartmentId, setAssignDialogDepartmentId] = useState("");
+  const [assignDialogBulkMode, setAssignDialogBulkMode] = useState(false);
+  const [escalateDialogComplaint, setEscalateDialogComplaint] = useState<Complaint | null>(null);
+  const [escalateDialogReason, setEscalateDialogReason] = useState("Escalated by admin");
+  const [confirmDialogComplaint, setConfirmDialogComplaint] = useState<Complaint | null>(null);
+  const [confirmDialogAction, setConfirmDialogAction] = useState<"close" | "delete" | null>(null);
 
   const buildQuery = (override?: Partial<Record<string, any>>) => ({
     search: searchQuery || undefined,
@@ -164,10 +191,14 @@ const AdminComplaints = () => {
     const map: Record<string, string> = {
       "Roads & Infrastructure": "bg-slate-100 text-slate-700",
       "Water Supply": "bg-cyan-100 text-cyan-700",
-      "roads": "bg-slate-100 text-slate-700",
-      "water": "bg-cyan-100 text-cyan-700",
-      "electricity": "bg-yellow-100 text-yellow-700",
-      "sanitation": "bg-emerald-100 text-emerald-700",
+      Electricity: "bg-yellow-100 text-yellow-700",
+      "Sanitation & Garbage": "bg-emerald-100 text-emerald-700",
+      "Drainage & Sewage": "bg-indigo-100 text-indigo-700",
+      "Street Lights": "bg-amber-100 text-amber-700",
+      "Parks & Gardens": "bg-lime-100 text-lime-700",
+      Pollution: "bg-rose-100 text-rose-700",
+      Encroachment: "bg-orange-100 text-orange-700",
+      Other: "bg-gray-100 text-gray-700",
     };
     return map[category] || "bg-gray-100 text-gray-700";
   };
@@ -199,52 +230,205 @@ const AdminComplaints = () => {
     return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   };
 
+  const handleAssignDialogSubmit = async () => {
+    if (!assignDialogDepartmentId) {
+      toast.error(t("adminComplaints.invalidDepartment", "Invalid department selection"));
+      return;
+    }
+    try {
+      setIsMutating(true);
+      if (assignDialogBulkMode) {
+        await adminService.bulkAssign(selectedRows, assignDialogDepartmentId);
+        toast.success(t("adminComplaints.bulkAssignSuccess", "Bulk assignment completed"));
+        setSelectedRows([]);
+      } else if (assignDialogComplaint) {
+        await adminService.assignComplaint(assignDialogComplaint.id, {
+          departmentId: assignDialogDepartmentId,
+        });
+        toast.success(t("adminComplaints.assignSuccess", "Complaint assigned successfully"));
+      }
+      setAssignDialogComplaint(null);
+      setAssignDialogDepartmentId("");
+      setAssignDialogBulkMode(false);
+      await fetchComplaints();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          t("adminComplaints.assignFailed", "Failed to assign complaint"),
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleRowAssign = (complaint: Complaint) => {
+    if (departmentOptions.length === 0) {
+      toast.error(t("adminComplaints.noDepartments", "No departments available"));
+      return;
+    }
+    setAssignDialogComplaint(complaint);
+    setAssignDialogDepartmentId(complaint.departmentId || "");
+    setAssignDialogBulkMode(false);
+  };
+
+  const handleEscalateDialogSubmit = async () => {
+    if (!escalateDialogComplaint) return;
+    if (!escalateDialogReason.trim()) {
+      toast.error(t("adminComplaints.escalationReason", "Enter escalation reason"));
+      return;
+    }
+    try {
+      setIsMutating(true);
+      await adminService.escalateComplaint(escalateDialogComplaint.id, {
+        reason: escalateDialogReason.trim(),
+        priority: "critical",
+      });
+      toast.success(t("adminComplaints.escalateSuccess", "Complaint escalated successfully"));
+      setEscalateDialogComplaint(null);
+      setEscalateDialogReason("Escalated by admin");
+      await fetchComplaints();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || t("adminComplaints.escalateFailed", "Failed to escalate complaint"));
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleRowEscalate = (complaint: Complaint) => {
+    setEscalateDialogComplaint(complaint);
+    setEscalateDialogReason("Escalated by admin");
+  };
+
+  const handleStatusDialogSubmit = async () => {
+    if (!statusDialogComplaint) return;
+    if (statusDialogValue === "rejected" && !statusDialogRejectionReason.trim()) {
+      toast.error(t("adminComplaints.rejectionReasonRequired", "Rejection reason is required"));
+      return;
+    }
+    try {
+      setIsMutating(true);
+      await adminService.updateComplaintStatus(
+        statusDialogComplaint.id,
+        statusDialogValue,
+        `Status updated by admin to ${statusDialogValue}`,
+        statusDialogValue === "rejected"
+          ? statusDialogRejectionReason.trim()
+          : undefined,
+      );
+      toast.success(t("adminComplaints.editSuccess", "Complaint updated successfully"));
+      setStatusDialogComplaint(null);
+      setStatusDialogRejectionReason("");
+      await fetchComplaints();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || t("adminComplaints.editFailed", "Failed to update complaint"));
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleRowEdit = (complaint: Complaint) => {
+    setStatusDialogComplaint(complaint);
+    setStatusDialogValue(complaint.status);
+    setStatusDialogRejectionReason("");
+  };
+
+  const handleRowClose = (complaint: Complaint) => {
+    setConfirmDialogComplaint(complaint);
+    setConfirmDialogAction("close");
+  };
+
+  const handleRowDelete = (complaint: Complaint) => {
+    setConfirmDialogComplaint(complaint);
+    setConfirmDialogAction("delete");
+  };
+
+  const handleConfirmDialogSubmit = async () => {
+    if (!confirmDialogComplaint || !confirmDialogAction) return;
+    try {
+      setIsMutating(true);
+      if (confirmDialogAction === "close") {
+        await adminService.updateComplaintStatus(
+          confirmDialogComplaint.id,
+          "resolved",
+          "Complaint closed by admin",
+        );
+        toast.success(t("adminComplaints.closeSuccess", "Complaint closed successfully"));
+      } else {
+        await adminService.deleteComplaint(confirmDialogComplaint.id);
+        toast.success(t("adminComplaints.deleteSuccess", "Complaint deleted successfully"));
+        setQuickViewComplaint(null);
+      }
+      setConfirmDialogComplaint(null);
+      setConfirmDialogAction(null);
+      await fetchComplaints();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          (confirmDialogAction === "close"
+            ? t("adminComplaints.closeFailed", "Failed to close complaint")
+            : t("adminComplaints.deleteFailed", "Failed to delete complaint")),
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleAssignComplaint = async () => {
+    if (!quickViewComplaint) return;
+    await handleRowAssign(quickViewComplaint);
+  };
+
+  const handleEscalateComplaint = async () => {
+    if (!quickViewComplaint) return;
+    await handleRowEscalate(quickViewComplaint);
+  };
+
   const handleEditComplaint = () => {
     if (!quickViewComplaint) return;
-    toast.info(
-      `${t("adminComplaints.editFlowSoon", "Edit flow coming soon for")} ${quickViewComplaint.complaintId}`,
-    );
+    handleRowEdit(quickViewComplaint);
   };
 
-  const handleAssignComplaint = () => {
-    if (!quickViewComplaint) return;
-    toast.info(
-      `${t("adminComplaints.assignFlowSoon", "Assign flow coming soon for")} ${quickViewComplaint.complaintId}`,
-    );
+  const handleBulkAssign = async () => {
+    if (selectedRows.length === 0) {
+      toast.info(t("adminComplaints.noneSelected", "No complaints selected"));
+      return;
+    }
+    if (departmentOptions.length === 0) {
+      toast.error(t("adminComplaints.noDepartments", "No departments available"));
+      return;
+    }
+    setAssignDialogComplaint(null);
+    setAssignDialogDepartmentId("");
+    setAssignDialogBulkMode(true);
   };
 
-  const handleEscalateComplaint = () => {
-    if (!quickViewComplaint) return;
-    toast.info(
-      `${t("adminComplaints.escalationFlowSoon", "Escalation flow coming soon for")} ${quickViewComplaint.complaintId}`,
-    );
-  };
-
-  // Row-level handlers (non-modal)
-  const handleRowAssign = (complaintId: string) => {
-    toast.info(`${t("adminComplaints.assignFlowSoon", "Assign flow coming soon for")} ${complaintId}`);
-  };
-
-  const handleRowEscalate = (complaintId: string) => {
-    toast.info(
-      `${t("adminComplaints.escalationFlowSoon", "Escalation flow coming soon for")} ${complaintId}`,
-    );
-  };
-
-  const handleRowEdit = (complaintId: string) => {
-    toast.info(`${t("adminComplaints.editFlowSoon", "Edit flow coming soon for")} ${complaintId}`);
-  };
-
-  const handleRowClose = (complaintId: string) => {
-    toast.info(
-      `${t("adminComplaints.closeFlowSoon", "Close complaint flow coming soon for")} ${complaintId}`,
-    );
-  };
-
-  const handleRowDelete = (complaintId: string) => {
-    toast.info(
-      `${t("adminComplaints.deleteFlowSoon", "Delete complaint flow coming soon for")} ${complaintId}`,
-    );
+  const exportSelectedToCsv = () => {
+    const selected = complaints.filter((c) => selectedRows.includes(c.id));
+    if (selected.length === 0) return;
+    const headers = ["ID","Title","Category","Status","Priority","Citizen","Email","Department","Filed Date","Last Updated"];
+    const csv = [
+      headers.join(","),
+      ...selected.map(r => [
+        r.complaintId,
+        `"${(r.title || "").replace(/"/g,'""')}"`,
+        r.category,
+        r.status,
+        r.priority,
+        `"${(r.citizenName || "").replace(/"/g,'""')}"`,
+        r.citizenEmail,
+        r.department || "",
+        formatDate(r.filedDate),
+        formatDate(r.lastUpdated),
+      ].join(","))
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `complaints-selected-${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(t("adminComplaints.exportReady", "Export ready"));
   };
 
   const exportToCsv = async () => {
@@ -297,7 +481,7 @@ const AdminComplaints = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <div className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-3">
@@ -484,11 +668,11 @@ const AdminComplaints = () => {
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" className="gap-2">
+                    <Button size="sm" variant="outline" className="gap-2" onClick={handleBulkAssign} disabled={isMutating}>
                       <UserPlus className="h-4 w-4" />
                       {t("adminComplaints.bulkAssign", "Bulk Assign")}
                     </Button>
-                    <Button size="sm" variant="outline" className="gap-2">
+                    <Button size="sm" variant="outline" className="gap-2" onClick={exportSelectedToCsv}>
                       <Download className="h-4 w-4" />
                       {t("adminComplaints.bulkExport", "Bulk Export")}
                     </Button>
@@ -537,7 +721,7 @@ const AdminComplaints = () => {
                       const priorityConfig = getPriorityConfig(complaint.priority);
                       const StatusIcon = statusConfig.icon;
                       return (
-                        <>
+                        <Fragment key={complaint.id}>
                           <TableRow key={complaint.id}
                             className={`hover:bg-muted/30 transition-colors cursor-pointer ${selectedRows.includes(complaint.id) ? "bg-primary/5" : ""}`}
                             onClick={() => setExpandedRow(expandedRow === complaint.id ? null : complaint.id)}
@@ -566,15 +750,15 @@ const AdminComplaints = () => {
                             <TableCell onClick={e => e.stopPropagation()}>
                               <div className="flex items-center justify-end gap-1">
                                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setQuickViewComplaint(complaint)}><Eye className="h-4 w-4" /></Button>
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRowAssign(complaint.complaintId)}><UserPlus className="h-4 w-4" /></Button>
-                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRowEscalate(complaint.complaintId)}><Flag className="h-4 w-4" /></Button>
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRowAssign(complaint)} disabled={isMutating}><UserPlus className="h-4 w-4" /></Button>
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRowEscalate(complaint)} disabled={isMutating}><Flag className="h-4 w-4" /></Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem className="gap-2" onClick={() => handleRowEdit(complaint.complaintId)}><Edit className="h-4 w-4" />{t("adminComplaints.edit", "Edit")}</DropdownMenuItem>
-                                    <DropdownMenuItem className="gap-2" onClick={() => handleRowClose(complaint.complaintId)}><XCircle className="h-4 w-4" />{t("adminComplaints.closeComplaint", "Close Complaint")}</DropdownMenuItem>
+                                    <DropdownMenuItem className="gap-2" onClick={() => handleRowEdit(complaint)}><Edit className="h-4 w-4" />{t("adminComplaints.edit", "Edit")}</DropdownMenuItem>
+                                    <DropdownMenuItem className="gap-2" onClick={() => handleRowClose(complaint)}><XCircle className="h-4 w-4" />{t("adminComplaints.closeComplaint", "Close Complaint")}</DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleRowDelete(complaint.complaintId)}><Trash2 className="h-4 w-4" />{t("adminComplaints.delete", "Delete")}</DropdownMenuItem>
+                                    <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleRowDelete(complaint)}><Trash2 className="h-4 w-4" />{t("adminComplaints.delete", "Delete")}</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
@@ -594,7 +778,7 @@ const AdminComplaints = () => {
                               </TableRow>
                             )}
                           </AnimatePresence>
-                        </>
+                        </Fragment>
                       );
                     })
                   )}
@@ -635,7 +819,7 @@ const AdminComplaints = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
 
       {/* Quick View Modal */}
       <Dialog open={!!quickViewComplaint} onOpenChange={() => setQuickViewComplaint(null)}>
@@ -684,6 +868,247 @@ const AdminComplaints = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!statusDialogComplaint}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStatusDialogComplaint(null);
+            setStatusDialogRejectionReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t("adminComplaints.updateStatus", "Update Complaint Status")}
+            </DialogTitle>
+          </DialogHeader>
+          {statusDialogComplaint && (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                {statusDialogComplaint.complaintId}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {t("adminComplaints.status", "Status")}
+                </label>
+                <Select
+                  value={statusDialogValue}
+                  onValueChange={(value) => setStatusDialogValue(value as Complaint["status"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="filed">filed</SelectItem>
+                    <SelectItem value="pending">pending</SelectItem>
+                    <SelectItem value="assigned">assigned</SelectItem>
+                    <SelectItem value="in-progress">in-progress</SelectItem>
+                    <SelectItem value="resolved">resolved</SelectItem>
+                    <SelectItem value="rejected">rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {statusDialogValue === "rejected" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    {t("adminComplaints.rejectionReason", "Rejection Reason")}
+                  </label>
+                  <Input
+                    value={statusDialogRejectionReason}
+                    onChange={(e) => setStatusDialogRejectionReason(e.target.value)}
+                    placeholder={t("adminComplaints.rejectionReasonPrompt", "Enter rejection reason")}
+                  />
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStatusDialogComplaint(null);
+                    setStatusDialogRejectionReason("");
+                    toast.info(t("adminComplaints.editCancelled", "Update cancelled"));
+                  }}
+                >
+                  {t("common.cancel", "Cancel")}
+                </Button>
+                <Button onClick={handleStatusDialogSubmit} disabled={isMutating}>
+                  {isMutating ? t("common.loading", "Loading") : t("common.update", "Update")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={assignDialogBulkMode || !!assignDialogComplaint}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAssignDialogComplaint(null);
+            setAssignDialogDepartmentId("");
+            setAssignDialogBulkMode(false);
+            toast.info(t("adminComplaints.assignCancelled", "Assignment cancelled"));
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {assignDialogBulkMode
+                ? t("adminComplaints.bulkAssign", "Bulk Assign")
+                : t("adminComplaints.assign", "Assign")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              {assignDialogBulkMode
+                ? `${selectedRows.length} ${t("adminComplaints.selected", "complaints selected")}`
+                : assignDialogComplaint?.complaintId}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {t("adminComplaints.department", "Department")}
+              </label>
+              <Select
+                value={assignDialogDepartmentId}
+                onValueChange={setAssignDialogDepartmentId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("adminComplaints.selectDepartment", "Select department")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {departmentOptions.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAssignDialogComplaint(null);
+                  setAssignDialogDepartmentId("");
+                  setAssignDialogBulkMode(false);
+                  toast.info(t("adminComplaints.assignCancelled", "Assignment cancelled"));
+                }}
+              >
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button onClick={handleAssignDialogSubmit} disabled={isMutating}>
+                {isMutating ? t("common.loading", "Loading") : t("common.update", "Update")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!escalateDialogComplaint}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEscalateDialogComplaint(null);
+            setEscalateDialogReason("Escalated by admin");
+            toast.info(t("adminComplaints.escalateCancelled", "Escalation cancelled"));
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("adminComplaints.escalate", "Escalate")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">{escalateDialogComplaint?.complaintId}</div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {t("adminComplaints.escalationReason", "Enter escalation reason")}
+              </label>
+              <Input
+                value={escalateDialogReason}
+                onChange={(e) => setEscalateDialogReason(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEscalateDialogComplaint(null);
+                  setEscalateDialogReason("Escalated by admin");
+                  toast.info(t("adminComplaints.escalateCancelled", "Escalation cancelled"));
+                }}
+              >
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button onClick={handleEscalateDialogSubmit} disabled={isMutating}>
+                {isMutating ? t("common.loading", "Loading") : t("common.update", "Update")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!confirmDialogAction && !!confirmDialogComplaint}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDialogComplaint(null);
+            setConfirmDialogAction(null);
+            toast.info(
+              confirmDialogAction === "close"
+                ? t("adminComplaints.closeCancelled", "Close action cancelled")
+                : t("adminComplaints.deleteCancelled", "Delete action cancelled"),
+            );
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmDialogAction === "close"
+                ? t("adminComplaints.closeComplaint", "Close Complaint")
+                : t("adminComplaints.delete", "Delete")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              {confirmDialogComplaint?.complaintId}
+            </div>
+            <p className="text-sm">
+              {confirmDialogAction === "close"
+                ? t("adminComplaints.closeConfirm", "Close this complaint as resolved?")
+                : t("adminComplaints.deleteConfirm", "Delete this complaint permanently?")}
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setConfirmDialogComplaint(null);
+                  setConfirmDialogAction(null);
+                  toast.info(
+                    confirmDialogAction === "close"
+                      ? t("adminComplaints.closeCancelled", "Close action cancelled")
+                      : t("adminComplaints.deleteCancelled", "Delete action cancelled"),
+                  );
+                }}
+              >
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button
+                variant={confirmDialogAction === "delete" ? "destructive" : "default"}
+                onClick={handleConfirmDialogSubmit}
+                disabled={isMutating}
+              >
+                {isMutating ? t("common.loading", "Loading") : t("common.confirm", "Confirm")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Footer />
     </div>
   );
 };

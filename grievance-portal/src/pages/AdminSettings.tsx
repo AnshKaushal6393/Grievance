@@ -21,6 +21,7 @@ import {
   Send,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -561,7 +562,7 @@ const AdminSettings = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar branding={{ siteName: settings.general.siteName, logoDataUrl: settings.general.logoDataUrl }} />
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">{t("settings.title")}</h1>
@@ -1360,7 +1361,22 @@ const AdminSettings = () => {
                     <Checkbox checked={settings.backup.force2FA} onCheckedChange={(v) => setSettings((prev) => ({ ...prev, backup: { ...prev.backup, force2FA: Boolean(v) } }))} />
                     <span className="text-sm">Enforce 2FA for Admin Accounts</span>
                   </div>
-                  <Button variant="outline" className="gap-2" onClick={() => toast.success("Security keys rotation scheduled")}>
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={async () => {
+                      try {
+                        const response = await adminService.rotateSystemKeys();
+                        toast.success(
+                          response?.message || "System keys rotated successfully",
+                        );
+                      } catch (error: any) {
+                        toast.error(
+                          error?.response?.data?.message || "Failed to rotate system keys",
+                        );
+                      }
+                    }}
+                  >
                     <Database className="h-4 w-4" />
                     Rotate System Keys
                   </Button>
@@ -1386,6 +1402,7 @@ const AdminSettings = () => {
           </Button>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import adminService from "@/services/adminService";
 import {
   Plus,
@@ -54,6 +55,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -182,8 +184,33 @@ const departmentIcons = [
 
 const initialDepartments: Department[] = [];
 
+const generateDepartmentCodePreview = (name: string) => {
+  const words = String(name)
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  const initials = words.map((word) => word[0]).join("");
+  if (initials.length >= 3) return initials.slice(0, 6);
+  const compact = words.join("");
+  if (compact.length >= 3) return compact.slice(0, 6);
+  return "DEPT";
+};
+
+const generateDepartmentDescriptionPreview = (name: string, categories: string[]) => {
+  const cleanName = String(name || "").trim() || "Department";
+  const list = Array.isArray(categories) ? categories.filter(Boolean) : [];
+  if (list.length === 0) {
+    return `${cleanName} handles citizen grievances and ensures timely resolution as per government service standards.`;
+  }
+  const shortList = list.slice(0, 3).join(", ");
+  const more = list.length > 3 ? ` and ${list.length - 3} more categories` : "";
+  return `${cleanName} handles grievances related to ${shortList}${more} and ensures timely redressal as per defined SLA timelines.`;
+};
+
 const DepartmentManagement = () => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [departments, setDepartments] =
     useState<Department[]>(initialDepartments);
   const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
@@ -301,16 +328,15 @@ const DepartmentManagement = () => {
   };
 
   const handleSaveDepartment = async () => {
-    if (!formData.name || !formData.code) {
-      toast.error(t("departments.error.nameCodeRequired", "Name and code are required"));
+    if (!formData.name) {
+      toast.error(t("departments.error.nameRequired", "Department name is required"));
       return;
     }
     setIsSaving(true);
     try {
       const payload = {
         name: formData.name,
-        code: formData.code,
-        description: formData.description,
+        description: generateDepartmentDescriptionPreview(formData.name, formData.categories),
         categories: formData.categories,
         contactEmail: formData.contactEmail,
         contactPhone: formData.contactPhone,
@@ -405,7 +431,9 @@ const DepartmentManagement = () => {
     try{
     await adminService.removeOfficer(selectedDepartment._id, officerId);
     toast.success(t("departments.officerRemoved", "Officer removed!"));
-    await fetchDepartments();
+    const updatedDepartments = await fetchDepartments();
+    const updated = updatedDepartments.find((d) => d._id === selectedDepartment._id);
+    if (updated) setSelectedDepartment(updated);
     } catch(err:any){
       toast.error(err.response?.data?.message || t("departments.error.removeOfficer", "Failed to remove officer"));
     }
@@ -502,7 +530,7 @@ const DepartmentManagement = () => {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
@@ -655,6 +683,7 @@ const DepartmentManagement = () => {
                         variant="outline"
                         size="sm"
                         className="flex-1 gap-1"
+                        onClick={() => openOfficersModal(dept)}
                       >
                         <Eye className="h-4 w-4" />
                         View
@@ -672,6 +701,7 @@ const DepartmentManagement = () => {
                         variant="outline"
                         size="sm"
                         className="flex-1 gap-1"
+                        onClick={() => navigate(`/admin/complaints?department=${encodeURIComponent(dept._id || dept.id)}`)}
                       >
                         <BarChart3 className="h-4 w-4" />
                         Analytics
@@ -683,7 +713,8 @@ const DepartmentManagement = () => {
             );
           })}
         </div>
-      </div>
+      </main>
+      <Footer />
 
       {/* Add/Edit Department Modal */}
       <Dialog open={isAddEditModalOpen} onOpenChange={setIsAddEditModalOpen}>
@@ -749,19 +780,18 @@ const DepartmentManagement = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="code">{t("departments.code", "Department Code")} *</Label>
+                <Label htmlFor="code-preview">{t("departments.code", "Department Code")}</Label>
                 <Input
-                  id="code"
-                  placeholder="e.g., PWD"
-                  value={formData.code}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      code: e.target.value.toUpperCase(),
-                    })
-                  }
+                  id="code-preview"
+                  value={editingDepartment ? formData.code : generateDepartmentCodePreview(formData.name)}
+                  readOnly
                   maxLength={10}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {editingDepartment
+                    ? t("departments.codeLocked", "Department code cannot be edited.")
+                    : t("departments.codeAuto", "Code will be generated automatically from department name.")}
+                </p>
               </div>
             </div>
 
@@ -769,13 +799,15 @@ const DepartmentManagement = () => {
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="Brief description of the department's responsibilities..."
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
+                value={generateDepartmentDescriptionPreview(formData.name, formData.categories)}
+                readOnly
                 maxLength={500}
               />
+              <p className="text-xs text-muted-foreground">
+                {editingDepartment
+                  ? t("departments.descriptionLocked", "Description is managed automatically for consistency.")
+                  : t("departments.descriptionAuto", "Description is generated automatically from department details.")}
+              </p>
             </div>
 
             {/* Categories */}
@@ -945,7 +977,7 @@ const DepartmentManagement = () => {
             </Button>
             <Button
               onClick={handleSaveDepartment}
-              disabled={!formData.name || !formData.code || isSaving}
+              disabled={!formData.name || isSaving}
               className="gap-2"
             >
               {isSaving ? (

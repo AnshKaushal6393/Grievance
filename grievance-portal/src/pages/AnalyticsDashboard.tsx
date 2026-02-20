@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Calendar, Download, FileText, Clock,
+  Calendar, Download, FileText, Clock,
   CheckCircle, TrendingUp, TrendingDown, Lightbulb, ChevronRight,
   ArrowUpRight, ArrowDownRight, MapPin, Loader2, Star,
 } from "lucide-react";
@@ -19,6 +18,8 @@ import { format, subDays } from "date-fns";
 import adminService from "@/services/adminService";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 const timeRanges = [
   { label: "Today", value: "today" },
@@ -61,12 +62,12 @@ const SparklineChart = ({ data, direction }: { data: number[]; direction: "up" |
 };
 
 const AnalyticsDashboard = () => {
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const [selectedRange, setSelectedRange] = useState("30days");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
   const [hoveredZone, setHoveredZone] = useState<number | null>(null);
+  const [selectedHeatmapZoneId, setSelectedHeatmapZoneId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -138,7 +139,7 @@ const AnalyticsDashboard = () => {
         })));
         setCategoryBreakdown(d.categoryBreakdown.map((c: any) => ({
           category: c.name ?? c._id ?? "Unknown",
-          total: c.total ?? c.count ?? 0,
+          total: c.total ?? c.count ?? c.value ?? 0,
           pending: c.pending ?? 0,
           avgTime: c.avgTime ?? "N/A",
           trend: c.trend ?? [0, 0, 0, 0, 0, 0, 0],
@@ -178,8 +179,10 @@ const AnalyticsDashboard = () => {
 
       if (d.heatmapZones?.length) {
         setHeatmapZones(d.heatmapZones);
+        setSelectedHeatmapZoneId(d.heatmapZones[0]?.id ?? null);
       } else {
         setHeatmapZones([]);
+        setSelectedHeatmapZoneId(null);
       }
 
       if (d.insights?.length) {
@@ -221,66 +224,32 @@ const AnalyticsDashboard = () => {
         toast.error(t("analytics.error.invalidRange", "Start date cannot be after end date"));
         return;
       }
-
       setIsExporting(true);
-
-      const lines: string[] = [];
-      const now = new Date();
-      const rangeLabel =
-        selectedRange === "custom"
-          ? `${format(dateFrom!, "yyyy-MM-dd")} to ${format(dateTo!, "yyyy-MM-dd")}`
-          : timeRanges.find((r) => r.value === selectedRange)?.label || selectedRange;
-
-      lines.push(t("analytics.export.title", "Admin Analytics Report"));
-      lines.push(`Generated At,${csvEscape(now.toISOString())}`);
-      lines.push(`Time Range,${csvEscape(rangeLabel)}`);
-      lines.push("");
-
-      lines.push(t("analytics.export.keyMetrics", "Key Metrics"));
-      lines.push(t("analytics.export.metricValue", "Metric,Value"));
-      keyMetrics.forEach((m) => lines.push(`${csvEscape(m.title)},${csvEscape(m.value)}`));
-      lines.push("");
-
-      lines.push(t("analytics.export.trendData", "Trend Data"));
-      lines.push(t("analytics.export.periodFiledResolvedPending", "Period,Filed,Resolved,Pending"));
-      trendData.forEach((t: any) =>
-        lines.push(
-          `${csvEscape(t.name ?? "")},${csvEscape(t.filed ?? 0)},${csvEscape(t.resolved ?? 0)},${csvEscape(t.pending ?? 0)}`,
-        ),
-      );
-      lines.push("");
-
-      lines.push(t("analytics.export.categoryDistribution", "Category Distribution"));
-      lines.push(t("analytics.export.categoryValue", "Category,Value"));
-      categoryData.forEach((c: any) =>
-        lines.push(`${csvEscape(c.name ?? "")},${csvEscape(c.value ?? 0)}`),
-      );
-      lines.push("");
-
-      lines.push(t("analytics.export.departmentPerformance", "Department Performance"));
-      lines.push(t("analytics.export.departmentAvgTime", "Department,Avg Resolution Time (days)"));
-      deptData.forEach((d: any) =>
-        lines.push(`${csvEscape(d.name ?? "")},${csvEscape(d.time ?? 0)}`),
-      );
-      lines.push("");
-
-      lines.push(t("analytics.export.statusDistribution", "Status Distribution"));
-      lines.push(t("analytics.export.statusValue", "Status,Value"));
-      statusData.forEach((s: any) =>
-        lines.push(`${csvEscape(s.name ?? "")},${csvEscape(s.value ?? 0)}`),
-      );
-
-      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `admin-analytics-${selectedRange}-${format(now, "yyyyMMdd-HHmm")}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast.success(t("analytics.export.success", "Report exported"));
+      const exportFrom =
+        selectedRange === "custom" ? dateFrom?.toISOString() : undefined;
+      const exportTo =
+        selectedRange === "custom" ? dateTo?.toISOString() : undefined;
+      adminService
+        .exportAnalyticsCsv(selectedRange, exportFrom, exportTo)
+        .then((blob: Blob) => {
+          const now = new Date();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `admin-analytics-${selectedRange}-${format(now, "yyyyMMdd-HHmm")}.csv`;
+          link.click();
+          URL.revokeObjectURL(url);
+          toast.success(t("analytics.export.success", "Report exported"));
+        })
+        .catch(() => {
+          toast.error(t("analytics.export.failed", "Failed to export report"));
+        })
+        .finally(() => {
+          setIsExporting(false);
+        });
+      return;
     } catch {
       toast.error(t("analytics.export.failed", "Failed to export report"));
-    } finally {
       setIsExporting(false);
     }
   };
@@ -302,18 +271,42 @@ const AnalyticsDashboard = () => {
     return map[type] ?? "bg-muted text-muted-foreground";
   };
 
+  const selectedHeatmapZone =
+    heatmapZones.find((zone: any) => zone.id === selectedHeatmapZoneId) ||
+    heatmapZones[0] ||
+    null;
+  const selectedLat =
+    selectedHeatmapZone && Number.isFinite(Number(selectedHeatmapZone.lat))
+      ? Number(selectedHeatmapZone.lat)
+      : null;
+  const selectedLng =
+    selectedHeatmapZone && Number.isFinite(Number(selectedHeatmapZone.lng))
+      ? Number(selectedHeatmapZone.lng)
+      : null;
+  const selectedMapEmbedUrl =
+    selectedLat !== null && selectedLng !== null
+      ? `https://www.openstreetmap.org/export/embed.html?bbox=${selectedLng - 0.02}%2C${selectedLat - 0.02}%2C${selectedLng + 0.02}%2C${selectedLat + 0.02}&layer=mapnik&marker=${selectedLat}%2C${selectedLng}`
+      : null;
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}><ArrowLeft className="h-5 w-5" /></Button>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">{t("analytics.title", "Analytics Dashboard")}</h1>
-                <p className="text-muted-foreground text-sm">{t("analytics.subtitle", "Comprehensive grievance analytics and insights")}</p>
-              </div>
+      <Navbar />
+
+      <main id="main-content" className="container mx-auto px-4 py-6 space-y-6">
+        <Card>
+          <CardContent className="py-3 text-sm text-slate-700">
+            <div className="flex flex-wrap items-center gap-4">
+              <span>Data source: Consolidated grievance records</span>
+              <span>Last refreshed: {new Date().toLocaleString("en-IN")}</span>
+              <span>Reference: ADM-ANALYTICS</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">{t("analytics.title", "Administrative Analytics Dashboard")}</h1>
+              <p className="text-muted-foreground text-sm">{t("analytics.subtitle", "Comprehensive grievance statistics and administrative observations")}</p>
             </div>
             <Button
               onClick={handleExportReport}
@@ -321,20 +314,18 @@ const AnalyticsDashboard = () => {
                 isExporting ||
                 (selectedRange === "custom" && (!dateFrom || !dateTo))
               }
-              className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 text-white"
+              className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 text-white"
             >
               {isExporting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Download className="h-4 w-4 mr-2" />
               )}
-              {isExporting ? t("analytics.exporting", "Exporting...") : t("analytics.exportReport", "Export Report")}
+              {isExporting ? t("analytics.exporting", "Exporting...") : t("analytics.exportReport", "Export Official Report")}
             </Button>
-          </div>
-        </div>
-      </header>
+          </CardContent>
+        </Card>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Time Range Selector */}
         <Card>
           <CardContent className="py-4">
@@ -382,7 +373,7 @@ const AnalyticsDashboard = () => {
                   ) : (
                     <Download className="h-4 w-4 mr-2" />
                   )}
-                  {isExporting ? t("analytics.exporting", "Exporting...") : t("analytics.exportReport", "Export Report")}
+                  {isExporting ? t("analytics.exporting", "Exporting...") : t("analytics.exportReport", "Export Official Report")}
                 </Button>
               </div>
             </div>
@@ -563,46 +554,58 @@ const AnalyticsDashboard = () => {
         <Card>
           <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />{t("analytics.heatmap", "Complaint Density Heat Map")}</CardTitle></CardHeader>
           <CardContent>
-            <div className="relative bg-slate-100 rounded-lg border h-80 overflow-hidden">
-              <div className="absolute inset-0 grid grid-cols-4 grid-rows-3 opacity-20">
-                {Array.from({ length: 12 }).map((_, i) => <div key={i} className="border border-slate-400" />)}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
+              <div className="rounded-lg border bg-slate-50 overflow-hidden h-80">
+                {selectedMapEmbedUrl ? (
+                  <iframe
+                    title="Complaint density map"
+                    src={selectedMapEmbedUrl}
+                    className="h-full w-full border-0"
+                    loading="lazy"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm px-4 text-center">
+                    {t("analytics.noGeoData", "No geo-density data for selected range")}
+                  </div>
+                )}
               </div>
-              {heatmapZones.map(zone => (
-                <div key={zone.id}
-                  className={`absolute cursor-pointer transition-all duration-300 rounded-full flex items-center justify-center ${getDensityColor(zone.density)} ${hoveredZone === zone.id ? "z-10 scale-125" : ""}`}
-                  style={{ left: `${zone.x}%`, top: `${zone.y}%`, width: `${Math.max(40, zone.complaints / 2)}px`, height: `${Math.max(40, zone.complaints / 2)}px`, transform: "translate(-50%, -50%)" }}
-                  onMouseEnter={() => setHoveredZone(zone.id)} onMouseLeave={() => setHoveredZone(null)}
-                >
-                  {hoveredZone === zone.id && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-popover text-popover-foreground px-3 py-2 rounded-lg shadow-lg text-sm whitespace-nowrap border border-border">
-                      <p className="font-semibold">{zone.name}</p><p>{zone.complaints} {t("analytics.complaints", "complaints")}</p>
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {heatmapZones.map((zone: any) => (
+                  <button
+                    key={zone.id}
+                    type="button"
+                    onClick={() => setSelectedHeatmapZoneId(zone.id)}
+                    onMouseEnter={() => setHoveredZone(zone.id)}
+                    onMouseLeave={() => setHoveredZone(null)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                      selectedHeatmapZoneId === zone.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{zone.name}</p>
+                        <p className="text-xs text-muted-foreground">{zone.complaints} {t("analytics.complaints", "complaints")}</p>
+                      </div>
+                      <span className={`h-2.5 w-2.5 rounded-full ${zone.density === "high" ? "bg-red-500" : zone.density === "medium" ? "bg-yellow-500" : "bg-green-500"}`} />
                     </div>
-                  )}
-                  <span className="text-white font-bold text-xs">{zone.complaints}</span>
-                </div>
-              ))}
-              {heatmapZones.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
-                  {t("analytics.noGeoData", "No geo-density data for selected range")}
-                </div>
-              )}
-              <div className="absolute bottom-4 right-4 bg-card rounded-lg p-3 border border-border">
-                <p className="text-xs font-semibold text-foreground mb-2">{t("analytics.density", "Density")}</p>
-                <div className="space-y-1">
-                  {[{ color: "bg-red-500", label: t("analytics.high", "High (>50)") }, { color: "bg-yellow-500", label: t("analytics.medium", "Medium (20-50)") }, { color: "bg-green-500", label: t("analytics.low", "Low (<20)") }].map(l => (
-                    <div key={l.label} className="flex items-center gap-2 text-xs">
-                      <span className={`w-3 h-3 rounded-full ${l.color}`} /><span className="text-muted-foreground">{l.label}</span>
-                    </div>
-                  ))}
-                </div>
+                  </button>
+                ))}
+                {heatmapZones.length === 0 && (
+                  <p className="rounded border border-dashed p-3 text-sm text-muted-foreground">
+                    {t("analytics.noGeoData", "No geo-density data for selected range")}
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* AI Insights */}
+        {/* Analytical Observations */}
         <Card className="bg-white border-amber-200">
-          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-600" />{t("analytics.aiInsights", "AI-Generated Insights")}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-600" />{t("analytics.aiInsights", "Analytical Observations")}</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
               {insights.length === 0 && (
@@ -665,6 +668,7 @@ const AnalyticsDashboard = () => {
           </CardContent>
         </Card>
       </main>
+      <Footer />
     </div>
   );
 };

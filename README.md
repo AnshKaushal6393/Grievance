@@ -1,44 +1,74 @@
 # Grievance Portal
 
-Government-style grievance redressal web platform with role-based workflows for:
+<p align="center">
+  <img src="grievance-portal/public/gov-emblem.svg" alt="Project Emblem" width="110" />
+</p>
+
+A Final Year Major Project focused on digitizing public grievance redressal through a secure, role-based, multilingual web platform.
+
+## Abstract
+
+The Grievance Portal is a full-stack web-based grievance redressal system developed as a final year major project to improve transparency, accessibility, and efficiency in complaint management. The platform enables citizens to register grievances, track status updates, and receive notifications, while officers and administrators process complaints through structured dashboards and role-based workflows. The system is implemented using React, TypeScript, Node.js, Express, and MongoDB, with JWT-based authentication and cloud-integrated media support. It also incorporates multilingual support and map-based location tagging to improve usability in diverse user environments. The proposed solution demonstrates a practical, scalable, and deployment-ready model for digital governance and institutional complaint resolution.
+
+## Keywords
+
+E-Governance, Grievance Redressal, Role-Based Access Control, MERN Stack, JWT Authentication, Complaint Tracking, Full-Stack Web Application
+
+## 1. Project Overview
+
+The Grievance Portal is designed to streamline complaint submission, tracking, and resolution across three stakeholder roles:
 - Citizen (`user`)
 - Officer
 - Admin
 
-This repository contains:
-- `grievance-portal/` -> React + Vite frontend
-- `backend/` -> Node.js + Express + MongoDB API
+The system reduces manual paperwork, improves transparency, and provides structured workflows for grievance handling.
 
-## Core Features
+## 2. Problem Statement
+
+Conventional grievance handling in many institutions is slow, non-transparent, and hard to monitor. Citizens often lack visibility into complaint status, while administrators struggle with analytics and workload distribution.
+
+## 3. Objectives
+
+- Build a centralized portal for complaint registration and lifecycle tracking.
+- Provide role-based access control for citizens, officers, and administrators.
+- Improve accountability with status history and notifications.
+- Support multilingual access (English, Hindi, Urdu) for inclusivity.
+- Enable deployment-ready architecture for real-world use.
+
+## 4. Repository Structure
+
+- `grievance-portal/`: React + Vite frontend
+- `backend/`: Node.js + Express + MongoDB API
+
+## 5. Major Features
 
 - Citizen complaint filing (form + voice flow)
-- Draft complaint save/resume/delete
-- Complaint tracking and history
-- Notifications with read/archive actions
-- Officer dashboard and department queue
+- Draft save/resume/delete for complaints
+- Complaint tracking and status history
+- Notification system (read/archive actions)
+- Officer queue and department-level processing
 - Admin dashboards (analytics, departments, users, complaints, reports, settings)
-- Multilingual UI (English, Hindi, Urdu)
-- Interactive map location selection (Leaflet) across map-enabled pages
-- Accessibility baseline (skip link, focus styles, aria improvements on major pages)
+- Interactive map-based location selection (Leaflet)
+- Accessibility baseline (skip link, focus visibility, ARIA improvements)
 
-## Tech Stack
+## 6. Technology Stack
 
 - Frontend: React, TypeScript, Vite, Tailwind, shadcn/ui, Recharts, React Router, React Leaflet
-- Backend: Express, Mongoose, JWT auth, Multer + Cloudinary, Nodemailer, Twilio
+- Backend: Express, Mongoose, JWT Authentication, Multer + Cloudinary, Nodemailer, Twilio
 - Database: MongoDB
-- Infra: Docker + Docker Compose
+- Containerization: Docker, Docker Compose
 
-## Prerequisites
+## 7. System Modules
 
-- Node.js 18+ (recommended 20+)
-- npm 9+
-- MongoDB instance
-- Cloudinary account (for media upload)
+- Authentication & Authorization module
+- Complaint Management module
+- Officer Workflow module
+- Admin Monitoring & Analytics module
+- Notification module (email/SMS)
 
-## Environment Variables
+## 8. Environment Variables
 
 ### Backend (`backend/.env`)
-Required keys used by code:
 
 - `PORT` (default `5000`)
 - `NODE_ENV`
@@ -61,11 +91,11 @@ Required keys used by code:
 ### Frontend (`grievance-portal/.env`)
 
 - `VITE_API_URL` (example: `http://localhost:5000/api`)
-- `VITE_GOOGLE_CLIENT_ID` (optional; needed for Google sign-in button)
+- `VITE_GOOGLE_CLIENT_ID` (for Google Sign-In)
 
-## Local Development
+## 9. Local Development Setup
 
-### 1) Start backend
+### Backend
 
 ```powershell
 cd backend
@@ -73,9 +103,9 @@ npm install
 npm run dev
 ```
 
-Backend runs on `http://localhost:5000`.
+Backend URL: `http://localhost:5000`
 
-### 2) Start frontend
+### Frontend
 
 ```powershell
 cd grievance-portal
@@ -83,9 +113,9 @@ npm install
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`.
+Frontend URL: `http://localhost:5173`
 
-## Production Build
+## 10. Production Build
 
 ### Frontend
 
@@ -101,9 +131,9 @@ cd backend
 npm start
 ```
 
-## Docker Run
+## 11. Docker Deployment
 
-From repo root:
+From repository root:
 
 ```powershell
 docker compose up --build
@@ -112,29 +142,35 @@ docker compose up --build
 Access:
 - Frontend: `http://localhost:8080`
 - Backend API: `http://localhost:5000`
-- Health: `http://localhost:5000/health`
+- Health Endpoint: `http://localhost:5000/health`
 
-Stop:
+Stop containers:
 
 ```powershell
 docker compose down
 ```
 
-## API Route Groups
+## 12. API Route Groups
 
 - `/api/auth`
 - `/api/complaints`
 - `/api/officer`
 - `/api/admin`
 
-## Current Scope Note (ML/AI)
+## 13. Project Outcomes
 
-The platform has AI-ready workflow hooks (voice metadata, analytics insights) but **custom trained ML models are not mandatory for core operation** and may not be integrated yet. Core grievance workflows work without ML training.
+- Implemented end-to-end grievance lifecycle management.
+- Achieved role-specific workflows with secure JWT-based access.
+- Delivered cloud-deployable architecture (Render/Vercel or Docker-hosted setup).
+- Improved complaint visibility for citizens and operational tracking for administrators.
 
-## Suggested Next Steps
+## 14. Limitations and Scope for Future Work
 
-1. Add backend-backed AI insight generation (replace any heuristic placeholders).
-2. Add automated E2E/UAT test suite for all role flows.
-3. Add CI pipeline (lint, type-check, build, backend smoke tests).
-4. Add deployment docs for cloud target (Render/AWS/Azure/GCP).
+- Add AI-based grievance categorization and prioritization.
+- Add automated E2E/UAT test coverage for all role flows.
+- Add CI/CD pipelines (lint, type-check, build, smoke tests).
+- Add SLA-based escalation engine and richer analytics.
 
+## 15. Academic Note
+
+This project is suitable for final year major project evaluation under full-stack web development, e-governance systems, and software engineering practice.

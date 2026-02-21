@@ -459,6 +459,49 @@ const Navbar = ({ branding }: NavbarProps) => {
                   {link.label}
                 </Link>
               ))}
+
+              <div className="mt-3 border-t border-border pt-3">
+                {isLoggedIn ? (
+                  <>
+                    <div className="mb-2 rounded border border-border bg-slate-50 px-3 py-2">
+                      <p className="text-sm font-semibold">{displayName}</p>
+                      <p className="text-xs text-muted-foreground">{displayEmail}</p>
+                    </div>
+                    {profileMenuItems.map((item) => (
+                      <Link
+                        key={item.label}
+                        to={item.href}
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-slate-100"
+                      >
+                        <item.icon className="h-4 w-4 text-muted-foreground" />
+                        {item.label}
+                      </Link>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="mt-1 flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      {t("nav.logout", "Logout")}
+                    </button>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/login" onClick={() => setIsOpen(false)}>
+                        {t("nav.signIn", "Sign In")}
+                      </Link>
+                    </Button>
+                    <Button size="sm" asChild>
+                      <Link to="/register" onClick={() => setIsOpen(false)}>
+                        {t("nav.signUp", "Sign Up")}
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

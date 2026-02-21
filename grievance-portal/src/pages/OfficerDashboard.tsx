@@ -849,7 +849,7 @@ const OfficerDashboard = () => {
           <DialogHeader>
             <DialogTitle>{t("officer.slaAlerts", "SLA Alerts")}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[60vh] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-background">
                 <tr className="border-b text-left">

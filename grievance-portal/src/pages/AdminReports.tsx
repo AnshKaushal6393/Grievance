@@ -616,37 +616,39 @@ const AdminReports = () => {
         <Card id="recent-reports">
           <CardHeader><CardTitle>{t("adminReports.recentReports", "Recent Reports")}</CardTitle></CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("adminReports.name", "Name")}</TableHead>
-                  <TableHead>{t("adminReports.type", "Type")}</TableHead>
-                  <TableHead>{t("adminReports.generatedDate", "Generated Date")}</TableHead>
-                  <TableHead className="text-right">{t("adminReports.download", "Download")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleReports.length === 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">{t("adminReports.noReports", "No reports generated yet")}</TableCell>
+                    <TableHead>{t("adminReports.name", "Name")}</TableHead>
+                    <TableHead>{t("adminReports.type", "Type")}</TableHead>
+                    <TableHead>{t("adminReports.generatedDate", "Generated Date")}</TableHead>
+                    <TableHead className="text-right">{t("adminReports.download", "Download")}</TableHead>
                   </TableRow>
-                ) : (
-                  visibleReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell className="font-medium">{report.name}</TableCell>
-                      <TableCell>{report.type}</TableCell>
-                      <TableCell>{new Date(report.generatedDate).toLocaleString()}</TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" className="gap-1" onClick={() => triggerDownload(report)}>
-                          <Download className="h-4 w-4" />
-                          {t("adminReports.download", "Download")}
-                        </Button>
-                      </TableCell>
+                </TableHeader>
+                <TableBody>
+                  {visibleReports.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">{t("adminReports.noReports", "No reports generated yet")}</TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    visibleReports.map((report) => (
+                      <TableRow key={report.id}>
+                        <TableCell className="font-medium">{report.name}</TableCell>
+                        <TableCell>{report.type}</TableCell>
+                        <TableCell>{new Date(report.generatedDate).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" className="gap-1" onClick={() => triggerDownload(report)}>
+                            <Download className="h-4 w-4" />
+                            {t("adminReports.download", "Download")}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 

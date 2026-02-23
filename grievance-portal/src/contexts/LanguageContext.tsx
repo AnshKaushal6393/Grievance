@@ -2004,10 +2004,29 @@ const ur: Record<string, string> = {
   "common.page": "صفحہ",
 };
 
+const hasNativeScript = (value: string) => /[\u0900-\u097F\u0600-\u06FF]/.test(value);
+
+const decodePossiblyMojibake = (value: string) => {
+  if (!value || hasNativeScript(value)) return value;
+  if (!/[ÃÂàØÙÛ]/.test(value)) return value;
+  try {
+    const bytes = Uint8Array.from(Array.from(value).map((char) => char.charCodeAt(0) & 0xff));
+    const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    return hasNativeScript(decoded) ? decoded : value;
+  } catch {
+    return value;
+  }
+};
+
+const normalizeDictionary = (dictionary: Record<string, string>) =>
+  Object.fromEntries(
+    Object.entries(dictionary).map(([key, value]) => [key, decodePossiblyMojibake(value)]),
+  );
+
 const dictionaries: Record<LanguageCode, Record<string, string>> = {
   en,
-  hi,
-  ur,
+  hi: normalizeDictionary(hi),
+  ur: normalizeDictionary(ur),
 };
 
 const labels: Record<LanguageCode, string> = {
@@ -2015,8 +2034,6 @@ const labels: Record<LanguageCode, string> = {
   hi: "\u0939\u093f\u0928\u094d\u0926\u0940",
   ur: "\u0627\u0631\u062f\u0648",
 };
-
-const hasRomanChars = (value: string) => /[A-Za-z]/.test(value);
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
@@ -2042,9 +2059,6 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
       t: (key, fallback) => {
         const localized = dictionaries[language][key];
         const english = dictionaries.en[key];
-        if (language !== "en" && localized && hasRomanChars(localized)) {
-          return english || fallback || key;
-        }
         return localized || english || fallback || key;
       },
       getLanguageLabel: (code) => labels[code] || labels.en,

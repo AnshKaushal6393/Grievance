@@ -11,10 +11,12 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
+    const language = localStorage.getItem("grievance_language");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    config.headers["Accept-Language"] = "en";
+    config.headers["Accept-Language"] =
+      language === "hi" || language === "ur" || language === "en" ? language : "en";
     return config;
   },
   (error) => {

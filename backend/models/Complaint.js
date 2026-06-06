@@ -281,7 +281,6 @@ const complaintSchema = new mongoose.Schema(
   },
 );
 
-complaintSchema.index({ complaintId: 1 });
 complaintSchema.index({ user: 1, status: 1 });
 complaintSchema.index({ category: 1 });
 complaintSchema.index({ status: 1 });

@@ -105,7 +105,6 @@ const departmentSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-departmentSchema.index({ name: 1 });
 departmentSchema.index({ categories: 1 });
 departmentSchema.index({ isActive: 1 });
 

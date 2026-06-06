@@ -22,8 +22,6 @@ const adminSettingSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-adminSettingSchema.index({ key: 1 }, { unique: true });
-
 const AdminSetting = mongoose.model("AdminSetting", adminSettingSchema);
 
 export default AdminSetting;

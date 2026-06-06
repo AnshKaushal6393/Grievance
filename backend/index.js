@@ -11,7 +11,7 @@ import { maintenanceModeGuard, runtimeRateLimit } from "./middleware/systemPolic
 import { startAutoArchiveJob } from "./utils/autoArchive.js";
 dotenv.config();
 
-connectDB();
+await connectDB();
 
 const app = express();
 

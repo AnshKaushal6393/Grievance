@@ -171,9 +171,6 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-userSchema.index({ email: 1 });
-userSchema.index({ phone: 1 });
-userSchema.index({ googleId: 1 }, { sparse: true });
 userSchema.index({ "aadhaar.number": 1 }, { sparse: true });
 
 userSchema.pre("save", async function () {

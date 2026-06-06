@@ -1,7 +1,8 @@
 // src/services/adminService.ts
 import api from '@/lib/api';
+import { API_BASE_URL } from '@/lib/api';
 
-const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+const API_BASE = API_BASE_URL.replace(/\/$/, "");
 
 // ─── Dashboard ────────────────────────────────────────────
 export const adminService = {

@@ -1,11 +1,17 @@
 import axios from "axios";
 
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:5000/api" : "/api");
+
+const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 60000);
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
+  timeout: Number.isFinite(API_TIMEOUT_MS) ? API_TIMEOUT_MS : 60000,
 });
 
 api.interceptors.request.use(
@@ -63,7 +69,13 @@ api.interceptors.response.use(
       }
     } else if (error.request) {
       // Request made but no response
-      console.error('Network error: No response from server');
+      const baseUrl = String(error.config?.baseURL || API_BASE_URL);
+      const message =
+        error.code === "ECONNABORTED"
+          ? "The server is taking too long to respond. Please try again in a minute."
+          : `Network error: No response from server (${baseUrl})`;
+      error.message = message;
+      console.error(message);
     } else {
       // Something else happened
       console.error('Error:', error.message);

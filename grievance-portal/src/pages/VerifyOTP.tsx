@@ -9,14 +9,14 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const VerifyOTP = () => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
-  const [timer, setTimer] = useState(45);
+  const [timer, setTimer] = useState(location.state?.resendImmediately ? 0 : 45);
   const [isResending, setIsResending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const navigate = useNavigate();
-  const location = useLocation();
 
   const userId = location.state?.userId;
   const email = location.state?.email;
@@ -120,7 +120,7 @@ const VerifyOTP = () => {
     <div className="min-h-screen bg-linear-to-br from-background via-muted/40 to-background flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-125">
         <div className="bg-white rounded-3xl shadow-2xl p-10 space-y-8">
-          <Link to="/register" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"><ArrowLeft className="w-4 h-4" /><span className="text-sm">{t("common.back", "Back")}</span></Link>
+          <Link to={location.state?.fromLogin || location.state?.resendImmediately ? "/login" : "/register"} className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"><ArrowLeft className="w-4 h-4" /><span className="text-sm">{t("common.back", "Back")}</span></Link>
 
           <div className="text-center space-y-4">
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", delay: 0.2 }} className="w-20 h-20 bg-linear-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg"><ShieldCheck className="w-10 h-10 text-white" /></motion.div>

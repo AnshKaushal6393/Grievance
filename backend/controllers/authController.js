@@ -273,6 +273,16 @@ export const login = async (req, res) => {
       });
     }
 
+    // Verify password
+    const isPasswordCorrect = await user.comparePassword(password);
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
     // Check if account is active
     if (!user.isActive) {
       return res.status(403).json({
@@ -281,13 +291,20 @@ export const login = async (req, res) => {
       });
     }
 
-    // Verify password
-    const isPasswordCorrect = await user.comparePassword(password);
-
-    if (!isPasswordCorrect) {
-      return res.status(401).json({
+    // Check if email is verified
+    if (!user.isEmailVerified) {
+      return res.status(403).json({
         success: false,
-        message: "Invalid credentials",
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Please verify your email address before logging in.",
+        data: {
+          userId: user._id,
+          email: user.email,
+          phone: user.phone,
+        },
+        userId: user._id,
+        email: user.email,
+        phone: user.phone,
       });
     }
 

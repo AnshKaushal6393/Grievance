@@ -31,6 +31,14 @@ export const protect = async (req, res, next) => {
           message: "Your account has been deactivated.",
         });
       }
+
+      if (!user.isEmailVerified) {
+        return res.status(403).json({
+          success: false,
+          code: "EMAIL_NOT_VERIFIED",
+          message: "Please verify your email address to continue.",
+        });
+      }
       req.user = user;
       next();
     } catch (error) {
@@ -85,7 +93,7 @@ export const optionalAuth = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.id).select('-password');
         
-        if (user && user.isActive) {
+        if (user && user.isActive && user.isEmailVerified) {
           req.user = user;
         }
       } catch (err) {

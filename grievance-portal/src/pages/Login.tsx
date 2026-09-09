@@ -139,7 +139,50 @@ const Login = () => {
       navigateByRole(role);
 
     } catch (error: any) {
-      toast.error(error?.message || t("login.errorInvalidCreds"));
+      const errorCode = error?.code || error?.response?.data?.code;
+      const errorMessage =
+        error?.message ||
+        error?.response?.data?.message ||
+        "";
+
+      if (errorCode === "EMAIL_NOT_VERIFIED") {
+        toast.info(
+          errorMessage ||
+            t(
+              "login.errorEmailNotVerified",
+              "Please verify your email to log in. Redirecting to OTP verification..."
+            )
+        );
+        const userId =
+          error?.userId ||
+          error?.data?.userId ||
+          error?.response?.data?.userId ||
+          error?.response?.data?.data?.userId;
+        const userEmail =
+          error?.email ||
+          error?.data?.email ||
+          error?.response?.data?.email ||
+          error?.response?.data?.data?.email ||
+          email;
+        const userPhone =
+          error?.phone ||
+          error?.data?.phone ||
+          error?.response?.data?.phone ||
+          error?.response?.data?.data?.phone;
+
+        navigate("/verify-otp", {
+          state: {
+            userId,
+            email: userEmail,
+            phone: userPhone,
+            resendImmediately: true,
+            fromLogin: true,
+          },
+        });
+        return;
+      }
+
+      toast.error(errorMessage || t("login.errorInvalidCreds"));
     } finally {
       setIsLoading(false);
     }

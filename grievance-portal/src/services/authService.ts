@@ -96,7 +96,11 @@ export const authService = {
 
       return response.data;
     } catch (error: any) {
-      throw error.response?.data || { message: "Login failed" };
+      const err = error.response?.data || { message: error?.message || "Login failed" };
+      if (typeof err === "object" && err !== null && !err.response) {
+        err.response = error.response;
+      }
+      throw err;
     }
   },
 

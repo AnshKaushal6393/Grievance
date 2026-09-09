@@ -30,10 +30,18 @@ mongoose.connection.on("error", (err) => {
 });
 
 // Graceful shutdown
-process.on("SIGINT", async () => {
-  await mongoose.connection.close();
-  console.log("MongoDB connection closed due to app termination");
-  process.exit(0);
-});
+const handleGracefulShutdown = async (signal) => {
+  try {
+    await mongoose.connection.close();
+    console.log(`MongoDB connection closed due to ${signal}`);
+    process.exit(0);
+  } catch (err) {
+    console.error(`Error closing MongoDB connection: ${err.message}`);
+    process.exit(1);
+  }
+};
+
+process.on("SIGINT", () => handleGracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => handleGracefulShutdown("SIGTERM"));
 
 export default connectDB;

@@ -30,17 +30,35 @@ const storage = new CloudinaryStorage({
     }
 });
 
-const upload = multer({storage:storage,limits:{fileSize:10*1024*1024,files:5},
-fileFilter:(req,file,cb)=>{
-    const allowedTypes = /jpeg|jpg|png|gif|mp4|mov|avi/;
-    const minetype = allowedTypes.test(file.mimetype);
+const allowedMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "video/mp4",
+  "video/quicktime",
+  "video/x-msvideo"
+];
+const allowedExtensions = /^\.(jpe?g|png|gif|mp4|mov|avi)$/i;
 
-    if(minetype){
-        cb(null,true);
-    }else{
-        cb(new Error("Invalid file type. Only images and videos are allowed."));
-    }
-}});
+const fileFilter = (req, file, cb) => {
+  const mimetype = file?.mimetype || "";
+  const ext = path.extname(file?.originalname || "").toLowerCase();
+
+  const isMimeValid = allowedMimeTypes.includes(mimetype);
+  const isExtValid = allowedExtensions.test(ext);
+
+  if (isMimeValid && isExtValid) {
+    cb(null, true);
+  } else {
+    cb(new Error("Invalid file type. Only images and videos are allowed."));
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 },
+  fileFilter: fileFilter
+});
 
 const deleteFile = async (publicId) => {
   try {
@@ -59,4 +77,4 @@ const getFileType = (mimetype) => {
 };
 
 
-export {cloudinary, upload, deleteFile, getFileType};
+export { cloudinary, upload, deleteFile, getFileType, fileFilter };

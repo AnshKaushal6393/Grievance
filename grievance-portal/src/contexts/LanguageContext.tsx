@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -2041,14 +2040,13 @@ const labels: Record<LanguageCode, string> = {
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-  const [language, setLanguageState] = useState<LanguageCode>("en");
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as LanguageCode | null;
+  const [language, setLanguageState] = useState<LanguageCode>(() => {
+    const stored = typeof window !== "undefined" ? (localStorage.getItem(STORAGE_KEY) as LanguageCode | null) : null;
     if (stored && ["en", "hi", "ur"].includes(stored)) {
-      setLanguageState(stored);
+      return stored;
     }
-  }, []);
+    return "en";
+  });
 
   const setLanguage = (nextLanguage: LanguageCode) => {
     setLanguageState(nextLanguage);

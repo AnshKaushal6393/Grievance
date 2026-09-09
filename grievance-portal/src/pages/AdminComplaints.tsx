@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -718,10 +719,10 @@ const AdminComplaints = () => {
         {/* Table */}
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto relative">
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
+                <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-xs z-10 shadow-xs">
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead className="w-12">
                       <Checkbox checked={selectedRows.length === complaints.length && complaints.length > 0} onCheckedChange={handleSelectAll} />
                     </TableHead>
@@ -739,7 +740,21 @@ const AdminComplaints = () => {
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow><TableCell colSpan={11} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                    Array.from({ length: 5 }).map((_, idx) => (
+                      <TableRow key={`skeleton-row-${idx}`}>
+                        <TableCell><Skeleton className="h-4 w-4 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-44" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
                   ) : complaints.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
@@ -761,7 +776,7 @@ const AdminComplaints = () => {
                               <Checkbox checked={selectedRows.includes(complaint.id)} onCheckedChange={checked => handleSelectRow(complaint.id, checked as boolean)} />
                             </TableCell>
                             <TableCell className="font-mono text-sm font-medium text-primary">{complaint.complaintId}</TableCell>
-                            <TableCell className="max-w-[200px]"><p className="truncate font-medium">{complaint.title}</p></TableCell>
+                            <TableCell className="max-w-50"><p className="truncate font-medium">{complaint.title}</p></TableCell>
                             <TableCell><Badge variant="secondary" className={getCategoryColor(complaint.category)}>{complaint.category}</Badge></TableCell>
                             <TableCell><Badge className={`${statusConfig.className} gap-1`}><StatusIcon className="h-3 w-3" />{statusConfig.label}</Badge></TableCell>
                             <TableCell>
@@ -836,7 +851,7 @@ const AdminComplaints = () => {
                 </Button>
                 <div className="flex flex-wrap items-center gap-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
+                    const pageNum = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
                     return (
                       <Button key={pageNum} variant={currentPage === pageNum ? "default" : "outline"} size="sm" className="w-8 h-8 p-0" onClick={() => setCurrentPage(pageNum)}>{pageNum}</Button>
                     );

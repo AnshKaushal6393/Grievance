@@ -30,6 +30,16 @@ import { upload } from '../config/cloudinary.js';
 router.get('/track/:complaintId', trackComplaint);
 
 // Protected routes (require authentication)
+router.post('/upload-image', protect, upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No image uploaded' });
+  }
+  return res.status(200).json({
+    success: true,
+    imageUrl: req.file.path,
+    publicId: req.file.filename,
+  });
+});
 router.post('/create', protect, upload.array('attachments', 5), fileComplaint);
 router.get('/my-complaints', protect, getMyComplaints);
 router.get('/dashboard/stats', protect, getDashboardStats);

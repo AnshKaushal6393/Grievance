@@ -1169,19 +1169,6 @@ const AdminSettings = () => {
                     <div className="mt-3">
                       <Label className="mb-2 block">{t("settings.categories.associatedDepartments", "Associated Departments")}</Label>
                       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                        {departmentOptions.map((department) => (
-                          <label key={department} className="flex items-center gap-2 rounded border px-3 py-2 text-sm">
-                            <Checkbox
-                              checked={newCategoryDepartments.includes(department)}
-                              onCheckedChange={(checked) =>
-                                setNewCategoryDepartments((prev) =>
-                                  Boolean(checked) ? [...prev, department] : prev.filter((item) => item !== department),
-                                )
-                              }
-                            />
-                            {department}
-                          </label>
-                        ))}
                       </div>
                     </div>
                     <Button className="mt-3 gap-2" onClick={addCategory}>

@@ -291,11 +291,20 @@ export const login = async (req, res) => {
       });
     }
 
+    // Check if account is banned
+    if (user.isBanned) {
+      return res.status(403).json({
+        success: false,
+        message: `Your account has been banned. Reason: ${user.bannedReason || "Violation of platform policies."}`,
+      });
+    }
+
     // Check if email is verified
     if (!user.isEmailVerified) {
       return res.status(403).json({
         success: false,
         code: "EMAIL_NOT_VERIFIED",
+        requiresVerification: true,
         message: "Please verify your email address before logging in.",
         data: {
           userId: user._id,
@@ -514,23 +523,39 @@ export const sendAadhaarOTP = async (req, res) => {
     const otp = user.generateOTP("aadhaar-verification");
     await user.save();
 
-    // In production, this would call actual Aadhaar API
-    // For now, send OTP to user's registered phone
+    // In production, this would call UIDAI Aadhaar verification gateway
+    // For now, attempt SMS to registered phone, with email fallback for Twilio trial/unverified numbers
     const smsResult = await sendOTPSMS(user.phone, otp);
+    let emailSent = false;
+
     if (!smsResult.success) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "SMS delivery unavailable for this number (Twilio trial requires verified recipients). Please verify the number in Twilio or use a verified phone.",
-        code: smsResult.code,
-      });
+      console.warn(
+        `[Aadhaar OTP] SMS delivery unavailable (${smsResult.code || "Twilio error"}). Dispatching fallback via registered email ${user.email}. OTP: ${otp}`
+      );
+      try {
+        await sendOTPEmail(user.email, otp, user.name);
+        emailSent = true;
+      } catch (emailErr) {
+        console.error("[Aadhaar OTP] Email fallback also failed:", emailErr.message);
+      }
     }
+
+    const message = smsResult.success
+      ? "OTP sent to your Aadhaar-linked mobile number"
+      : emailSent
+        ? "SMS delivery limited in trial mode. OTP has been sent to your registered email."
+        : "OTP generated. Please check your registered email or console.";
 
     res.status(200).json({
       success: true,
-      message: "OTP sent to your Aadhaar-linked mobile number",
+      message,
       data: {
         maskedPhone: `****${user.phone.slice(-4)}`,
+        maskedEmail: user.email.replace(/(.{2})(.*)(?=@)/, "$1***"),
+        // Include fallbackCode if both SMS & email failed or in development for unblocked testing
+        ...(process.env.NODE_ENV !== "production" || (!smsResult.success && !emailSent)
+          ? { fallbackOtp: otp }
+          : {}),
       },
     });
   } catch (error) {

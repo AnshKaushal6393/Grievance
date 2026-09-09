@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const userSchema = new mongoose.Schema(
   {
@@ -182,62 +183,74 @@ userSchema.pre("save", async function () {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   try {
     if (!this.password) return false;
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
-    throw new Error('Password comparison failed');
+    throw new Error("Password comparison failed");
   }
 };
 
-userSchema.methods.generateOTP = function(purpose = 'registration') {
+userSchema.methods.generateOTP = function (purpose = "registration") {
   // Generate 6-digit OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  
-  // Set OTP with 15 minutes expiry
+  const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Store SHA-256 hashed OTP in database
+  const hashedOtp = crypto.createHash("sha256").update(rawOtp).digest("hex");
+
   this.otp = {
-    code: otp,
+    code: hashedOtp,
     expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
-    purpose: purpose
+    purpose: purpose,
   };
-  
-  return otp;
+
+  // Return unhashed OTP to send to user via email/SMS
+  return rawOtp;
 };
 
-userSchema.methods.verifyOTP = function(candidateOTP, purpose) {
+userSchema.methods.verifyOTP = function (candidateOTP, purpose) {
   if (!this.otp || !this.otp.code) {
-    return { success: false, message: 'No OTP found' };
+    return { success: false, message: "No OTP found" };
   }
-  
+
   if (this.otp.purpose !== purpose) {
-    return { success: false, message: 'OTP purpose mismatch' };
+    return { success: false, message: "OTP purpose mismatch" };
   }
-  
+
   if (new Date() > this.otp.expiresAt) {
-    return { success: false, message: 'OTP has expired' };
+    return { success: false, message: "OTP has expired" };
   }
-  
-  if (this.otp.code !== candidateOTP) {
-    return { success: false, message: 'Invalid OTP' };
+
+  const candidateHashed = crypto
+    .createHash("sha256")
+    .update(String(candidateOTP).trim())
+    .digest("hex");
+
+  // Support both SHA-256 hashed OTPs and legacy plain strings during migration
+  const isValid =
+    this.otp.code === candidateHashed || this.otp.code === String(candidateOTP).trim();
+
+  if (!isValid) {
+    return { success: false, message: "Invalid OTP" };
   }
-  
+
   // OTP is valid
-  return { success: true, message: 'OTP verified successfully' };
+  return { success: true, message: "OTP verified successfully" };
 };
 
-userSchema.methods.clearOTP = function() {
+userSchema.methods.clearOTP = function () {
   this.otp = {
     code: undefined,
     expiresAt: undefined,
-    purpose: undefined
+    purpose: undefined,
   };
 };
 
-userSchema.statics.findByEmailOrPhone = function(identifier) {
+userSchema.statics.findByEmailOrPhone = function (identifier) {
   // Check if identifier is email or phone
-  const isEmail = identifier.includes('@');
-  
+  const isEmail = identifier.includes("@");
+
   if (isEmail) {
     return this.findOne({ email: identifier.toLowerCase() });
   } else {

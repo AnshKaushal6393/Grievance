@@ -212,7 +212,7 @@ const UpdateComplaintStatus = () => {
     const lat = complaint?.location?.coordinates?.latitude;
     const lng = complaint?.location?.coordinates?.longitude;
     const hasCoords = typeof lat === "number" && typeof lng === "number";
-    const looksLikeCoordinates = /^[\d\.\-\s,]+$/.test(rawAddress);
+    const looksLikeCoordinates = /^[\d.\-\s,]+$/.test(rawAddress);
 
     if (!hasCoords || (rawAddress && !looksLikeCoordinates)) {
       setDerivedAddress("");
@@ -412,11 +412,21 @@ const UpdateComplaintStatus = () => {
     setIsSubmitting(true);
 
     try {
+      let uploadedEvidenceUrls: string[] = [];
+      let uploadedResolutionUrls: string[] = [];
+
+      if (evidenceImages.length > 0) {
+        uploadedEvidenceUrls = await officerService.uploadImages(evidenceImages);
+      }
+      if (resolutionImages.length > 0) {
+        uploadedResolutionUrls = await officerService.uploadImages(resolutionImages);
+      }
+
       await officerService.updateComplaintStatus(complaint._id, {
         status: newStatus,
         actionNotes,
-        evidenceImages,
-        resolutionImages,
+        evidenceImages: uploadedEvidenceUrls,
+        resolutionImages: uploadedResolutionUrls,
         inspectionDate: inspectionDate?.toISOString(),
         inspectionTime,
         inspectorName,
@@ -611,7 +621,7 @@ const UpdateComplaintStatus = () => {
                         <p className="font-medium text-foreground">
                           {t("updateStatus.location", "Location")}
                         </p>
-                        <p className="text-muted-foreground break-words">{locationAddress}</p>
+                        <p className="text-muted-foreground wrap-break-word">{locationAddress}</p>
                         {hasCoordinates && (
                           <div className="mt-1">
                             <p className="text-xs text-muted-foreground font-mono">
@@ -1045,7 +1055,7 @@ const UpdateComplaintStatus = () => {
                   ) : (
                     timelineEntries.slice(0, 8).map((entry, index) => (
                       <div key={`${entry.status}-${index}`} className="relative pl-6 pb-4 border-l-2 border-muted">
-                        <div className="absolute left-0 top-0 w-4 h-4 rounded-full bg-primary/100 -translate-x-1/2" />
+                        <div className="absolute left-0 top-0 w-4 h-4 rounded-full bg-primary -translate-x-1/2" />
                         <div>
                           <p className="text-sm font-medium text-foreground">{entry.message}</p>
                           <p className="text-xs text-muted-foreground">

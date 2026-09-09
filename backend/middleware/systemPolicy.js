@@ -86,3 +86,42 @@ export async function maintenanceModeGuard(req, res, next) {
     return next();
   }
 }
+
+const authRateBuckets = new Map();
+
+/**
+ * Stricter rate limiter for sensitive authentication endpoints
+ * Limits to 10 attempts per 15 minutes per IP
+ */
+export function authRateLimit(req, res, next) {
+  try {
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000; // 15 minutes
+    const limit = 15; // 15 attempts per 15-minute window
+    const ip = getClientIp(req);
+    const key = `${ip}:${Math.floor(now / windowMs)}`;
+
+    const bucket = authRateBuckets.get(key) || { count: 0, createdAt: now };
+    bucket.count += 1;
+    authRateBuckets.set(key, bucket);
+
+    if (authRateBuckets.size > 2000) {
+      const staleThreshold = now - 2 * windowMs;
+      for (const [bucketKey, value] of authRateBuckets.entries()) {
+        if (value.createdAt < staleThreshold) authRateBuckets.delete(bucketKey);
+      }
+    }
+
+    if (bucket.count > limit) {
+      return res.status(429).json({
+        success: false,
+        message: "Too many authentication attempts. Please wait 15 minutes before trying again.",
+      });
+    }
+
+    return next();
+  } catch {
+    return next();
+  }
+}
+

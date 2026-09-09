@@ -107,8 +107,16 @@ const Register = () => {
         error?.response?.data?.message ||
         "";
 
-      if (errorMessage.toLowerCase().includes("already")) {
-        toast.info(t("register.userExists", "User already exists. Redirecting to OTP verification...."));
+      if (
+        typeof errorMessage === "string" &&
+        errorMessage.toLowerCase().includes("already")
+      ) {
+        toast.info(
+          t(
+            "register.userExists",
+            "User already exists. Redirecting to OTP verification....",
+          ),
+        );
         navigate("/verify-otp", {
           state: {
             email: formData.email,
@@ -116,7 +124,13 @@ const Register = () => {
           },
         });
       } else {
-        toast.error(errorMessage || t("register.errorRegistrationFailed", "Registration failed. Please try again."));
+        toast.error(
+          errorMessage ||
+            t(
+              "register.errorRegistrationFailed",
+              "Registration failed. Please try again.",
+            ),
+        );
       }
     } finally {
       setIsLoading(false);
@@ -222,7 +236,7 @@ const Register = () => {
                       animate={{
                         width: currentStep > step.number ? "100%" : "0%",
                       }}
-                      className="h-full bg-primary/100"
+                      className="h-full bg-primary"
                     />
                   </div>
                 )}

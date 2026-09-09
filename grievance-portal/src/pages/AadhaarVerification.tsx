@@ -106,10 +106,10 @@ const AadhaarVerification = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-background via-muted/40 to-background flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-125">
-        <div className="bg-card text-card-foreground rounded-3xl shadow-2xl p-10 space-y-8 relative overflow-hidden border border-border/60">
+        <div className="bg-card text-card-foreground rounded-2xl shadow-xl p-8 sm:p-10 space-y-8 relative overflow-hidden border border-border/60">
           <AnimatePresence>
             {isVerified && (
-              <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-card/95 rounded-3xl flex flex-col items-center justify-center z-10">
+              <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-card/95 rounded-2xl flex flex-col items-center justify-center z-10">
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", delay: 0.2 }} className="w-24 h-24 bg-primary rounded-full flex items-center justify-center shadow-lg"><CheckCircle2 className="w-12 h-12 text-primary-foreground" /></motion.div>
                 <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mt-6 text-2xl font-bold text-foreground">{t("aadhaar.verifiedTitle", "Aadhaar Verified!")}</motion.p>
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-muted-foreground mt-2">{t("aadhaar.redirecting", "Redirecting to dashboard...")}</motion.p>

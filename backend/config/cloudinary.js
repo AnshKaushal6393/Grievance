@@ -16,35 +16,40 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = new CloudinaryStorage({
-    cloudinary:cloudinary,
-    params:{
-        folder:"grievance-portal/complaints",
-        allowed_formats:["jpg","jpeg","png","gif","mp4","mov","avi"],
-        resource_type:"auto",
-        transformation:[{
-            width:1920,
-            height:1080,
-            crop:"limit"
-        }]
-    }
-});
-
-const allowedMimeTypes = [
+const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/gif",
+  "image/webp",
   "video/mp4",
   "video/quicktime",
-  "video/x-msvideo"
-];
-const allowedExtensions = /^\.(jpe?g|png|gif|mp4|mov|avi)$/i;
+  "video/x-msvideo",
+  "video/avi",
+]);
+
+const allowedExtensions = /^\.(jpe?g|png|gif|webp|mp4|mov|avi)$/i;
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "grievance-portal/complaints",
+    allowed_formats: ["jpg", "jpeg", "png", "gif", "webp", "mp4", "mov", "avi"],
+    resource_type: "auto",
+    transformation: [
+      {
+        width: 1920,
+        height: 1080,
+        crop: "limit",
+      },
+    ],
+  },
+});
 
 const fileFilter = (req, file, cb) => {
-  const mimetype = file?.mimetype || "";
+  const mimetype = (file?.mimetype || "").toLowerCase();
   const ext = path.extname(file?.originalname || "").toLowerCase();
 
-  const isMimeValid = allowedMimeTypes.includes(mimetype);
+  const isMimeValid = ALLOWED_MIME_TYPES.has(mimetype);
   const isExtValid = allowedExtensions.test(ext);
 
   if (isMimeValid && isExtValid) {
@@ -57,7 +62,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024, files: 5 },
-  fileFilter: fileFilter
+  fileFilter: fileFilter,
 });
 
 const deleteFile = async (publicId) => {
@@ -65,16 +70,15 @@ const deleteFile = async (publicId) => {
     await cloudinary.uploader.destroy(publicId);
     return true;
   } catch (error) {
-    console.error('Error deleting file from Cloudinary:', error);
+    console.error("Error deleting file from Cloudinary:", error);
     return false;
   }
 };
 
 const getFileType = (mimetype) => {
-  if (mimetype.startsWith('image/')) return 'image';
-  if (mimetype.startsWith('video/')) return 'video';
-  return 'unknown';
+  if (mimetype.startsWith("image/")) return "image";
+  if (mimetype.startsWith("video/")) return "video";
+  return "unknown";
 };
-
 
 export { cloudinary, upload, deleteFile, getFileType, fileFilter };

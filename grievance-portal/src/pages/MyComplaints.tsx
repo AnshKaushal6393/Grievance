@@ -443,7 +443,7 @@ const MyComplaints = () => {
         >
           <div className="flex flex-wrap gap-4">
             {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 min-w-50">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
                 type="text"
@@ -465,7 +465,7 @@ const MyComplaints = () => {
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="w-[160px] rounded-xl">
+              <SelectTrigger className="w-40 rounded-xl">
                 <Filter className="w-4 h-4 mr-2 text-gray-500" />
                 <SelectValue placeholder={t("myComplaints.filter.status", "Status")} />
               </SelectTrigger>
@@ -496,7 +496,7 @@ const MyComplaints = () => {
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="w-[160px] rounded-xl">
+              <SelectTrigger className="w-40 rounded-xl">
                 <SelectValue placeholder={t("myComplaints.filter.category", "Category")} />
               </SelectTrigger>
               <SelectContent className="bg-white z-50">
@@ -556,7 +556,7 @@ const MyComplaints = () => {
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="w-[140px] rounded-xl">
+              <SelectTrigger className="w-36 rounded-xl">
                 <ArrowUpDown className="w-4 h-4 mr-2 text-gray-500" />
                 <SelectValue placeholder={t("myComplaints.filter.sort", "Sort")} />
               </SelectTrigger>
@@ -692,7 +692,7 @@ const MyComplaints = () => {
                                 {t("myComplaints.history", "History")}
                               </Button>
                               <Link to={`/track-complaint?complaintId=${complaint.id}`}>
-                                <Button className="w-full lg:w-auto bg-primary text-primary-foreground hover:bg-primary/90 text-white rounded-xl shadow-md hover:shadow-lg transition-all">
+                                <Button className="w-full lg:w-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-md hover:shadow-lg transition-all">
                                   <Eye className="w-4 h-4 mr-2" />
                                   {t("myComplaints.viewDetails", "View Details")}
                                 </Button>
@@ -761,7 +761,7 @@ const MyComplaints = () => {
                     )}
               </p>
               <Link to="/file-complaint-options">
-                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 text-white rounded-xl px-8 py-3 shadow-lg hover:shadow-xl transition-all">
+                <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl px-8 py-3 shadow-lg hover:shadow-xl transition-all">
                   <Plus className="w-5 h-5 mr-2" />
                   {t("myComplaints.fileFirst", "File Your First Complaint")}
                 </Button>
@@ -788,7 +788,7 @@ const MyComplaints = () => {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[70px] rounded-lg">
+                <SelectTrigger className="w-17.5 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-white z-50">

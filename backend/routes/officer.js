@@ -11,6 +11,7 @@ import {
 } from "../controllers/officerComplaintController.js";
 
 import { protect, authorize } from "../middleware/auth.js";
+import { uploadOfficerStatusImages } from "../middleware/officerUpload.js";
 
 // All routes require authentication and officer role
 router.use(protect);
@@ -26,7 +27,7 @@ router.get("/complaints/:id", getComplaintById);
 router.post("/complaints/:id/claim", claimDepartmentComplaint);
 
 // Update complaint
-router.put("/complaints/:id/status", updateComplaintStatus);
+router.put("/complaints/:id/status", uploadOfficerStatusImages, updateComplaintStatus);
 router.post("/complaints/:id/note", addComplaintNote);
 
 export default router;

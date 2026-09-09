@@ -1301,3 +1301,88 @@ export const getMyDrafts = async (req, res) => {
     });
   }
 };
+
+export const seedDemoNotifications = async (req, res) => {
+  if (process.env.NODE_ENV === "production") {
+    return res.status(404).json({
+      success: false,
+      message: "Route not found",
+    });
+  }
+
+  try {
+    const userId = req.user._id || req.user.id;
+
+    // Insert 3-5 sample Notification docs tied to req.user._id using existing schema fields only
+    const sampleNotifications = [
+      {
+        user: userId,
+        complaintId: "GR2026000101",
+        title: "Complaint Under Review",
+        status: "in_progress",
+        message: "Your grievance regarding road maintenance has been assigned to an officer and is currently under active inspection.",
+        source: "officer",
+        type: "status_update",
+        priority: "medium",
+        channels: { inApp: true, email: false, sms: false, push: false },
+        isRead: false,
+        actionUrl: "/track-complaint?complaintId=GR2026000101",
+      },
+      {
+        user: userId,
+        complaintId: "GR2026000102",
+        title: "Field Officer Assigned",
+        status: "assigned",
+        message: "An engineering officer has been dispatched to assess the drinking water supply issue reported in your area.",
+        source: "system",
+        type: "assignment",
+        priority: "high",
+        channels: { inApp: true, email: true, sms: false, push: false },
+        isRead: false,
+        actionUrl: "/track-complaint?complaintId=GR2026000102",
+      },
+      {
+        user: userId,
+        complaintId: "GR2026000103",
+        title: "Complaint Resolved - Feedback Requested",
+        status: "resolved",
+        message: "The street light repair on 5th Avenue has been completed successfully. Please share your feedback on the resolution.",
+        source: "officer",
+        type: "feedback",
+        priority: "low",
+        channels: { inApp: true, email: false, sms: false, push: false },
+        isRead: false,
+        actionUrl: "/track-complaint?complaintId=GR2026000103",
+      },
+      {
+        user: userId,
+        complaintId: "",
+        title: "Scheduled Maintenance Window",
+        status: "system",
+        message: "The municipal grievance redressal portal will undergo scheduled maintenance this Sunday between 02:00 AM and 04:00 AM IST.",
+        source: "system",
+        type: "announcement",
+        priority: "medium",
+        channels: { inApp: true, email: false, sms: false, push: false },
+        isRead: false,
+        actionUrl: "",
+      },
+    ];
+
+    const createdNotifications = await Notification.insertMany(sampleNotifications);
+
+    res.status(201).json({
+      success: true,
+      message: "Sample notifications generated successfully",
+      count: createdNotifications.length,
+      notifications: createdNotifications,
+    });
+  } catch (error) {
+    console.error("Seed demo notifications error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate sample notifications",
+      error: error.message,
+    });
+  }
+};

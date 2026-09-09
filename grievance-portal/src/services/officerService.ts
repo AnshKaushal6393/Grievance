@@ -116,8 +116,9 @@ const officerService = {
     complaintId: string,
     data: {
       status: string;
-      actionNotes: string;
-      evidenceImages?: string[];
+      actionNotes?: string;
+      remarks?: string;
+      evidenceImages?: (File | string)[];
       // Inspection fields (if status = "Inspection Scheduled")
       inspectionDate?: string;
       inspectionTime?: string;
@@ -125,7 +126,7 @@ const officerService = {
       inspectionNotes?: string;
       // Resolution fields (if status = "Resolved")
       resolutionSummary?: string;
-      resolutionImages?: string[];
+      resolutionImages?: (File | string)[];
       completionDate?: string;
       readyForFeedback?: boolean;
       // Rejection fields (if status = "Rejected")
@@ -133,7 +134,53 @@ const officerService = {
       rejectionExplanation?: string;
     }
   ) {
-    const response = await api.put(`/officer/complaints/${complaintId}/status`, data);
+    const formData = new FormData();
+
+    if (data.status) {
+      formData.append("status", data.status);
+    }
+
+    const remarksText = data.remarks || data.actionNotes || "";
+    if (remarksText) {
+      formData.append("actionNotes", remarksText);
+      formData.append("remarks", remarksText);
+    }
+
+    if (data.evidenceImages && Array.isArray(data.evidenceImages)) {
+      data.evidenceImages.forEach((img) => {
+        formData.append("evidenceImages", img);
+      });
+    }
+
+    if (data.resolutionImages && Array.isArray(data.resolutionImages)) {
+      data.resolutionImages.forEach((img) => {
+        formData.append("resolutionImages", img);
+      });
+    }
+
+    const standardFields: (keyof typeof data)[] = [
+      "inspectionDate",
+      "inspectionTime",
+      "inspectorName",
+      "inspectionNotes",
+      "resolutionSummary",
+      "completionDate",
+      "rejectionReason",
+      "rejectionExplanation",
+    ];
+
+    standardFields.forEach((field) => {
+      const val = data[field];
+      if (val !== undefined && val !== null && val !== "") {
+        formData.append(field, String(val));
+      }
+    });
+
+    if (typeof data.readyForFeedback === "boolean") {
+      formData.append("readyForFeedback", String(data.readyForFeedback));
+    }
+
+    const response = await api.put(`/officer/complaints/${complaintId}/status`, formData);
     return response.data;
   },
 

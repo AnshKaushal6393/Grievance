@@ -456,8 +456,6 @@ export const updateComplaintStatus = async (req, res) => {
 
     const {
       status,
-      actionNotes,
-      evidenceImages = [],
       // Inspection fields
       inspectionDate,
       inspectionTime,
@@ -465,13 +463,36 @@ export const updateComplaintStatus = async (req, res) => {
       inspectionNotes,
       // Resolution fields
       resolutionSummary,
-      resolutionImages = [],
       completionDate,
       readyForFeedback,
       // Rejection fields
       rejectionReason,
       rejectionExplanation,
     } = req.body;
+
+    const actionNotes = req.body.actionNotes || req.body.remarks || "";
+
+    // Extract uploaded files from Multer (req.files)
+    const uploadedEvidence = (req.files?.evidenceImages || []).map((f) =>
+      f.path.replace(/\\/g, "/")
+    );
+    const uploadedResolution = (req.files?.resolutionImages || []).map((f) =>
+      f.path.replace(/\\/g, "/")
+    );
+
+    const bodyEvidence = Array.isArray(req.body.evidenceImages)
+      ? req.body.evidenceImages
+      : req.body.evidenceImages
+      ? [req.body.evidenceImages]
+      : [];
+    const bodyResolution = Array.isArray(req.body.resolutionImages)
+      ? req.body.resolutionImages
+      : req.body.resolutionImages
+      ? [req.body.resolutionImages]
+      : [];
+
+    const evidenceImages = [...bodyEvidence, ...uploadedEvidence];
+    const resolutionImages = [...bodyResolution, ...uploadedResolution];
 
     // Validate required fields
     if (!status || !actionNotes) {
@@ -548,14 +569,33 @@ export const updateComplaintStatus = async (req, res) => {
     if (normalizedStatus === "resolved") {
       complaint.resolvedDate = completionDate ? new Date(completionDate) : new Date();
 
-      // Store resolution details in complaint schema (if field exists)
+      // Store resolution details in complaint schema
       if (!complaint.resolutionDetails) {
         complaint.resolutionDetails = {};
       }
       complaint.resolutionDetails.summary = resolutionSummary;
-      complaint.resolutionDetails.images = resolutionImages;
+      complaint.resolutionDetails.images = [
+        ...(complaint.resolutionDetails.images || []),
+        ...resolutionImages,
+      ];
       complaint.resolutionDetails.completedAt = complaint.resolvedDate;
-      complaint.resolutionDetails.readyForFeedback = readyForFeedback || false;
+      complaint.resolutionDetails.readyForFeedback =
+        readyForFeedback === true || readyForFeedback === "true";
+    }
+
+    // Push uploaded file paths into the complaint's evidenceImages/resolutionImages arrays server-side
+    if (!Array.isArray(complaint.evidenceImages)) {
+      complaint.evidenceImages = [];
+    }
+    if (!Array.isArray(complaint.resolutionImages)) {
+      complaint.resolutionImages = [];
+    }
+
+    if (evidenceImages.length > 0) {
+      complaint.evidenceImages.push(...evidenceImages);
+    }
+    if (resolutionImages.length > 0) {
+      complaint.resolutionImages.push(...resolutionImages);
     }
 
     // Set rejection details if rejected
@@ -586,6 +626,8 @@ export const updateComplaintStatus = async (req, res) => {
 
     if (evidenceImages.length > 0) {
       timelineUpdate.attachments = evidenceImages;
+    } else if (resolutionImages.length > 0) {
+      timelineUpdate.attachments = resolutionImages;
     }
 
     complaint.timeline.unshift(timelineUpdate);

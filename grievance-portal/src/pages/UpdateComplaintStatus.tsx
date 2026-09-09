@@ -246,12 +246,41 @@ const UpdateComplaintStatus = () => {
     e: React.ChangeEvent<HTMLInputElement>,
     type: "evidence" | "resolution"
   ) => {
-    const files = Array.from(e.target.files || []);
+    const rawFiles = Array.from(e.target.files || []);
     const maxFiles = 3;
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const maxFileSize = 5 * 1024 * 1024; // 5MB
+
+    const validFiles: File[] = [];
+    for (const file of rawFiles) {
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: t("updateStatus.error.invalidFileTypeTitle", "Invalid File Type"),
+          description: t(
+            "updateStatus.error.invalidFileType",
+            `${file.name} is not supported. Only JPEG, PNG, and WebP images are allowed.`,
+          ),
+          variant: "destructive",
+        });
+        continue;
+      }
+      if (file.size > maxFileSize) {
+        toast({
+          title: t("updateStatus.error.fileTooLargeTitle", "File Too Large"),
+          description: t(
+            "updateStatus.error.fileTooLarge",
+            `${file.name} exceeds 5MB. Maximum file size is 5MB.`,
+          ),
+          variant: "destructive",
+        });
+        continue;
+      }
+      validFiles.push(file);
+    }
 
     if (type === "evidence") {
       const remainingSlots = maxFiles - evidenceImages.length;
-      const filesToAdd = files.slice(0, remainingSlots);
+      const filesToAdd = validFiles.slice(0, remainingSlots);
 
       filesToAdd.forEach((file) => {
         const reader = new FileReader();
@@ -264,7 +293,7 @@ const UpdateComplaintStatus = () => {
       setEvidenceImages((prev) => [...prev, ...filesToAdd]);
     } else {
       const remainingSlots = maxFiles - resolutionImages.length;
-      const filesToAdd = files.slice(0, remainingSlots);
+      const filesToAdd = validFiles.slice(0, remainingSlots);
 
       filesToAdd.forEach((file) => {
         const reader = new FileReader();
@@ -276,6 +305,9 @@ const UpdateComplaintStatus = () => {
 
       setResolutionImages((prev) => [...prev, ...filesToAdd]);
     }
+
+    // Reset input so re-uploading same file triggers change
+    e.target.value = "";
   };
 
   const removeImage = (index: number, type: "evidence" | "resolution") => {
@@ -383,6 +415,8 @@ const UpdateComplaintStatus = () => {
       await officerService.updateComplaintStatus(complaint._id, {
         status: newStatus,
         actionNotes,
+        evidenceImages,
+        resolutionImages,
         inspectionDate: inspectionDate?.toISOString(),
         inspectionTime,
         inspectorName,

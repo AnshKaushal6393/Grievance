@@ -205,6 +205,14 @@ const complaintSchema = new mongoose.Schema(
       completedAt: Date,
       readyForFeedback: Boolean,
     },
+    evidenceImages: {
+      type: [String],
+      default: [],
+    },
+    resolutionImages: {
+      type: [String],
+      default: [],
+    },
     feedback: {
       rating: {
         type: Number,

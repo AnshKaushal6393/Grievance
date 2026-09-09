@@ -899,20 +899,22 @@ const Dashboard = () => {
                   >
                     {t("dashboard.notifications.preferences", "Preferences")}
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 text-xs"
-                    onClick={handleSeedDemoNotifications}
-                    disabled={isSeedingDemoNotifications}
-                  >
-                    {isSeedingDemoNotifications
-                      ? t("dashboard.notifications.generating", "Generating...")
-                      : t(
-                          "dashboard.notifications.generateDemo",
-                          "Generate Sample Updates",
-                        )}
-                  </Button>
+                  {Boolean(import.meta.env.DEV) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={handleSeedDemoNotifications}
+                      disabled={isSeedingDemoNotifications}
+                    >
+                      {isSeedingDemoNotifications
+                        ? t("dashboard.notifications.generating", "Generating...")
+                        : t(
+                            "dashboard.notifications.generateDemo",
+                            "Generate Sample Updates",
+                          )}
+                    </Button>
+                  )}
                   {notifications.some((n) => !n.isRead) && (
                     <Button
                       variant="outline"

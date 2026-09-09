@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
+import path from "path";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import complaintRoutes from "./routes/complaint.js"
@@ -24,6 +25,7 @@ app.use(
     credentials: true,
   }),
 );
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));

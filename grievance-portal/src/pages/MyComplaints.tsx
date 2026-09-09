@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -78,6 +78,8 @@ const MyComplaints = () => {
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalComplaints, setTotalComplaints] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyEvents, setHistoryEvents] = useState<any[]>([]);
@@ -229,8 +231,15 @@ const MyComplaints = () => {
         feedbackRating: c.feedback?.rating || 0,
         feedbackComment: c.feedback?.comment || "",
       }));
-      // fallback to server-side stats/pagination if needed later
       setComplaints(mapped);
+      const pagination = payload?.pagination || response?.data?.pagination;
+      if (pagination) {
+        setTotalPages(pagination.pages || 1);
+        setTotalComplaints(pagination.total ?? mapped.length);
+      } else {
+        setTotalPages(1);
+        setTotalComplaints(mapped.length);
+      }
     } catch (error) {
         toast.error(t("myComplaints.errorFetch", "Failed to fetch complaints"));
     } finally{
@@ -382,75 +391,13 @@ const MyComplaints = () => {
             <div className="w-2 h-2 rounded-full bg-gray-300" />
           </div>
         );
+
       default:
         return null;
     }
   };
 
-  // Filter and sort complaints
-  const filteredComplaints = useMemo(() => {
-    let result = [...complaints];
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.title.toLowerCase().includes(query) ||
-          c.id.toLowerCase().includes(query) ||
-          c.description.toLowerCase().includes(query),
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      result = result.filter((c) => c.status === statusFilter);
-    }
-
-    // Category filter
-    if (categoryFilter !== "all") {
-      result = result.filter((c) => c.category === categoryFilter);
-    }
-
-    // Date range filter
-    if (dateRange.from) {
-      result = result.filter((c) => new Date(c.filedDate) >= dateRange.from!);
-    }
-    if (dateRange.to) {
-      result = result.filter((c) => new Date(c.filedDate) <= dateRange.to!);
-    }
-
-    // Sorting
-    switch (sortBy) {
-      case "latest":
-        result.sort(
-          (a, b) =>
-            new Date(b.filedDate).getTime() - new Date(a.filedDate).getTime(),
-        );
-        break;
-      case "oldest":
-        result.sort(
-          (a, b) =>
-            new Date(a.filedDate).getTime() - new Date(b.filedDate).getTime(),
-        );
-        break;
-      case "priority":
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        result.sort(
-          (a, b) => priorityOrder[b.priority] - priorityOrder[a.priority],
-        );
-        break;
-    }
-
-    return result;
-  }, [complaints, searchQuery, statusFilter, categoryFilter, sortBy, dateRange]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredComplaints.length / itemsPerPage);
-  const paginatedComplaints = filteredComplaints.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+  const paginatedComplaints = complaints;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -476,7 +423,7 @@ const MyComplaints = () => {
               {t("myComplaints.title", "My Complaints")}
             </h1>
             <Badge variant="secondary" className="text-lg px-4 py-1">
-              {complaints.length}
+              {totalComplaints}
             </Badge>
           </div>
           <p className="text-gray-600 mt-2">
@@ -502,13 +449,22 @@ const MyComplaints = () => {
                 type="text"
                 placeholder={t("myComplaints.search", "Search complaints...")}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-10 rounded-xl border-gray-200 focus:border-primary"
               />
             </div>
 
             {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setCurrentPage(1);
+              }}
+            >
               <SelectTrigger className="w-[160px] rounded-xl">
                 <Filter className="w-4 h-4 mr-2 text-gray-500" />
                 <SelectValue placeholder={t("myComplaints.filter.status", "Status")} />
@@ -533,7 +489,13 @@ const MyComplaints = () => {
             </Select>
 
             {/* Category Filter */}
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select
+              value={categoryFilter}
+              onValueChange={(v) => {
+                setCategoryFilter(v);
+                setCurrentPage(1);
+              }}
+            >
               <SelectTrigger className="w-[160px] rounded-xl">
                 <SelectValue placeholder={t("myComplaints.filter.category", "Category")} />
               </SelectTrigger>
@@ -576,9 +538,10 @@ const MyComplaints = () => {
                   initialFocus
                   mode="range"
                   selected={{ from: dateRange.from, to: dateRange.to }}
-                  onSelect={(range) =>
-                    setDateRange({ from: range?.from, to: range?.to })
-                  }
+                  onSelect={(range) => {
+                    setDateRange({ from: range?.from, to: range?.to });
+                    setCurrentPage(1);
+                  }}
                   numberOfMonths={2}
                   className="pointer-events-auto"
                 />
@@ -586,7 +549,13 @@ const MyComplaints = () => {
             </Popover>
 
             {/* Sort */}
-            <Select value={sortBy} onValueChange={setSortBy}>
+            <Select
+              value={sortBy}
+              onValueChange={(v) => {
+                setSortBy(v);
+                setCurrentPage(1);
+              }}
+            >
               <SelectTrigger className="w-[140px] rounded-xl">
                 <ArrowUpDown className="w-4 h-4 mr-2 text-gray-500" />
                 <SelectValue placeholder={t("myComplaints.filter.sort", "Sort")} />
@@ -802,7 +771,7 @@ const MyComplaints = () => {
         </AnimatePresence>
 
         {/* Pagination */}
-        {filteredComplaints.length > 0 && (
+        {totalComplaints > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -835,9 +804,12 @@ const MyComplaints = () => {
 
             {/* Page info */}
             <span className="text-sm text-gray-600">
-              {t("myComplaints.showing", "Showing")} {(currentPage - 1) * itemsPerPage + 1} {t("myComplaints.to", "to")}{" "}
-              {Math.min(currentPage * itemsPerPage, filteredComplaints.length)}{" "}
-              {t("myComplaints.of", "of")} {filteredComplaints.length} {t("myComplaints.complaints", "complaints")}
+              {t("myComplaints.showing", "Showing")}{" "}
+              {totalComplaints > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}{" "}
+              {t("myComplaints.to", "to")}{" "}
+              {Math.min(currentPage * itemsPerPage, totalComplaints)}{" "}
+              {t("myComplaints.of", "of")} {totalComplaints}{" "}
+              {t("myComplaints.complaints", "complaints")}
             </span>
 
             {/* Page navigation */}
@@ -854,22 +826,30 @@ const MyComplaints = () => {
               </Button>
 
               <div className="flex gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (page) => (
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const pageNum =
+                    totalPages <= 5
+                      ? i + 1
+                      : currentPage <= 3
+                        ? i + 1
+                        : currentPage >= totalPages - 2
+                          ? totalPages - 4 + i
+                          : currentPage - 2 + i;
+                  return (
                     <Button
-                      key={page}
-                      variant={currentPage === page ? "default" : "outline"}
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setCurrentPage(page)}
+                      onClick={() => setCurrentPage(pageNum)}
                       className={cn(
                         "w-9 h-9 rounded-lg",
-                        currentPage === page && "bg-primary hover:bg-primary/90",
+                        currentPage === pageNum && "bg-primary hover:bg-primary/90",
                       )}
                     >
-                      {page}
+                      {pageNum}
                     </Button>
-                  ),
-                )}
+                  );
+                })}
               </div>
 
               <Button
@@ -878,7 +858,7 @@ const MyComplaints = () => {
                 onClick={() =>
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
-                disabled={currentPage === totalPages}
+                disabled={currentPage >= totalPages}
                 className="rounded-lg"
               >
                 {t("myComplaints.next", "Next")}

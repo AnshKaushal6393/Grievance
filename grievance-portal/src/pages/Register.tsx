@@ -102,7 +102,12 @@ const Register = () => {
         },
       });
     } catch (error: any) {
-      if (error.response?.data?.message?.includes("already")) {
+      const errorMessage =
+        error?.message ||
+        error?.response?.data?.message ||
+        "";
+
+      if (errorMessage.toLowerCase().includes("already")) {
         toast.info(t("register.userExists", "User already exists. Redirecting to OTP verification...."));
         navigate("/verify-otp", {
           state: {
@@ -111,7 +116,7 @@ const Register = () => {
           },
         });
       } else {
-        toast.error(error.response?.data?.message || t("register.errorRegistrationFailed", "Registration failed. Please try again."));
+        toast.error(errorMessage || t("register.errorRegistrationFailed", "Registration failed. Please try again."));
       }
     } finally {
       setIsLoading(false);

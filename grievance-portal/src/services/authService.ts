@@ -49,7 +49,11 @@ export const authService = {
       const response = await api.post("/auth/register", data);
       return response.data;
     } catch (error: any) {
-      throw error.response?.data || { message: "Registration failed" };
+      const err = error.response?.data || { message: error?.message || "Registration failed" };
+      if (typeof err === "object" && err !== null && !err.response) {
+        err.response = error.response;
+      }
+      throw err;
     }
   },
   // otp verify

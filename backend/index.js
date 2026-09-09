@@ -10,21 +10,16 @@ import adminRoutes from "./routes/admin.js";
 import officerRoutes from "./routes/officer.js"
 import { maintenanceModeGuard, runtimeRateLimit } from "./middleware/systemPolicy.js";
 import { startAutoArchiveJob } from "./utils/autoArchive.js";
+import corsOptions from "./config/cors.js";
 dotenv.config();
 
 await connectDB();
 
 const app = express();
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(
-  cors({
-    origin: "*",
-    credentials: true,
-  }),
-);
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 if (process.env.NODE_ENV === "development") {

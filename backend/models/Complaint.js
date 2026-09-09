@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Counter from "./Counter.js";
 
 const complaintSchema = new mongoose.Schema(
   {
@@ -288,9 +289,57 @@ complaintSchema.index({ createdAt: -1 });
 
 complaintSchema.pre("validate", async function () {
   if (this.complaintId) return;
+
   const year = new Date().getFullYear();
-  const count = await mongoose.model("Complaint").countDocuments();
-  this.complaintId = `GR${year}${String(count + 1).padStart(6, "0")}`;
+  const counterId = `complaint_${year}`;
+
+  // If counter doesn't exist yet, seed it with highest existing sequence for this year
+  const counterExists = await Counter.exists({ _id: counterId });
+  if (!counterExists) {
+    const highest = await mongoose
+      .model("Complaint")
+      .findOne({ complaintId: new RegExp(`^GR${year}\\d{6}$`) })
+      .sort({ complaintId: -1 })
+      .select("complaintId")
+      .lean();
+
+    let startingSeq = 0;
+    if (highest?.complaintId) {
+      const match = highest.complaintId.match(new RegExp(`^GR${year}(\\d{6})$`));
+      if (match) {
+        startingSeq = parseInt(match[1], 10) || 0;
+      }
+    }
+
+    try {
+      await Counter.findOneAndUpdate(
+        { _id: counterId },
+        { $setOnInsert: { seq: startingSeq } },
+        { upsert: true }
+      );
+    } catch {
+      // Counter was created concurrently, continue
+    }
+  }
+
+  // Atomically increment counter and verify uniqueness
+  let candidateId;
+  let isUnique = false;
+
+  while (!isUnique) {
+    const updatedCounter = await Counter.findOneAndUpdate(
+      { _id: counterId },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    candidateId = `GR${year}${String(updatedCounter.seq).padStart(6, "0")}`;
+    const exists = await mongoose.model("Complaint").exists({ complaintId: candidateId });
+    if (!exists) {
+      isUnique = true;
+    }
+  }
+
+  this.complaintId = candidateId;
 });
 
 complaintSchema.virtual("ageInDays").get(function () {

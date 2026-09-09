@@ -175,7 +175,7 @@ const Login = () => {
             <div className="relative group">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary transition-colors" />
               <input
-                type="email"
+                type="text"
                 placeholder={t("login.emailOrPhone")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

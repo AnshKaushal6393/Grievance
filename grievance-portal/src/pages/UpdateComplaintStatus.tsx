@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
+import Navbar from "@/components/Navbar";
 import officerService from "@/services/officerService";
 import {
   Select,
@@ -188,6 +189,19 @@ const UpdateComplaintStatus = () => {
         }
 
         setComplaint(response.complaint);
+        const incomingStatus = response.complaint.status || "";
+        const statusMap: Record<string, string> = {
+          assigned: "Assigned",
+          "in-progress": "In Progress",
+          resolved: "Resolved",
+          rejected: "Rejected",
+        };
+        const mappedStatus =
+          statusMap[incomingStatus] ||
+          (statusOptions.some((opt) => opt.value === incomingStatus)
+            ? incomingStatus
+            : "In Progress");
+        setNewStatus(mappedStatus);
       } catch (error: any) {
         if (!isMounted) return;
         toast({
@@ -479,11 +493,14 @@ const UpdateComplaintStatus = () => {
 
   if (isLoadingComplaint) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6 flex items-center justify-center">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>{t("common.loading", "Loading")}</span>
-        </div>
+      <div className="min-h-screen bg-slate-50">
+        <Navbar />
+        <main id="main-content" className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>{t("common.loading", "Loading")}</span>
+          </div>
+        </main>
       </div>
     );
   }
@@ -523,8 +540,10 @@ const UpdateComplaintStatus = () => {
     });
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+      <main id="main-content" className="p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -1071,6 +1090,7 @@ const UpdateComplaintStatus = () => {
           </div>
         </div>
       </div>
+      </main>
 
       {/* Confirmation Modal */}
       <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>

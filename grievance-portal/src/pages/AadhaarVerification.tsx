@@ -138,9 +138,9 @@ const AadhaarVerification = () => {
                   <div className="flex items-center gap-2 flex-1">
                     <div className="p-3 bg-muted rounded-xl"><Lock className="w-5 h-5 text-muted-foreground" /></div>
                     {aadhaar.map((part, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input ref={(el) => {aadhaarRefs.current[index] = el}} type="text" inputMode="numeric" maxLength={4} value={part} onChange={(e) => handleAadhaarChange(index, e.target.value)} onKeyDown={(e) => handleAadhaarKeyDown(index, e)} placeholder="0000" className="w-20 py-3 text-center text-lg font-mono rounded-xl border border-input bg-background hover:bg-card focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all" />
-                        {index < 2 && <span className="text-muted-foreground text-xl font-bold">-</span>}
+                      <div key={index} className="flex items-center gap-1 sm:gap-2">
+                        <input ref={(el) => {aadhaarRefs.current[index] = el}} type="text" inputMode="numeric" maxLength={4} value={part} onChange={(e) => handleAadhaarChange(index, e.target.value)} onKeyDown={(e) => handleAadhaarKeyDown(index, e)} placeholder="0000" className="w-16 sm:w-20 py-2.5 sm:py-3 text-center text-base sm:text-lg font-mono rounded-xl border border-input bg-background hover:bg-card focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all" />
+                        {index < 2 && <span className="text-muted-foreground text-lg sm:text-xl font-bold">-</span>}
                       </div>
                     ))}
                   </div>
@@ -179,9 +179,9 @@ const AadhaarVerification = () => {
                   <p className="text-muted-foreground">{t("aadhaar.enterOtp", "Enter OTP sent to Aadhaar-linked mobile")}{" "}{maskedPhone ? <span className="font-bold text-foreground">{maskedPhone}</span> : <span className="font-bold text-foreground">****----</span>}</p>
                 </div>
 
-                <div className="flex justify-center gap-3">
+                <div className="flex justify-center gap-1.5 sm:gap-3">
                   {otp.map((digit, index) => (
-                    <input key={index} ref={(el) => {otpRefs.current[index] = el}} type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => handleOtpChange(index, e.target.value)} onKeyDown={(e) => handleOtpKeyDown(index, e)} className={`w-12 h-12 sm:w-14 sm:h-14 text-center text-xl font-bold rounded-xl border-2 transition-all outline-none ${digit ? "border-primary bg-primary/10 text-primary" : "border-input bg-background hover:border-ring/50"} focus:border-primary focus:ring-4 focus:ring-ring/20`} />
+                    <input key={index} ref={(el) => {otpRefs.current[index] = el}} type="text" inputMode="numeric" maxLength={1} value={digit} onChange={(e) => handleOtpChange(index, e.target.value)} onKeyDown={(e) => handleOtpKeyDown(index, e)} className={`w-11 h-12 sm:w-14 sm:h-14 text-center text-xl font-bold rounded-xl border-2 transition-all outline-none ${digit ? "border-primary bg-primary/10 text-primary" : "border-input bg-background hover:border-ring/50"} focus:border-primary focus:ring-4 focus:ring-ring/20`} />
                   ))}
                 </div>
               </div>

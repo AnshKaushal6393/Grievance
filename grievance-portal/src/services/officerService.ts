@@ -134,53 +134,67 @@ const officerService = {
       rejectionExplanation?: string;
     }
   ) {
-    const formData = new FormData();
+    const hasFiles =
+      (Array.isArray(data.evidenceImages) &&
+        data.evidenceImages.some(
+          (img) => typeof File !== "undefined" && img instanceof File,
+        )) ||
+      (Array.isArray(data.resolutionImages) &&
+        data.resolutionImages.some(
+          (img) => typeof File !== "undefined" && img instanceof File,
+        ));
 
-    if (data.status) {
-      formData.append("status", data.status);
-    }
-
-    const remarksText = data.remarks || data.actionNotes || "";
-    if (remarksText) {
-      formData.append("actionNotes", remarksText);
-      formData.append("remarks", remarksText);
-    }
-
-    if (data.evidenceImages && Array.isArray(data.evidenceImages)) {
-      data.evidenceImages.forEach((img) => {
-        formData.append("evidenceImages", img);
-      });
-    }
-
-    if (data.resolutionImages && Array.isArray(data.resolutionImages)) {
-      data.resolutionImages.forEach((img) => {
-        formData.append("resolutionImages", img);
-      });
-    }
-
-    const standardFields: (keyof typeof data)[] = [
-      "inspectionDate",
-      "inspectionTime",
-      "inspectorName",
-      "inspectionNotes",
-      "resolutionSummary",
-      "completionDate",
-      "rejectionReason",
-      "rejectionExplanation",
-    ];
-
-    standardFields.forEach((field) => {
-      const val = data[field];
-      if (val !== undefined && val !== null && val !== "") {
-        formData.append(field, String(val));
+    let payload: any;
+    if (hasFiles) {
+      const formData = new FormData();
+      if (data.status) {
+        formData.append("status", data.status);
       }
-    });
-
-    if (typeof data.readyForFeedback === "boolean") {
-      formData.append("readyForFeedback", String(data.readyForFeedback));
+      const remarksText = data.remarks || data.actionNotes || "";
+      if (remarksText) {
+        formData.append("actionNotes", remarksText);
+        formData.append("remarks", remarksText);
+      }
+      if (data.evidenceImages && Array.isArray(data.evidenceImages)) {
+        data.evidenceImages.forEach((img) => {
+          formData.append("evidenceImages", img);
+        });
+      }
+      if (data.resolutionImages && Array.isArray(data.resolutionImages)) {
+        data.resolutionImages.forEach((img) => {
+          formData.append("resolutionImages", img);
+        });
+      }
+      const standardFields: (keyof typeof data)[] = [
+        "inspectionDate",
+        "inspectionTime",
+        "inspectorName",
+        "inspectionNotes",
+        "resolutionSummary",
+        "completionDate",
+        "rejectionReason",
+        "rejectionExplanation",
+      ];
+      standardFields.forEach((field) => {
+        const val = data[field];
+        if (val !== undefined && val !== null && val !== "") {
+          formData.append(field, String(val));
+        }
+      });
+      if (typeof data.readyForFeedback === "boolean") {
+        formData.append("readyForFeedback", String(data.readyForFeedback));
+      }
+      payload = formData;
+    } else {
+      const remarksText = data.remarks || data.actionNotes || "";
+      payload = {
+        ...data,
+        actionNotes: remarksText,
+        remarks: remarksText,
+      };
     }
 
-    const response = await api.put(`/officer/complaints/${complaintId}/status`, formData);
+    const response = await api.put(`/officer/complaints/${complaintId}/status`, payload);
     return response.data;
   },
 

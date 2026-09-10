@@ -15,6 +15,7 @@ import {
   ArrowRight,
   HelpCircle,
   Shield,
+  XCircle,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -32,12 +33,15 @@ interface ComplaintResult {
   id: string;
   title: string;
   category: string;
-  status: "filed" | "assigned" | "in-progress" | "resolved";
+  status: "filed" | "assigned" | "in-progress" | "resolved" | "rejected" | string;
   filedDate: string;
   assignedDate?: string;
   lastUpdate: string;
-  estimatedResolution: string;
+  estimatedResolution?: string;
   department: string;
+  rejectionReason?: string;
+  rejectionExplanation?: string;
+  resolutionSummary?: string;
 }
 
 const TrackComplaint = () => {
@@ -127,7 +131,8 @@ const TrackComplaint = () => {
     return index >= 0 ? index : 0;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString("en-IN", {
       weekday: "short",
       year: "numeric",
@@ -149,12 +154,14 @@ const TrackComplaint = () => {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      filed: "bg-gray-100 text-gray-800",
-      assigned: "bg-primary/15 text-primary",
-      "in-progress": "bg-yellow-100 text-yellow-800",
-      resolved: "bg-primary/15 text-green-800",
+      filed: "bg-slate-100 text-slate-800",
+      pending: "bg-amber-100 text-amber-800",
+      assigned: "bg-blue-100 text-blue-800",
+      "in-progress": "bg-amber-100 text-amber-800",
+      resolved: "bg-emerald-100 text-emerald-800",
+      rejected: "bg-rose-100 text-rose-800",
     };
-    return colors[status] || "bg-gray-100 text-gray-800";
+    return colors[status] || "bg-slate-100 text-slate-800";
   };
 
   return (
@@ -332,6 +339,51 @@ const TrackComplaint = () => {
                   </p>
                 </CardContent>
               </Card>
+
+              {result.status === "rejected" && (
+                <Card className="rounded-xl border border-rose-200 bg-rose-50/70 overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="w-6 h-6 text-rose-600 mt-0.5 shrink-0" />
+                      <div className="space-y-1">
+                        <h4 className="text-base font-semibold text-rose-900">
+                          {t("track.rejectedTitle", "Grievance Rejected / Closed")}
+                        </h4>
+                        {result.rejectionReason && (
+                          <p className="text-sm font-medium text-rose-800">
+                            <span className="font-semibold">{t("track.reason", "Reason")}:</span>{" "}
+                            {result.rejectionReason.replace(/_/g, " ")}
+                          </p>
+                        )}
+                        {result.rejectionExplanation && (
+                          <p className="text-sm text-rose-700">
+                            {result.rejectionExplanation}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {result.status === "resolved" && result.resolutionSummary && (
+                <Card className="rounded-xl border border-emerald-200 bg-emerald-50/70 overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600 mt-0.5 shrink-0" />
+                      <div className="space-y-1">
+                        <h4 className="text-base font-semibold text-emerald-900">
+                          {t("track.resolvedTitle", "Grievance Resolved")}
+                        </h4>
+                        <p className="text-sm text-emerald-800">
+                          <span className="font-semibold">{t("track.resolutionSummary", "Resolution Summary")}:</span>{" "}
+                          {result.resolutionSummary}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Progress Bar */}
               <Card className="rounded border border-border">

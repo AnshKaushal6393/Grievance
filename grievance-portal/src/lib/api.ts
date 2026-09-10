@@ -8,9 +8,6 @@ const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 60000);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
   timeout: Number.isFinite(API_TIMEOUT_MS) ? API_TIMEOUT_MS : 60000,
 });
 
@@ -23,6 +20,16 @@ api.interceptors.request.use(
     }
     config.headers["Accept-Language"] =
       language === "hi" || language === "ur" || language === "en" ? language : "en";
+
+    // Allow browser/Axios to set multipart boundary for FormData payloads
+    if (config.data instanceof FormData) {
+      if (config.headers) {
+        delete config.headers["Content-Type"];
+      }
+    } else if (config.headers && !config.headers["Content-Type"] && config.data && typeof config.data === "object") {
+      config.headers["Content-Type"] = "application/json";
+    }
+
     return config;
   },
   (error) => {

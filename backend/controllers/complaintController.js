@@ -477,6 +477,10 @@ export const trackComplaint = async (req, res) => {
           department: complaint.department
             ? complaint.department.name
             : "Not assigned yet",
+          rejectionReason: complaint.rejectionReason,
+          rejectionExplanation:
+            complaint.rejectionDetails?.explanation || complaint.rejectionExplanation,
+          resolutionSummary: complaint.resolutionDetails?.summary,
           updates: complaint.updates.map((update) => ({
             message: update.message,
             updatedAt: update.updatedAt,

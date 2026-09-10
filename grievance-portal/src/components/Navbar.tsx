@@ -154,12 +154,20 @@ const Navbar = ({ branding }: NavbarProps) => {
             { label: t("nav.assignedCases", "Assigned Cases"), href: "/officer#assigned-complaints" },
             { label: t("nav.slaAlerts", "SLA Alerts"), href: "/officer#sla-alerts" },
           ]
-        : [
-            { label: t("nav.home", "Home"), href: "/" },
-            { label: t("nav.fileGrievance", "File Grievance"), href: "/file-complaint-options" },
-            { label: t("nav.trackComplaint", "Track Grievance"), href: "/track-complaint" },
-            { label: t("nav.about", "Help"), href: "/about" },
-          ];
+        : currentUser?.role === "user"
+          ? [
+              { label: t("nav.dashboard", "Dashboard"), href: "/dashboard" },
+              { label: t("nav.fileGrievance", "File Grievance"), href: "/file-complaint-options" },
+              { label: t("nav.myComplaints", "My Complaints"), href: "/my-complaints" },
+              { label: t("nav.trackComplaint", "Track Grievance"), href: "/track-complaint" },
+              { label: t("nav.about", "Help"), href: "/about" },
+            ]
+          : [
+              { label: t("nav.home", "Home"), href: "/" },
+              { label: t("nav.fileGrievance", "File Grievance"), href: "/file-complaint-options" },
+              { label: t("nav.trackComplaint", "Track Grievance"), href: "/track-complaint" },
+              { label: t("nav.about", "Help"), href: "/about" },
+            ];
 
   const profileMenuItems =
     currentUser?.role === "admin"

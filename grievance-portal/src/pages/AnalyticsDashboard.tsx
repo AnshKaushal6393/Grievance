@@ -404,14 +404,14 @@ const AnalyticsDashboard = () => {
                 <div className="w-full" style={{ height: 300, minHeight: 300, minWidth: 0 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="name" stroke="var(--muted-foreground)" />
+                      <YAxis stroke="var(--muted-foreground)" />
+                      <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px" }} />
                       <Legend />
-                      <Line type="monotone" dataKey="filed" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.filed", "Filed")} />
-                      <Line type="monotone" dataKey="resolved" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.resolved", "Resolved")} />
-                      <Line type="monotone" dataKey="pending" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.pending", "Pending")} />
+                      <Line type="monotone" dataKey="filed" stroke="var(--chart-1)" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.filed", "Filed")} />
+                      <Line type="monotone" dataKey="resolved" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.resolved", "Resolved")} />
+                      <Line type="monotone" dataKey="pending" stroke="var(--chart-3)" strokeWidth={2} dot={{ r: 4 }} name={t("analytics.pending", "Pending")} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -430,10 +430,10 @@ const AnalyticsDashboard = () => {
                 <div className="w-full" style={{ height: 300, minHeight: 300, minWidth: 0 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={deptData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v} ${t("analytics.days", "days")}`, t("analytics.avgResolution", "Avg Resolution")]} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="name" stroke="var(--muted-foreground)" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
+                      <YAxis stroke="var(--muted-foreground)" />
+                      <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px" }} formatter={v => [`${v} ${t("analytics.days", "days")}`, t("analytics.avgResolution", "Avg Resolution")]} />
                       <Bar dataKey="time" radius={[4, 4, 0, 0]}>
                         {deptData.map((d, i) => <Cell key={i} fill={getDeptBarColor(Number(d.time || 0))} />)}
                       </Bar>
@@ -468,7 +468,7 @@ const AnalyticsDashboard = () => {
                               opacity={selectedCategory === null || selectedCategory === entry.name ? 1 : 0.4} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={v => [`${v}`, t("analytics.count", "Count")]} />
+                        <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px" }} formatter={v => [`${v}`, t("analytics.count", "Count")]} />
                       </PieChart>
                     </ResponsiveContainer>
                   )}
@@ -512,7 +512,7 @@ const AnalyticsDashboard = () => {
                         >
                           {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                         </Pie>
-                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                        <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px" }} />
                       </PieChart>
                     </ResponsiveContainer>
                   )}

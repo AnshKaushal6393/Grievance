@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Complaint from "../models/Complaint.js";
 import Department from "../models/Department.js";
 import { createStatusNotification } from "../utils/notification.js";
@@ -6,6 +7,20 @@ const DEPARTMENT_QUEUE_STATUSES = ["pending", "filed"];
 
 const getOfficerDepartment = async (officerId) =>
   Department.findOne({ officers: officerId, isActive: true }).select("_id name code");
+
+const buildComplaintLookup = (complaintId, user) => {
+  const idFilter = mongoose.Types.ObjectId.isValid(complaintId)
+    ? { $or: [{ _id: complaintId }, { complaintId }] }
+    : { complaintId };
+
+  if (user && user.role === "admin") {
+    return idFilter;
+  }
+  return {
+    ...idFilter,
+    assignedOfficer: user?._id || user?.id,
+  };
+};
 
 export const getMyAssignedComplaints = async (req, res) => {
   try {
@@ -175,13 +190,17 @@ export const claimDepartmentComplaint = async (req, res) => {
       });
     }
 
-    const complaint = await Complaint.findOne({
-      _id: complaintId,
+    const complaintFilter = {
+      ...(mongoose.Types.ObjectId.isValid(complaintId)
+        ? { $or: [{ _id: complaintId }, { complaintId }] }
+        : { complaintId }),
       department: department._id,
       assignedOfficer: null,
       isDraft: false,
       status: { $in: DEPARTMENT_QUEUE_STATUSES },
-    });
+    };
+
+    const complaint = await Complaint.findOne(complaintFilter);
 
     if (!complaint) {
       return res.status(404).json({
@@ -422,10 +441,7 @@ export const getComplaintsById = async (req, res) => {
     const officerId = req.user._id;
     const complaintId = req.params.id;
 
-    const complaint = await Complaint.findOne({
-      _id: complaintId,
-      assignedOfficer: officerId,
-    })
+    const complaint = await Complaint.findOne(buildComplaintLookup(complaintId, req.user))
       .populate("user", "name email phone")
       .populate("department", "name code contactInfo")
       .populate("assignedOfficer", "name email designation")
@@ -524,11 +540,8 @@ export const updateComplaintStatus = async (req, res) => {
         .json({ success: false, message: "Rejection details required" });
     }
 
-    // Find complaint - officer can only update assigned to them
-    const complaint = await Complaint.findOne({
-      _id: complaintId,
-      assignedOfficer: officerId,
-    });
+    // Find complaint - officer can only update assigned to them, admin can update any
+    const complaint = await Complaint.findOne(buildComplaintLookup(complaintId, req.user));
 
     if (!complaint) {
       return res.status(404).json({
@@ -677,10 +690,7 @@ export const addComplaintNote = async (req, res) => {
         .json({ success: false, message: "Note message is required" });
     }
 
-    const complaint = await Complaint.findOne({
-      _id: complaintId,
-      assignedOfficer: officerId,
-    });
+    const complaint = await Complaint.findOne(buildComplaintLookup(complaintId, req.user));
 
     if (!complaint) {
       return res

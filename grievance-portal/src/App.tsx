@@ -69,6 +69,8 @@ const App = () => (
             />
             <Route path="/" element={<Index />} />
             <Route path="/about" element={<About />} />
+            <Route path="/help" element={<About />} />
+            <Route path="/contact" element={<About />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-otp" element={<VerifyOTP />} />

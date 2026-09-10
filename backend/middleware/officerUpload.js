@@ -1,4 +1,4 @@
-﻿import multer from "multer";
+import multer from "multer";
 import path from "path";
 import fs from "fs";
 
@@ -41,6 +41,9 @@ const officerUpload = multer({
 });
 
 export const uploadOfficerStatusImages = (req, res, next) => {
+  if (!req.is("multipart/form-data")) {
+    return next();
+  }
   officerUpload.fields([
     { name: "evidenceImages", maxCount: 5 },
     { name: "resolutionImages", maxCount: 5 },
